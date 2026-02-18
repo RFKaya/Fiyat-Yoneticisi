@@ -14,7 +14,7 @@ type RecipeFormProps = {
 };
 
 export default function RecipeForm({ product, ingredients, onSave }: RecipeFormProps) {
-  const [currentRecipe, setCurrentRecipe] = useState<RecipeItem[]>(product.recipe);
+  const [currentRecipe, setCurrentRecipe] = useState<RecipeItem[]>(product.recipe || []);
 
   const handleQuantityChange = (ingredientId: string, quantityStr: string) => {
     const quantity = parseFloat(quantityStr);
