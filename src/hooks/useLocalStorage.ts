@@ -1,34 +1,55 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-export function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
+function useLocalStorage<T>(
+  key: string,
+  initialValue: T
+): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [isClient, setIsClient] = useState(false);
 
-  // This effect runs once on mount to read from localStorage
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const readValue = useCallback((): T => {
+    if (!isClient) {
+      return initialValue;
+    }
     try {
       const item = window.localStorage.getItem(key);
-      if (item) {
-        setStoredValue(JSON.parse(item));
-      }
+      return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.log(error);
+      console.warn(`Error reading localStorage key “${key}”:`, error);
+      return initialValue;
     }
-  }, [key]);
+  }, [initialValue, key, isClient]);
 
-  // This effect runs whenever the stored value changes to update localStorage
+  const [storedValue, setStoredValue] = useState<T>(readValue);
+
   useEffect(() => {
-    try {
-      const serializedValue = JSON.stringify(storedValue);
-      const item = window.localStorage.getItem(key);
-      if (serializedValue !== item) {
-        window.localStorage.setItem(key, serializedValue);
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  }, [key, storedValue]);
+    setStoredValue(readValue());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isClient]);
 
-  return [storedValue, setStoredValue];
+  const setValue: React.Dispatch<React.SetStateAction<T>> = useCallback(
+    (value) => {
+      if (!isClient) {
+        return;
+      }
+      try {
+        const valueToStore =
+          value instanceof Function ? value(storedValue) : value;
+        setStoredValue(valueToStore);
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      } catch (error) {
+        console.warn(`Error setting localStorage key “${key}”:`, error);
+      }
+    },
+    [key, storedValue, isClient]
+  );
+
+  return [storedValue, setValue];
 }
+
+export { useLocalStorage };

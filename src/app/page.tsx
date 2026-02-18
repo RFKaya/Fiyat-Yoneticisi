@@ -31,6 +31,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { PlusCircle, Trash2, X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -46,9 +47,10 @@ const formatCurrency = (amount: number) => {
 
 export default function Home() {
   const [products, setProducts] = useLocalStorage<Product[]>('fiyatvizyon-products', []);
-  const [margins, setMargins] = useState<number[]>([25, 50, 75, 100]);
+  const [margins, setMargins] = useLocalStorage<number[]>('fiyatvizyon-margins', [25, 50, 75, 100]);
   const [newMargin, setNewMargin] = useState('');
   const [isAddProductOpen, setAddProductOpen] = useState(false);
+  const [editingMargin, setEditingMargin] = useState<{ index: number; value: string } | null>(null);
 
   const addProduct = (product: Omit<Product, 'id'>) => {
     setProducts((prev) => [...prev, { ...product, id: nanoid() }]);
@@ -61,7 +63,6 @@ export default function Home() {
   
   const updateProduct = (id: string, field: keyof Product, value: string | number) => {
       const numericValue = typeof value === 'string' ? parseFloat(value) : value;
-      // Allow empty input without setting to NaN
       const finalValue = field === 'name' ? value : (isNaN(numericValue) ? '' : numericValue);
 
       setProducts((prev) => 
@@ -82,6 +83,25 @@ export default function Home() {
   const handleDeleteMargin = (marginToDelete: number) => {
     setMargins(margins.filter((m) => m !== marginToDelete));
   };
+  
+  const handleUpdateMargin = (indexToUpdate: number) => {
+    if (!editingMargin) return;
+    const newValue = parseFloat(editingMargin.value);
+    
+    setEditingMargin(null); // Close input regardless of success
+
+    if (!isNaN(newValue) && newValue > 0) {
+      setMargins(prev => {
+        // Prevent adding a duplicate margin
+        if (prev.some((m, i) => m === newValue && i !== indexToUpdate)) {
+            return prev;
+        }
+        const newMargins = [...prev];
+        newMargins[indexToUpdate] = newValue;
+        return newMargins.sort((a, b) => a - b);
+      });
+    }
+  };
 
 
   return (
@@ -89,41 +109,13 @@ export default function Home() {
       <Header />
       <main className="flex-grow container mx-auto p-4 md:p-8">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Ürün ve Kâr Analizi</CardTitle>
-              <CardDescription>
-                Ürünlerinizi yönetin ve kâr marjlarını analiz edin.
-              </CardDescription>
-            </div>
-            <Dialog open={isAddProductOpen} onOpenChange={setAddProductOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Yeni Ürün
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Yeni Ürün Ekle</DialogTitle>
-                </DialogHeader>
-                <ProductForm addProduct={addProduct} />
-              </DialogContent>
-            </Dialog>
+          <CardHeader>
+            <CardTitle>Ürün ve Kâr Analizi</CardTitle>
+            <CardDescription>
+              Ürünlerinizi yönetin, fiyatları ve kâr marjlarını anında analiz edin.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2 mb-6">
-              <Input
-                type="number"
-                placeholder="Kâr Marjı Ekle (%)"
-                value={newMargin}
-                onChange={(e) => setNewMargin(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddMargin()}
-                className="max-w-xs"
-              />
-              <Button onClick={handleAddMargin}>Ekle</Button>
-            </div>
-
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -132,30 +124,78 @@ export default function Home() {
                     <TableHead className="text-right font-semibold min-w-[150px]">Maliyet</TableHead>
                     <TableHead className="text-right font-semibold min-w-[150px]">Mağaza Fiyatı</TableHead>
                     <TableHead className="text-right font-semibold min-w-[150px]">Online Fiyat</TableHead>
-                    {margins.map((margin) => (
-                      <TableHead key={margin} className="text-right font-semibold min-w-[120px]">
-                        <div className="flex items-center justify-end gap-1">
-                          %{margin}
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                  onClick={() => handleDeleteMargin(margin)}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Sütunu Sil</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
+                    {margins.map((margin, index) => (
+                      <TableHead key={index} className="text-right font-semibold min-w-[120px]">
+                        {editingMargin?.index === index ? (
+                           <Input
+                              type="number"
+                              value={editingMargin.value}
+                              onChange={(e) => setEditingMargin({ index, value: e.target.value })}
+                              onBlur={() => handleUpdateMargin(index)}
+                              onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleUpdateMargin(index)
+                                  if (e.key === 'Escape') setEditingMargin(null)
+                              }}
+                              className="text-right h-8"
+                              autoFocus
+                          />
+                        ) : (
+                          <div className="flex items-center justify-end gap-1 cursor-pointer group" onClick={() => setEditingMargin({ index, value: String(margin) })}>
+                            %{margin}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteMargin(margin)
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Sütunu Sil</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        )}
                       </TableHead>
                     ))}
+                    <TableHead className="text-left px-1">
+                        <Popover onOpenChange={(open) => !open && setNewMargin('')}>
+                            <PopoverTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    <PlusCircle className="h-5 w-5" />
+                                    <span className="sr-only">Kâr Marjı Ekle</span>
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-60 p-4">
+                                <div className="grid gap-3">
+                                    <div className="space-y-1">
+                                        <h4 className="font-medium leading-none">Yeni Kâr Marjı</h4>
+                                        <p className="text-sm text-muted-foreground">
+                                           Analiz için yeni bir yüzde ekle.
+                                        </p>
+                                    </div>
+                                     <Input
+                                        type="number"
+                                        placeholder="Örn: 150"
+                                        value={newMargin}
+                                        onChange={(e) => setNewMargin(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleAddMargin();
+                                        }}
+                                    />
+                                    <Button onClick={handleAddMargin}>Marj Ekle</Button>
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                    </TableHead>
                      <TableHead className="text-right font-semibold">İşlemler</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -163,8 +203,13 @@ export default function Home() {
                   {products.length > 0 ? (
                     products.map((product) => (
                       <TableRow key={product.id}>
-                        <TableCell className="font-medium">
-                            {product.name}
+                        <TableCell>
+                            <Input
+                              value={product.name}
+                              onChange={(e) => updateProduct(product.id, 'name', e.target.value)}
+                              className="font-medium border-0 bg-transparent -ml-3 focus-visible:ring-1 focus-visible:bg-card"
+                              placeholder="Yeni Ürün Adı"
+                           />
                         </TableCell>
                         <TableCell>
                            <Input
@@ -201,6 +246,7 @@ export default function Home() {
                             </TableCell>
                           );
                         })}
+                        <TableCell/>
                         <TableCell className="text-right">
                             <Button
                               variant="ghost"
@@ -216,13 +262,29 @@ export default function Home() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={margins.length + 5} className="h-24 text-center text-muted-foreground">
+                      <TableCell colSpan={margins.length + 6} className="h-24 text-center text-muted-foreground">
                         Başlamak için bir ürün ekleyin.
                       </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
+            </div>
+             <div className="mt-6 flex justify-center">
+                <Dialog open={isAddProductOpen} onOpenChange={setAddProductOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Yeni Ürün Ekle
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Yeni Ürün Ekle</DialogTitle>
+                    </DialogHeader>
+                    <ProductForm addProduct={addProduct} />
+                  </DialogContent>
+                </Dialog>
             </div>
              {products.length === 0 && (
               <div className="text-center py-10 px-6">
