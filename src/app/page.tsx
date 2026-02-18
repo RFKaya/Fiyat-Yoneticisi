@@ -97,11 +97,11 @@ function SortableProductRow({
           </Button>
         </div>
       </TableCell>
-      <TableCell className="text-right font-medium w-[120px]">{formatCurrency(cost)}</TableCell>
-      <TableCell className="w-[140px]">
+      <TableCell className="text-right font-medium w-[100px]">{formatCurrency(cost)}</TableCell>
+      <TableCell className="w-[120px]">
         <Input type="number" value={product.storePrice || ''} onChange={(e) => updateProduct(product.id, 'storePrice', e.target.value)} className="text-right" placeholder="0.00" />
       </TableCell>
-      <TableCell className="w-[140px]">
+      <TableCell className="w-[120px]">
         <Input type="number" value={product.onlinePrice || ''} onChange={(e) => updateProduct(product.id, 'onlinePrice', e.target.value)} className="text-right" placeholder="0.00" />
       </TableCell>
       {margins.map((margin) => {
@@ -110,8 +110,8 @@ function SortableProductRow({
           <TableCell key={margin} className="text-right w-[100px]">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
-      <TableCell className="w-[20px]" />
-      <TableCell className="text-right w-[100px]">
+      <TableCell className="w-[50px]" />
+      <TableCell className="text-right w-[80px]">
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -342,13 +342,13 @@ export default function Home() {
               </Dialog>
             </div>
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="font-semibold w-[350px]">Ürün</TableHead>
-                    <TableHead className="text-right font-semibold w-[120px]">Maliyet</TableHead>
-                    <TableHead className="text-right font-semibold w-[140px]">Mağaza Fiyatı</TableHead>
-                    <TableHead className="text-right font-semibold w-[140px]">Online Fiyat</TableHead>
+                    <TableHead className="text-right font-semibold w-[100px]">Maliyet</TableHead>
+                    <TableHead className="text-right font-semibold w-[120px]">Mağaza Fiyatı</TableHead>
+                    <TableHead className="text-right font-semibold w-[120px]">Online Fiyat</TableHead>
                     {margins.map((margin, index) => (
                       <TableHead key={index} className="text-right font-semibold w-[100px]">
                         {editingMargin?.index === index ? (
@@ -381,7 +381,7 @@ export default function Home() {
                         )}
                       </TableHead>
                     ))}
-                    <TableHead className="text-left px-1 w-[20px]">
+                    <TableHead className="text-left px-1 w-[50px]">
                       <Popover onOpenChange={(open) => !open && setNewMargin('')}>
                         <PopoverTrigger asChild>
                           <Button variant="ghost" size="icon"><PlusCircle className="h-5 w-5" /></Button>
@@ -398,7 +398,7 @@ export default function Home() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="text-right font-semibold w-[100px]">İşlemler</TableHead>
+                    <TableHead className="text-right font-semibold w-[80px]">İşlemler</TableHead>
                   </TableRow>
                 </TableHeader>
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -431,7 +431,7 @@ export default function Home() {
                           ))
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={margins.length + 8} className="h-24 text-center text-muted-foreground">
+                            <TableCell colSpan={margins.length + 6} className="h-24 text-center text-muted-foreground">
                               Başlamak için bir ürün ekleyin.
                             </TableCell>
                           </TableRow>
