@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useState, useEffect } from 'react';
 import { nanoid } from 'nanoid';
-import type { Ingredient, Unit } from '@/lib/types';
+import type { Ingredient, Unit, Product, Category } from '@/lib/types';
 import Header from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -79,27 +78,79 @@ function IngredientForm({ onAddIngredient, closeDialog }: { onAddIngredient: (da
     );
 }
 
+type AppData = {
+  products: Product[];
+  ingredients: Ingredient[];
+  categories: Category[];
+  margins: number[];
+};
 
 export default function MaterialsPage() {
-  const [ingredients, setIngredients] = useLocalStorage<Ingredient[]>('fiyatvizyon-ingredients', []);
+  const [appData, setAppData] = useState<AppData>({ products: [], ingredients: [], categories: [], margins: [] });
   const [isAddDialogOpen, setAddDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const isInitialMount = React.useRef(true);
+  
+  const { ingredients } = appData;
+
+  useEffect(() => {
+    fetch('/api/data')
+      .then((res) => res.json())
+      .then((data) => {
+        setAppData(data);
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        console.error('Failed to load data:', error);
+        setIsLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+        if(!isLoading) {
+            isInitialMount.current = false;
+        }
+        return;
+    }
+
+    if (!isLoading) {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(appData),
+      }).catch(error => console.error('Failed to save data:', error));
+    }
+  }, [appData, isLoading]);
 
   const addIngredient = (ingredient: Omit<Ingredient, 'id'>) => {
-    setIngredients((prev) => [...prev, { ...ingredient, id: nanoid() }]);
+    setAppData((prev) => ({...prev, ingredients: [...prev.ingredients, { ...ingredient, id: nanoid() }]}));
   };
 
   const deleteIngredient = (id: string) => {
-    setIngredients((prev) => prev.filter((i) => i.id !== id));
+    setAppData((prev) => ({...prev, ingredients: prev.ingredients.filter((i) => i.id !== id)}));
   };
   
   const updateIngredient = (id: string, field: keyof Ingredient, value: string | number) => {
       const finalValue = field === 'name' || field === 'unit' ? value : (isNaN(parseFloat(String(value))) ? '' : parseFloat(String(value)));
-      setIngredients((prev) => 
-        prev.map((i) => 
-          i.id === id ? { ...i, [field]: finalValue } : i
-        )
-      );
+      setAppData((prev) => ({
+          ...prev,
+          ingredients: prev.ingredients.map((i) => 
+            i.id === id ? { ...i, [field]: finalValue } : i
+          )
+      }));
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-grow container mx-auto p-4 md:p-8 flex items-center justify-center">
+          <p className="text-lg text-muted-foreground">Veriler yükleniyor...</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

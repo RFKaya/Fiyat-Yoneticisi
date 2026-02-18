@@ -1,5 +1,7 @@
 'use client';
 
+// This hook is no longer in use. Data is now fetched from and saved to a server-side JSON file via an API route.
+// This file can be safely deleted.
 import { useState, useEffect, useCallback } from 'react';
 
 function useLocalStorage<T>(
