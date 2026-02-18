@@ -29,22 +29,20 @@ export default function RecipeForm({ product, ingredients, onSave }: RecipeFormP
   };
   
   const getIngredientUnitLabel = (ingredient: Ingredient) => {
-      if (ingredient.unit === 'kg') return 'gram';
-      if (ingredient.unit === 'litre') return 'ml';
-      return 'adet';
+      return ingredient.unit;
   }
 
   return (
     <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
-          Ürünün maliyetini hesaplamak için kullanılacak malzemeleri ve miktarlarını belirtin. Miktar birimleri, malzemenin ana birimine göre otomatik olarak ayarlanır (kg için gram, litre için ml).
+          Ürünün maliyetini hesaplamak için kullanılacak malzemeleri ve miktarlarını belirtin. Miktar birimi, malzemenin ana birimiyle aynıdır.
         </p>
       <ScrollArea className="h-72">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Malzeme</TableHead>
-              <TableHead className="text-right">Miktar ({/* gram, ml, adet */})</TableHead>
+              <TableHead className="text-right">Miktar</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

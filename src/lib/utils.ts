@@ -13,13 +13,8 @@ export function calculateCost(recipe: RecipeItem[], ingredients: Ingredient[]): 
     const ingredient = ingredients.find((i) => i.id === item.ingredientId);
     if (!ingredient) return total; // Ingredient not found, maybe deleted
 
-    let itemCost = 0;
-    // Price is per kg/litre, but recipe quantity is in g/ml
-    if ((ingredient.unit === 'kg' || ingredient.unit === 'litre')) {
-      itemCost = (ingredient.price / 1000) * item.quantity;
-    } else { // 'adet' (piece)
-      itemCost = ingredient.price * item.quantity;
-    }
+    // The recipe quantity is always a direct multiplier of the ingredient price.
+    const itemCost = ingredient.price * item.quantity;
     return total + itemCost;
   }, 0);
 }

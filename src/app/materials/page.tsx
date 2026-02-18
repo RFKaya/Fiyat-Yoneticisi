@@ -17,12 +17,12 @@ import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const unitOptions: Unit[] = ['kg', 'g', 'litre', 'ml', 'adet'];
+const unitOptions: Unit[] = ['gram', 'adet', 'TL'];
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'Malzeme adı zorunludur.' }),
   price: z.coerce.number().positive({ message: 'Fiyat pozitif bir sayı olmalıdır.' }),
-  unit: z.enum(['kg', 'g', 'litre', 'ml', 'adet'], { required_error: 'Birim seçimi zorunludur.' }),
+  unit: z.enum(['gram', 'adet', 'TL'], { required_error: 'Birim seçimi zorunludur.' }),
 });
 
 function IngredientForm({ onAddIngredient, closeDialog }: { onAddIngredient: (data: Omit<Ingredient, 'id'>) => void, closeDialog: () => void }) {

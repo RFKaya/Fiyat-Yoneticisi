@@ -1,17 +1,17 @@
-export type Unit = 'kg' | 'g' | 'litre' | 'ml' | 'adet';
+export type Unit = 'gram' | 'adet' | 'TL';
 
 export type Ingredient = {
   id: string;
   name: string;
   price: number;
-  // Unit for the price, e.g. price per kg
-  unit: 'kg' | 'litre' | 'adet';
+  // Unit for the price, e.g. price per gram
+  unit: Unit;
 };
 
 export type RecipeItem = {
   ingredientId: string;
   // Quantity of the ingredient used in the product.
-  // The unit is assumed to be 'g' for 'kg', 'ml' for 'litre', and 'adet' for 'adet'.
+  // The unit is assumed to match the ingredient's unit.
   quantity: number;
 };
 
