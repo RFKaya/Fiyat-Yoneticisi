@@ -1,81 +1,119 @@
 'use client';
 
 import { useState } from 'react';
-import type { Product, ComparisonTable } from '@/lib/types';
+import type { Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle } from 'lucide-react';
-import ProfitTable from './ProfitTable';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { X } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type ProfitCalculatorProps = {
   products: Product[];
-  comparisonTables: ComparisonTable[];
-  addTable: (productId: string) => void;
-  deleteTable: (id: string) => void;
 };
 
-export default function ProfitCalculator({
-  products,
-  comparisonTables,
-  addTable,
-  deleteTable,
-}: ProfitCalculatorProps) {
-  const [selectedProductId, setSelectedProductId] = useState<string>('');
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY',
+  }).format(amount);
+};
 
-  const handleAddTable = () => {
-    if (selectedProductId) {
-      addTable(selectedProductId);
+export default function ProfitCalculator({ products }: ProfitCalculatorProps) {
+  const [margins, setMargins] = useState<number[]>([25, 50, 75, 100]);
+  const [newMargin, setNewMargin] = useState('');
+
+  const handleAddMargin = () => {
+    const marginValue = parseFloat(newMargin);
+    if (!isNaN(marginValue) && marginValue > 0 && !margins.includes(marginValue)) {
+      setMargins((prev) => [...prev, marginValue].sort((a, b) => a - b));
+      setNewMargin('');
     }
   };
-  
-  const getProductById = (id: string) => products.find(p => p.id === id);
+
+  const handleDeleteMargin = (marginToDelete: number) => {
+    setMargins(margins.filter((m) => m !== marginToDelete));
+  };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Kâr Analizi</CardTitle>
         <CardDescription>
-          Farklı kâr marjlarına göre fiyatlandırma senaryoları oluşturun ve karşılaştırın.
+          Farklı kâr marjlarına göre tüm ürünler için fiyatlandırma senaryolarını karşılaştırın.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col sm:flex-row gap-2 mb-6 p-4 border rounded-lg bg-muted/40">
-          <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-            <SelectTrigger className="flex-1 bg-background">
-              <SelectValue placeholder="Analiz için bir ürün seçin" />
-            </SelectTrigger>
-            <SelectContent>
-              {products.map((product) => (
-                <SelectItem key={product.id} value={product.id}>
-                  {product.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button onClick={handleAddTable} disabled={!selectedProductId} className="w-full sm:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Karşılaştırma Tablosu Ekle
-          </Button>
+        <div className="flex gap-2 mb-6">
+          <Input
+            type="number"
+            placeholder="Kâr Marjı Ekle (%)"
+            value={newMargin}
+            onChange={(e) => setNewMargin(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddMargin()}
+            className="max-w-xs"
+          />
+          <Button onClick={handleAddMargin}>Ekle</Button>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {comparisonTables.length === 0 ? (
-            <div className="col-span-full text-center text-muted-foreground py-10">
-              <p>Karşılaştırma yapmak için bir ürün seçip tablo ekleyin.</p>
-            </div>
-          ) : (
-            comparisonTables.map((table) => {
-              const product = getProductById(table.productId);
-              return product ? (
-                <ProfitTable
-                  key={table.id}
-                  product={product}
-                  onDelete={() => deleteTable(table.id)}
-                />
-              ) : null;
-            })
-          )}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="font-semibold min-w-[200px]">Ürün</TableHead>
+                <TableHead className="text-right font-semibold">Maliyet</TableHead>
+                {margins.map((margin) => (
+                  <TableHead key={margin} className="text-right font-semibold">
+                    <div className="flex items-center justify-end gap-1">
+                      %{margin}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteMargin(margin)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Sütunu Sil</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {products.length > 0 ? (
+                products.map((product) => (
+                  <TableRow key={product.id}>
+                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(product.cost)}</TableCell>
+                    {margins.map((margin) => {
+                      const sellingPrice = product.cost * (1 + margin / 100);
+                      return (
+                        <TableCell key={margin} className="text-right">
+                          {formatCurrency(sellingPrice)}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={margins.length + 2} className="h-24 text-center text-muted-foreground">
+                    Analiz edilecek ürün bulunmuyor.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
       </CardContent>
     </Card>

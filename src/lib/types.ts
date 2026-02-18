@@ -5,8 +5,3 @@ export type Product = {
   storePrice: number;
   onlinePrice: number;
 };
-
-export type ComparisonTable = {
-  id:string;
-  productId: string;
-};
