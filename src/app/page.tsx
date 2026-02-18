@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { Product, RecipeItem, Ingredient } from '@/lib/types';
+import type { Product, RecipeItem, Ingredient, Category } from '@/lib/types';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { nanoid } from 'nanoid';
 import { calculateCost } from '@/lib/utils';
@@ -15,8 +15,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { PlusCircle, Trash2, X, ArrowUpDown, BookMarked } from 'lucide-react';
+import { PlusCircle, Trash2, X, BookMarked, ChevronUp, ChevronDown, Tags, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const formatCurrency = (amount: number) => {
   if (isNaN(amount)) return '';
@@ -26,18 +27,28 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
+const categoryColors = ['#F87171', '#FBBF24', '#34D399', '#60A5FA', '#A78BFA'];
+
 export default function Home() {
   const [products, setProducts] = useLocalStorage<Product[]>('fiyatvizyon-products', []);
   const [ingredients, setIngredients] = useLocalStorage<Ingredient[]>('fiyatvizyon-ingredients', []);
   const [margins, setMargins] = useLocalStorage<number[]>('fiyatvizyon-margins', [25, 50, 75, 100]);
+  const [categories, setCategories] = useLocalStorage<Category[]>('fiyatvizyon-categories', []);
+
   const [newMargin, setNewMargin] = useState('');
   const [isAddProductDialogOpen, setAddProductDialogOpen] = useState(false);
   const [editingMargin, setEditingMargin] = useState<{ index: number; value: string } | null>(null);
   const [editingRecipeProduct, setEditingRecipeProduct] = useState<Product | null>(null);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  
+  const [isCategoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryColor, setNewCategoryColor] = useState(categoryColors[0]);
 
-  const addProduct = (productData: Omit<Product, 'id' | 'recipe'>) => {
-    setProducts((prev) => [...prev, { ...productData, id: nanoid(), recipe: [] }]);
+  const addProduct = (productData: Omit<Product, 'id' | 'recipe' | 'order'>) => {
+    setProducts((prev) => {
+        const newOrder = prev.length > 0 ? Math.max(...prev.map(p => p.order)) + 1 : 0;
+        return [...prev, { ...productData, id: nanoid(), recipe: [], order: newOrder }];
+    });
     setAddProductDialogOpen(false);
   };
 
@@ -45,10 +56,21 @@ export default function Home() {
     setProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const updateProduct = (id: string, field: keyof Product, value: string | number) => {
-    const numericValue = typeof value === 'string' ? parseFloat(value) : value;
-    const finalValue = field === 'name' ? value : (isNaN(numericValue) ? '' : numericValue);
-    setProducts((prev) => prev.map((p) => p.id === id ? { ...p, [field]: finalValue } : p));
+  const updateProduct = (id: string, field: keyof Product, value: string | number | undefined) => {
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          if (field === 'name' || field === 'categoryId') {
+            const finalValue = value === 'null' ? undefined : value;
+            return { ...p, [field]: finalValue };
+          }
+          const numericValue = typeof value === 'string' ? parseFloat(value) : (value || 0);
+          const finalValue = isNaN(numericValue) ? '' : numericValue;
+          return { ...p, [field]: finalValue };
+        }
+        return p;
+      })
+    );
   };
   
   const updateProductRecipe = (productId: string, newRecipe: RecipeItem[]) => {
@@ -82,19 +104,49 @@ export default function Home() {
     }
   };
   
-  const toggleSortOrder = () => {
-    setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+  const sortedProducts = useMemo(() => {
+    if (!products) return [];
+    return [...products].sort((a, b) => a.order - b.order);
+  }, [products]);
+  
+  const moveProduct = (productId: string, direction: 'up' | 'down') => {
+    const currentIndex = sortedProducts.findIndex(p => p.id === productId);
+
+    if (currentIndex === -1) return;
+    if (direction === 'up' && currentIndex === 0) return;
+    if (direction === 'down' && currentIndex === sortedProducts.length - 1) return;
+    
+    const swapIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    
+    const product1 = sortedProducts[currentIndex];
+    const product2 = sortedProducts[swapIndex];
+    
+    setProducts(prev => {
+        const newProducts = [...prev];
+        const p1Index = newProducts.findIndex(p => p.id === product1.id);
+        const p2Index = newProducts.findIndex(p => p.id === product2.id);
+        
+        if (p1Index === -1 || p2Index === -1) return prev;
+
+        const tempOrder = newProducts[p1Index].order;
+        newProducts[p1Index].order = newProducts[p2Index].order;
+        newProducts[p2Index].order = tempOrder;
+
+        return newProducts;
+    });
+  };
+
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) return;
+    setCategories(prev => [...prev, {id: nanoid(), name: newCategoryName, color: newCategoryColor}]);
+    setNewCategoryName('');
+    setNewCategoryColor(categoryColors[0]);
   }
 
-  const sortedProducts = useMemo(() => {
-    return [...products].sort((a, b) => {
-      if (sortOrder === 'asc') {
-        return a.name.localeCompare(b.name, 'tr');
-      } else {
-        return b.name.localeCompare(a.name, 'tr');
-      }
-    });
-  }, [products, sortOrder]);
+  const handleDeleteCategory = (id: string) => {
+    setProducts(prev => prev.map(p => p.categoryId === id ? {...p, categoryId: undefined} : p));
+    setCategories(prev => prev.filter(c => c.id !== id));
+  }
 
 
   return (
@@ -109,20 +161,56 @@ export default function Home() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+                <Dialog open={isCategoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button variant="outline"><Tags className="mr-2 h-4 w-4" /> Kategorileri Yönet</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader><DialogTitle>Kategorileri Yönet</DialogTitle></DialogHeader>
+                        <div className="space-y-4 pt-4">
+                            <div className="space-y-2">
+                                <h4 className="font-medium">Yeni Kategori Ekle</h4>
+                                <div className="flex items-center gap-2">
+                                    <Input placeholder="Kategori Adı" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} />
+                                    <Button onClick={handleAddCategory}>Ekle</Button>
+                                </div>
+                                <div className="flex items-center gap-2 pt-2">
+                                    <span className="text-sm font-medium">Renk:</span>
+                                    {categoryColors.map(color => (
+                                        <button key={color} onClick={() => setNewCategoryColor(color)} className="h-6 w-6 rounded-full" style={{backgroundColor: color}}>
+                                            {newCategoryColor === color && <Check className="h-4 w-4 text-white m-auto"/>}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <h4 className="font-medium">Mevcut Kategoriler</h4>
+                                <div className="space-y-2 max-h-60 overflow-y-auto">
+                                {categories.length > 0 ? categories.map(cat => (
+                                    <div key={cat.id} className="flex items-center justify-between p-2 rounded-md border">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-4 w-4 rounded-full" style={{backgroundColor: cat.color}}/>
+                                            <span>{cat.name}</span>
+                                        </div>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteCategory(cat.id)}>
+                                            <Trash2 className="h-4 w-4"/>
+                                        </Button>
+                                    </div>
+                                )) : <p className="text-sm text-muted-foreground text-center py-4">Henüz kategori yok.</p>}
+                                </div>
+                            </div>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="font-semibold min-w-[200px]">
-                        <div className="flex items-center gap-2">
-                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={toggleSortOrder}>
-                             <ArrowUpDown className="h-4 w-4" />
-                           </Button>
-                           Ürün
-                        </div>
-                    </TableHead>
+                    <TableHead className="font-semibold min-w-[300px]">Ürün</TableHead>
+                    <TableHead className="font-semibold min-w-[150px]">Kategori</TableHead>
                     <TableHead className="text-right font-semibold min-w-[150px]">Maliyet</TableHead>
-                    <TableHead className="text-right font-semibold min-w-[150px]">Reçete</TableHead>
                     <TableHead className="text-right font-semibold min-w-[150px]">Mağaza Fiyatı</TableHead>
                     <TableHead className="text-right font-semibold min-w-[150px]">Online Fiyat</TableHead>
                     {margins.map((margin, index) => (
@@ -181,18 +269,37 @@ export default function Home() {
                   {sortedProducts.length > 0 ? (
                     sortedProducts.map((product) => {
                       const cost = calculateCost(product.recipe, ingredients);
+                      const category = categories.find(c => c.id === product.categoryId);
                       return (
                       <TableRow key={product.id}>
                         <TableCell>
-                            <Input value={product.name} onChange={(e) => updateProduct(product.id, 'name', e.target.value)} className="font-medium border-0 bg-transparent -ml-3 focus-visible:ring-1 focus-visible:bg-card" placeholder="Yeni Ürün Adı"/>
+                            <div className="flex items-center gap-2">
+                                <div className="flex flex-col">
+                                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => moveProduct(product.id, 'up')}><ChevronUp className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => moveProduct(product.id, 'down')}><ChevronDown className="h-4 w-4" /></Button>
+                                </div>
+                                {category && <div className="h-3 w-3 rounded-full shrink-0" style={{backgroundColor: category.color}} />}
+                                <Input value={product.name} onChange={(e) => updateProduct(product.id, 'name', e.target.value)} className="font-medium border-0 bg-transparent -ml-3 focus-visible:ring-1 focus-visible:bg-card flex-grow" placeholder="Yeni Ürün Adı"/>
+                                <Button variant="outline" size="sm" onClick={() => setEditingRecipeProduct(product)}>
+                                   <BookMarked className="mr-2 h-4 w-4"/>
+                                   Reçete
+                                </Button>
+                            </div>
+                        </TableCell>
+                        <TableCell>
+                           <Select value={product.categoryId || 'null'} onValueChange={(value) => updateProduct(product.id, 'categoryId', value)}>
+                             <SelectTrigger className="w-[150px]">
+                               <SelectValue placeholder="Kategori Seç" />
+                             </SelectTrigger>
+                             <SelectContent>
+                               <SelectItem value="null">Kategorisiz</SelectItem>
+                               {categories.map(cat => (
+                                 <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                               ))}
+                             </SelectContent>
+                           </Select>
                         </TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(cost)}</TableCell>
-                        <TableCell className="text-right">
-                           <Button variant="outline" size="sm" onClick={() => setEditingRecipeProduct(product)}>
-                               <BookMarked className="mr-2 h-4 w-4"/>
-                               Düzenle
-                           </Button>
-                        </TableCell>
                          <TableCell>
                            <Input type="number" value={product.storePrice || ''} onChange={(e) => updateProduct(product.id, 'storePrice', e.target.value)} className="text-right" placeholder="0.00"/>
                         </TableCell>
@@ -217,7 +324,7 @@ export default function Home() {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={margins.length + 7} className="h-24 text-center text-muted-foreground">
+                      <TableCell colSpan={margins.length + 8} className="h-24 text-center text-muted-foreground">
                         Başlamak için bir ürün ekleyin.
                       </TableCell>
                     </TableRow>
@@ -235,7 +342,7 @@ export default function Home() {
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader><DialogTitle>Yeni Ürün Ekle</DialogTitle></DialogHeader>
-                    <ProductForm addProduct={addProduct} />
+                    <ProductForm addProduct={addProduct} categories={categories} />
                   </DialogContent>
                 </Dialog>
             </div>

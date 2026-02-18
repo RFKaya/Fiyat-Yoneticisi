@@ -15,10 +15,18 @@ export type RecipeItem = {
   quantity: number;
 };
 
-export type Product = {
+export type Category = {
   id: string;
+  name: string;
+  color: string;
+};
+
+export type Product = {
+  id:string;
   name: string;
   recipe: RecipeItem[];
   storePrice: number;
   onlinePrice: number;
+  order: number;
+  categoryId?: string;
 };

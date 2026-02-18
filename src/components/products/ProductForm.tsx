@@ -1,6 +1,6 @@
 'use client';
 
-import type { Product } from '@/lib/types';
+import type { Product, Category } from '@/lib/types';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -15,24 +15,28 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { PlusCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Ürün adı en az 2 karakter olmalıdır.' }),
   storePrice: z.coerce.number().positive({ message: 'Mağaza fiyatı pozitif bir sayı olmalıdır.' }),
   onlinePrice: z.coerce.number().positive({ message: 'Online fiyat pozitif bir sayı olmalıdır.' }),
+  categoryId: z.string().optional(),
 });
 
 type ProductFormProps = {
-  addProduct: (product: Omit<Product, 'id' | 'recipe'>) => void;
+  addProduct: (product: Omit<Product, 'id' | 'recipe' | 'order'>) => void;
+  categories: Category[];
 };
 
-export default function ProductForm({ addProduct }: ProductFormProps) {
+export default function ProductForm({ addProduct, categories }: ProductFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       storePrice: '' as any,
       onlinePrice: '' as any,
+      categoryId: undefined,
     },
   });
 
@@ -85,6 +89,30 @@ export default function ProductForm({ addProduct }: ProductFormProps) {
             )}
           />
         </div>
+         <FormField
+          control={form.control}
+          name="categoryId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Kategori</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Kategori seçin (isteğe bağlı)" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <Button type="submit" className="w-full">
           <PlusCircle className="mr-2 h-4 w-4" /> Ürün Ekle
         </Button>
