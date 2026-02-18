@@ -19,12 +19,14 @@ type InlineRecipeEditorProps = {
 };
 
 const formatCurrency = (amount: number) => {
-  if (isNaN(amount)) return '0,00 ₺';
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency: 'TRY',
-  }).format(amount);
-};
+    if (isNaN(amount) || !isFinite(amount)) return '0,00 ₺';
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4, 
+    }).format(amount);
+  };
 
 
 export default function InlineRecipeEditor({ product, ingredients, onSave, updateProduct }: InlineRecipeEditorProps) {
@@ -43,10 +45,6 @@ export default function InlineRecipeEditor({ product, ingredients, onSave, updat
       return newRecipe;
     });
   };
-  
-  const getIngredientUnitLabel = (ingredient: Ingredient) => {
-      return ingredient.unit;
-  }
 
   const totalCost = calculateCost(currentRecipe, ingredients);
 
@@ -109,7 +107,10 @@ export default function InlineRecipeEditor({ product, ingredients, onSave, updat
             {ingredients.map(ingredient => {
                 const recipeItem = currentRecipe.find(item => item.ingredientId === ingredient.id);
                 const quantity = recipeItem?.quantity || 0;
-                const itemCost = ingredient.price * quantity;
+                
+                const pricePerPurchaseUnit = ingredient.purchasePrice / ingredient.purchaseQty;
+                const costPerRecipeUnit = pricePerPurchaseUnit / ingredient.recipeUnitsPerPurchaseUnit;
+                const itemCost = costPerRecipeUnit * quantity;
 
                 return (
                   <TableRow key={ingredient.id}>
@@ -123,11 +124,11 @@ export default function InlineRecipeEditor({ product, ingredients, onSave, updat
                             value={quantity || ''}
                             onChange={(e) => handleQuantityChange(ingredient.id, e.target.value)}
                           />
-                          <span className="text-xs text-muted-foreground w-12 text-left">{getIngredientUnitLabel(ingredient)}</span>
+                          <span className="text-xs text-muted-foreground w-12 text-left">{ingredient.recipeUnit}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right text-sm">
-                        {formatCurrency(ingredient.price)} / {ingredient.unit}
+                        {formatCurrency(costPerRecipeUnit)} / {ingredient.recipeUnit}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                         {formatCurrency(itemCost)}

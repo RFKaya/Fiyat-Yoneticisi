@@ -2,80 +2,121 @@
 
 import React, { useState, useEffect } from 'react';
 import { nanoid } from 'nanoid';
-import type { Ingredient, Unit, Product, Category } from '@/lib/types';
+import type { Ingredient, Product, Category } from '@/lib/types';
 import Header from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { PlusCircle, Trash2, Edit } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const unitOptions: Unit[] = ['gram', 'adet', 'TL'];
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'Malzeme adı zorunludur.' }),
-  price: z.coerce.number().positive({ message: 'Fiyat pozitif bir sayı olmalıdır.' }),
-  unit: z.enum(['gram', 'adet', 'TL'], { required_error: 'Birim seçimi zorunludur.' }),
+  purchasePrice: z.coerce.number().positive({ message: 'Fiyat pozitif bir sayı olmalıdır.' }),
+  purchaseQty: z.coerce.number().positive({ message: 'Miktar pozitif bir sayı olmalıdır.' }),
+  purchaseUnit: z.string().min(1, { message: 'Alış birimi zorunludur.'}),
+  recipeUnit: z.string().min(1, { message: 'Reçete birimi zorunludur.'}),
+  recipeUnitsPerPurchaseUnit: z.coerce.number().positive({ message: 'Dönüşüm faktörü pozitif bir sayı olmalıdır.' }),
 });
 
-function IngredientForm({ onAddIngredient, closeDialog }: { onAddIngredient: (data: Omit<Ingredient, 'id'>) => void, closeDialog: () => void }) {
-    const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            name: '',
-            price: '' as any,
-        },
-    });
+function IngredientForm({
+  onSave,
+  closeDialog,
+  initialData,
+}: {
+  onSave: (data: Omit<Ingredient, 'id'>) => void;
+  closeDialog: () => void;
+  initialData?: Omit<Ingredient, 'id'>;
+}) {
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: initialData || {
+      name: '',
+      purchasePrice: '' as any,
+      purchaseQty: 1,
+      purchaseUnit: '',
+      recipeUnit: '',
+      recipeUnitsPerPurchaseUnit: '' as any,
+    },
+  });
 
-    function onSubmit(values: z.infer<typeof formSchema>) {
-        onAddIngredient(values);
-        form.reset();
-        closeDialog();
-    }
-    
-    return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-                <FormField control={form.control} name="name" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Malzeme Adı</FormLabel>
-                        <FormControl><Input placeholder="Örn: Domates" {...field} /></FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )}/>
-                <div className="grid grid-cols-2 gap-4">
-                    <FormField control={form.control} name="price" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Fiyat (₺)</FormLabel>
-                            <FormControl><Input type="number" placeholder="25.50" {...field} /></FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}/>
-                    <FormField control={form.control} name="unit" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Birim</FormLabel>
-                             <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Birim Seçin" /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    {unitOptions.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )}/>
-                </div>
-                <Button type="submit" className="w-full">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Malzeme Ekle
-                </Button>
-            </form>
-        </Form>
-    );
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    onSave(values);
+    form.reset();
+    closeDialog();
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Malzeme Adı</FormLabel>
+              <FormControl><Input placeholder="Örn: Lavaş" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <FormField control={form.control} name="purchasePrice" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Alış Fiyatı (₺)</FormLabel>
+              <FormControl><Input type="number" placeholder="100" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}/>
+          <FormField control={form.control} name="purchaseQty" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Alış Miktarı</FormLabel>
+              <FormControl><Input type="number" placeholder="1" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}/>
+          <FormField control={form.control} name="purchaseUnit" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Alış Birimi</FormLabel>
+              <FormControl><Input placeholder="Paket, Kg, Kasa" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}/>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           <FormField control={form.control} name="recipeUnit" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Reçete Birimi</FormLabel>
+              <FormControl><Input placeholder="Adet, Gram, Yaprak" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}/>
+          <FormField control={form.control} name="recipeUnitsPerPurchaseUnit" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Dönüşüm Oranı</FormLabel>
+              <FormControl><Input type="number" placeholder="50" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}/>
+        </div>
+         <DialogDescription className="text-xs pt-2">
+            <b>Örnek:</b> 50'li bir lavaş paketini 100₺'ye alıyorsanız girmeniz gerekenler:
+            <br />
+            Alış Fiyatı: 100, Alış Miktarı: 1, Alış Birimi: Paket, Reçete Birimi: Adet, Dönüşüm Oranı: 50.
+            <br />
+            Böylece sistem 1 adet lavaşın maliyetini 2₺ olarak hesaplar.
+        </DialogDescription>
+        <Button type="submit" className="w-full">
+          <PlusCircle className="mr-2 h-4 w-4" /> Malzemeyi Kaydet
+        </Button>
+      </form>
+    </Form>
+  );
 }
 
 type AppData = {
@@ -85,12 +126,23 @@ type AppData = {
   margins: number[];
 };
 
+const formatCurrency = (amount: number) => {
+    if (isNaN(amount) || !isFinite(amount)) return '...';
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
 export default function MaterialsPage() {
   const [appData, setAppData] = useState<AppData>({ products: [], ingredients: [], categories: [], margins: [] });
-  const [isAddDialogOpen, setAddDialogOpen] = useState(false);
+  const [isFormOpen, setFormOpen] = useState(false);
+  const [editingIngredient, setEditingIngredient] = useState<Ingredient | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const isInitialMount = React.useRef(true);
-  
+
   const { ingredients } = appData;
 
   useEffect(() => {
@@ -108,10 +160,10 @@ export default function MaterialsPage() {
 
   useEffect(() => {
     if (isInitialMount.current) {
-        if(!isLoading) {
-            isInitialMount.current = false;
-        }
-        return;
+      if (!isLoading) {
+        isInitialMount.current = false;
+      }
+      return;
     }
 
     if (!isLoading) {
@@ -123,22 +175,34 @@ export default function MaterialsPage() {
     }
   }, [appData, isLoading]);
 
-  const addIngredient = (ingredient: Omit<Ingredient, 'id'>) => {
-    setAppData((prev) => ({...prev, ingredients: [...prev.ingredients, { ...ingredient, id: nanoid() }]}));
-  };
-
-  const deleteIngredient = (id: string) => {
-    setAppData((prev) => ({...prev, ingredients: prev.ingredients.filter((i) => i.id !== id)}));
+  const handleSaveIngredient = (data: Omit<Ingredient, 'id'>) => {
+    if (editingIngredient) {
+      setAppData((prev) => ({
+        ...prev,
+        ingredients: prev.ingredients.map((i) =>
+          i.id === editingIngredient.id ? { ...i, ...data } : i
+        ),
+      }));
+    } else {
+      setAppData((prev) => ({
+        ...prev,
+        ingredients: [...prev.ingredients, { ...data, id: nanoid() }],
+      }));
+    }
   };
   
-  const updateIngredient = (id: string, field: keyof Ingredient, value: string | number) => {
-      const finalValue = field === 'name' || field === 'unit' ? value : (isNaN(parseFloat(String(value))) ? '' : parseFloat(String(value)));
-      setAppData((prev) => ({
-          ...prev,
-          ingredients: prev.ingredients.map((i) => 
-            i.id === id ? { ...i, [field]: finalValue } : i
-          )
-      }));
+  const handleOpenForm = (ingredient?: Ingredient) => {
+      setEditingIngredient(ingredient);
+      setFormOpen(true);
+  }
+
+  const handleCloseForm = () => {
+      setEditingIngredient(undefined);
+      setFormOpen(false);
+  }
+
+  const deleteIngredient = (id: string) => {
+    setAppData((prev) => ({ ...prev, ingredients: prev.ingredients.filter((i) => i.id !== id) }));
   };
 
   if (isLoading) {
@@ -169,30 +233,39 @@ export default function MaterialsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="font-semibold">Malzeme Adı</TableHead>
-                    <TableHead className="text-right font-semibold">Fiyat</TableHead>
-                    <TableHead className="text-right font-semibold">Birim</TableHead>
+                    <TableHead className="font-semibold">Birim Maliyet</TableHead>
+                    <TableHead className="font-semibold">Alış Bilgisi</TableHead>
                     <TableHead className="text-right font-semibold">İşlemler</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {ingredients.length > 0 ? (
-                    ingredients.map((ingredient) => (
-                      <TableRow key={ingredient.id}>
-                        <TableCell>
-                           <Input value={ingredient.name} onChange={(e) => updateIngredient(ingredient.id, 'name', e.target.value)} className="font-medium border-0 bg-transparent -ml-3 focus-visible:ring-1 focus-visible:bg-card" placeholder="Malzeme Adı"/>
-                        </TableCell>
-                        <TableCell>
-                           <Input type="number" value={ingredient.price || ''} onChange={(e) => updateIngredient(ingredient.id, 'price', e.target.value)} className="text-right" placeholder="0.00"/>
-                        </TableCell>
-                        <TableCell className="text-right">{ingredient.unit}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteIngredient(ingredient.id)}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Malzemeyi Sil</span>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    ingredients.map((ingredient) => {
+                      const pricePerPurchaseUnit = ingredient.purchasePrice / ingredient.purchaseQty;
+                      const costPerRecipeUnit = pricePerPurchaseUnit / ingredient.recipeUnitsPerPurchaseUnit;
+
+                      return (
+                        <TableRow key={ingredient.id}>
+                          <TableCell className="font-medium">{ingredient.name}</TableCell>
+                           <TableCell>
+                            {formatCurrency(costPerRecipeUnit)} / {ingredient.recipeUnit}
+                           </TableCell>
+                          <TableCell>
+                            {ingredient.purchaseQty} {ingredient.purchaseUnit} @ {formatCurrency(ingredient.purchasePrice)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-primary" onClick={() => handleOpenForm(ingredient)}>
+                                <Edit className="h-4 w-4" />
+                                <span className="sr-only">Malzemeyi Düzenle</span>
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteIngredient(ingredient.id)}>
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Malzemeyi Sil</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
@@ -204,16 +277,20 @@ export default function MaterialsPage() {
               </Table>
             </div>
             <div className="mt-6 flex justify-center">
-              <Dialog open={isAddDialogOpen} onOpenChange={setAddDialogOpen}>
+              <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline">
+                  <Button variant="outline" onClick={() => handleOpenForm()}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Yeni Malzeme Ekle
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Yeni Malzeme Ekle</DialogTitle></DialogHeader>
-                  <IngredientForm onAddIngredient={addIngredient} closeDialog={() => setAddDialogOpen(false)} />
+                <DialogContent onInteractOutside={handleCloseForm}>
+                  <DialogHeader><DialogTitle>{editingIngredient ? 'Malzemeyi Düzenle' : 'Yeni Malzeme Ekle'}</DialogTitle></DialogHeader>
+                  <IngredientForm 
+                    onSave={handleSaveIngredient} 
+                    closeDialog={handleCloseForm} 
+                    initialData={editingIngredient}
+                  />
                 </DialogContent>
               </Dialog>
             </div>

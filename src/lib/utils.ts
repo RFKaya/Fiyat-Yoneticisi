@@ -11,10 +11,14 @@ export function calculateCost(recipe: RecipeItem[], ingredients: Ingredient[]): 
 
   return recipe.reduce((total, item) => {
     const ingredient = ingredients.find((i) => i.id === item.ingredientId);
-    if (!ingredient) return total; // Ingredient not found, maybe deleted
+    if (!ingredient || ingredient.purchaseQty <= 0 || ingredient.recipeUnitsPerPurchaseUnit <= 0) {
+      return total;
+    }
 
-    // The recipe quantity is always a direct multiplier of the ingredient price.
-    const itemCost = ingredient.price * item.quantity;
+    const pricePerPurchaseUnit = ingredient.purchasePrice / ingredient.purchaseQty;
+    const costPerRecipeUnit = pricePerPurchaseUnit / ingredient.recipeUnitsPerPurchaseUnit;
+
+    const itemCost = costPerRecipeUnit * item.quantity;
     return total + itemCost;
   }, 0);
 }
