@@ -18,13 +18,12 @@ import { PlusCircle } from 'lucide-react';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Ürün adı en az 2 karakter olmalıdır.' }),
-  cost: z.coerce.number().positive({ message: 'Maliyet pozitif bir sayı olmalıdır.' }),
   storePrice: z.coerce.number().positive({ message: 'Mağaza fiyatı pozitif bir sayı olmalıdır.' }),
   onlinePrice: z.coerce.number().positive({ message: 'Online fiyat pozitif bir sayı olmalıdır.' }),
 });
 
 type ProductFormProps = {
-  addProduct: (product: Omit<Product, 'id'>) => void;
+  addProduct: (product: Omit<Product, 'id' | 'recipe'>) => void;
 };
 
 export default function ProductForm({ addProduct }: ProductFormProps) {
@@ -32,7 +31,6 @@ export default function ProductForm({ addProduct }: ProductFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      cost: undefined,
       storePrice: undefined,
       onlinePrice: undefined,
     },
@@ -53,26 +51,13 @@ export default function ProductForm({ addProduct }: ProductFormProps) {
             <FormItem>
               <FormLabel>Ürün Adı</FormLabel>
               <FormControl>
-                <Input placeholder="Örn: Pamuklu Tişört" {...field} />
+                <Input placeholder="Örn: Çiğ Köfte Dürüm" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <FormField
-            control={form.control}
-            name="cost"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Maliyet</FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="100" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="storePrice"
