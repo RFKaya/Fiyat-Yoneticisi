@@ -97,12 +97,12 @@ function SortableProductRow({
           </Button>
         </div>
       </TableCell>
-      <TableCell className="text-right font-medium w-[100px]">{formatCurrency(cost)}</TableCell>
+      <TableCell className="text-left font-medium w-[100px]">{formatCurrency(cost)}</TableCell>
       <TableCell className="w-[120px]">
-        <Input type="number" value={product.storePrice || ''} onChange={(e) => updateProduct(product.id, 'storePrice', e.target.value)} className="text-right" placeholder="0.00" />
+        <Input type="number" value={product.storePrice || ''} onChange={(e) => updateProduct(product.id, 'storePrice', e.target.value)} className="text-left" placeholder="0.00" />
       </TableCell>
       <TableCell className="w-[120px]">
-        <Input type="number" value={product.onlinePrice || ''} onChange={(e) => updateProduct(product.id, 'onlinePrice', e.target.value)} className="text-right" placeholder="0.00" />
+        <Input type="number" value={product.onlinePrice || ''} onChange={(e) => updateProduct(product.id, 'onlinePrice', e.target.value)} className="text-left" placeholder="0.00" />
       </TableCell>
       {margins.map((margin) => {
         const sellingPrice = cost * (1 + margin / 100);
@@ -346,9 +346,9 @@ export default function Home() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="font-semibold w-[350px]">Ürün</TableHead>
-                    <TableHead className="text-right font-semibold w-[100px]">Maliyet</TableHead>
-                    <TableHead className="text-right font-semibold w-[120px]">Mağaza Fiyatı</TableHead>
-                    <TableHead className="text-right font-semibold w-[120px]">Online Fiyat</TableHead>
+                    <TableHead className="text-left font-semibold w-[100px]">Maliyet</TableHead>
+                    <TableHead className="text-left font-semibold w-[120px]">Mağaza Fiyatı</TableHead>
+                    <TableHead className="text-left font-semibold w-[120px]">Online Fiyat</TableHead>
                     {margins.map((margin, index) => (
                       <TableHead key={index} className="text-right font-semibold w-[100px]">
                         {editingMargin?.index === index ? (
