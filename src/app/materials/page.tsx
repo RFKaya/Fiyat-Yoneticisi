@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { nanoid } from 'nanoid';
 import type { Ingredient, Unit, Product, Category } from '@/lib/types';
 import Header from '@/components/layout/Header';
