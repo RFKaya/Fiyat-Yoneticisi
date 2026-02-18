@@ -25,7 +25,7 @@ const formSchema = z.object({
 });
 
 type ProductFormProps = {
-  addProduct: (product: Omit<Product, 'id' | 'recipe' | 'order'>) => void;
+  addProduct: (product: Omit<Product, 'id' | 'recipe' | 'order' | 'manualCost'>) => void;
   categories: Category[];
 };
 

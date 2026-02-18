@@ -25,6 +25,7 @@ export type Product = {
   id:string;
   name: string;
   recipe: RecipeItem[];
+  manualCost: number;
   storePrice: number;
   onlinePrice: number;
   order: number;

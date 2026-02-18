@@ -4,8 +4,10 @@ import { useState } from 'react';
 import type { Product, Ingredient, RecipeItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { calculateCost } from '@/lib/utils';
 import { Save } from 'lucide-react';
 
@@ -13,6 +15,7 @@ type InlineRecipeEditorProps = {
   product: Product;
   ingredients: Ingredient[];
   onSave: (newRecipe: RecipeItem[]) => void;
+  updateProduct: (id: string, field: keyof Product, value: any) => void;
 };
 
 const formatCurrency = (amount: number) => {
@@ -24,8 +27,10 @@ const formatCurrency = (amount: number) => {
 };
 
 
-export default function InlineRecipeEditor({ product, ingredients, onSave }: InlineRecipeEditorProps) {
+export default function InlineRecipeEditor({ product, ingredients, onSave, updateProduct }: InlineRecipeEditorProps) {
   const [currentRecipe, setCurrentRecipe] = useState<RecipeItem[]>(product.recipe || []);
+
+  const hasRecipe = product.recipe && product.recipe.length > 0;
 
   const handleQuantityChange = (ingredientId: string, quantityStr: string) => {
     const quantity = parseFloat(quantityStr);
@@ -47,6 +52,33 @@ export default function InlineRecipeEditor({ product, ingredients, onSave }: Inl
 
   return (
     <div className="p-4">
+        {!hasRecipe && (
+            <>
+                <div className="mb-6">
+                    <h4 className="font-semibold text-base mb-2">Doğrudan Maliyet Girişi</h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                        Bu ürün bir reçeteye sahip değil (örneğin bir içecek). Maliyeti doğrudan girebilir veya bir reçete oluşturabilirsiniz.
+                    </p>
+                    <div className="flex items-center gap-2 max-w-sm">
+                        <Label htmlFor={`manual-cost-${product.id}`} className="shrink-0">Ürün Maliyeti (₺)</Label>
+                        <Input
+                            id={`manual-cost-${product.id}`}
+                            type="number"
+                            placeholder="0.00"
+                            value={product.manualCost || ''}
+                            onChange={(e) => updateProduct(product.id, 'manualCost', e.target.value)}
+                        />
+                    </div>
+                </div>
+                <div className="relative mb-6">
+                    <Separator />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="bg-muted/20 px-2 text-sm text-muted-foreground">VEYA</span>
+                    </div>
+                </div>
+            </>
+        )}
+
         <div className="flex justify-between items-center mb-2">
             <h4 className="font-semibold text-base">Reçete Yönetimi</h4>
             <div className="flex items-center gap-4">
@@ -61,7 +93,7 @@ export default function InlineRecipeEditor({ product, ingredients, onSave }: Inl
             </div>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Ürün maliyetini hesaplamak için kullanılacak malzemeleri ve miktarlarını belirtin. Maliyetler anında güncellenecektir.
+          Ürün maliyetini hesaplamak için kullanılacak malzemeleri ve miktarlarını belirtin. Kaydedildiğinde, bu reçete maliyeti kullanılacaktır.
         </p>
       <ScrollArea className="h-72 border rounded-md bg-card">
         <Table>

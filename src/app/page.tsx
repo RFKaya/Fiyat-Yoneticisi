@@ -79,8 +79,9 @@ function SortableProductRow({
     opacity: isDragging ? 0.8 : 1,
     zIndex: isDragging ? 10 : 'auto',
   };
-
-  const cost = calculateCost(product.recipe, ingredients);
+  
+  const hasRecipe = product.recipe && product.recipe.length > 0;
+  const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
   const category = categories.find(c => c.id === product.categoryId);
 
   return (
@@ -212,10 +213,10 @@ export default function Home() {
     );
   };
 
-  const addProduct = (productData: Omit<Product, 'id' | 'recipe' | 'order'>) => {
+  const addProduct = (productData: Omit<Product, 'id' | 'recipe' | 'order' | 'manualCost'>) => {
     setProducts((prev) => {
       const newOrder = prev.length > 0 ? Math.max(...prev.map(p => p.order)) + 1 : 0;
-      return [...prev, { ...productData, id: nanoid(), recipe: [], order: newOrder }];
+      return [...prev, { ...productData, id: nanoid(), recipe: [], order: newOrder, manualCost: 0 }];
     });
     setAddProductDialogOpen(false);
   };
@@ -494,6 +495,7 @@ export default function Home() {
                                               product={product}
                                               ingredients={ingredients}
                                               onSave={(newRecipe) => updateProductRecipe(product.id, newRecipe)}
+                                              updateProduct={updateProduct}
                                           />
                                       </TableCell>
                                   </TableRow>
