@@ -31,8 +31,8 @@ export default function ProductForm({ addProduct }: ProductFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      storePrice: undefined,
-      onlinePrice: undefined,
+      storePrice: '' as any,
+      onlinePrice: '' as any,
     },
   });
 

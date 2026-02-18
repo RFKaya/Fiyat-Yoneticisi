@@ -30,7 +30,7 @@ function IngredientForm({ onAddIngredient, closeDialog }: { onAddIngredient: (da
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: '',
-            price: undefined,
+            price: '' as any,
         },
     });
 
@@ -131,7 +131,7 @@ export default function MaterialsPage() {
                            <Input value={ingredient.name} onChange={(e) => updateIngredient(ingredient.id, 'name', e.target.value)} className="font-medium border-0 bg-transparent -ml-3 focus-visible:ring-1 focus-visible:bg-card" placeholder="Malzeme Adı"/>
                         </TableCell>
                         <TableCell>
-                           <Input type="number" value={ingredient.price} onChange={(e) => updateIngredient(ingredient.id, 'price', e.target.value)} className="text-right" placeholder="0.00"/>
+                           <Input type="number" value={ingredient.price || ''} onChange={(e) => updateIngredient(ingredient.id, 'price', e.target.value)} className="text-right" placeholder="0.00"/>
                         </TableCell>
                         <TableCell className="text-right">{ingredient.unit}</TableCell>
                         <TableCell className="text-right">

@@ -194,10 +194,10 @@ export default function Home() {
                            </Button>
                         </TableCell>
                          <TableCell>
-                           <Input type="number" value={product.storePrice} onChange={(e) => updateProduct(product.id, 'storePrice', e.target.value)} className="text-right" placeholder="0.00"/>
+                           <Input type="number" value={product.storePrice || ''} onChange={(e) => updateProduct(product.id, 'storePrice', e.target.value)} className="text-right" placeholder="0.00"/>
                         </TableCell>
                          <TableCell>
-                           <Input type="number" value={product.onlinePrice} onChange={(e) => updateProduct(product.id, 'onlinePrice', e.target.value)} className="text-right" placeholder="0.00"/>
+                           <Input type="number" value={product.onlinePrice || ''} onChange={(e) => updateProduct(product.id, 'onlinePrice', e.target.value)} className="text-right" placeholder="0.00"/>
                         </TableCell>
                         {margins.map((margin) => {
                           const sellingPrice = cost * (1 + margin / 100);
