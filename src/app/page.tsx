@@ -25,7 +25,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import Header from '@/components/layout/Header';
 import ProductForm from '@/components/products/ProductForm';
-import RecipeForm from '@/components/products/RecipeForm';
+import InlineRecipeEditor from '@/components/products/InlineRecipeEditor';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { PlusCircle, Trash2, X, BookMarked, Tags, Check, GripVertical, MoreVertical } from 'lucide-react';
+import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const formatCurrency = (amount: number) => {
@@ -53,16 +53,18 @@ function SortableProductRow({
     margins, 
     categories,
     updateProduct, 
-    setEditingRecipeProduct, 
-    deleteProduct
+    deleteProduct,
+    isExpanded,
+    onToggleExpand
   }: {
   product: Product,
   ingredients: Ingredient[],
   margins: number[],
   categories: Category[],
   updateProduct: (id: string, field: keyof Product, value: any) => void,
-  setEditingRecipeProduct: (product: Product) => void,
   deleteProduct: (id: string) => void,
+  isExpanded: boolean,
+  onToggleExpand: () => void,
 }) {
   const {
     attributes,
@@ -84,17 +86,23 @@ function SortableProductRow({
   const category = categories.find(c => c.id === product.categoryId);
 
   return (
-    <TableRow ref={setNodeRef} style={style} key={product.id}>
+    <TableRow ref={setNodeRef} style={style} key={product.id} className={isExpanded ? 'border-b-0' : ''}>
       <TableCell className="w-[250px]">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...attributes} {...listeners}>
             <GripVertical className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <Input value={product.name} onChange={(e) => updateProduct(product.id, 'name', e.target.value)} className="font-medium border-0 bg-transparent -ml-3 focus-visible:ring-1 focus-visible:bg-card flex-grow" placeholder="Yeni Ürün Adı" />
-          <Button variant="outline" size="sm" onClick={() => setEditingRecipeProduct(product)}>
-            <BookMarked className="mr-2 h-4 w-4" />
-            Reçete
-          </Button>
+          <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleExpand}>
+                        {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Reçeteyi Göster/Gizle</p></TooltipContent>
+              </Tooltip>
+          </TooltipProvider>
+          <Input value={product.name} onChange={(e) => updateProduct(product.id, 'name', e.target.value)} className="font-medium border-0 bg-transparent focus-visible:ring-1 focus-visible:bg-card flex-grow" placeholder="Yeni Ürün Adı" />
         </div>
       </TableCell>
       <TableCell className="text-left font-medium w-[90px]">{formatCurrency(cost)}</TableCell>
@@ -154,11 +162,20 @@ export default function Home() {
   const [newMargin, setNewMargin] = useState('');
   const [isAddProductDialogOpen, setAddProductDialogOpen] = useState(false);
   const [editingMargin, setEditingMargin] = useState<{ index: number; value: string } | null>(null);
-  const [editingRecipeProduct, setEditingRecipeProduct] = useState<Product | null>(null);
+  
+  const [expandedProductIds, setExpandedProductIds] = useState<string[]>([]);
 
   const [isCategoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState(categoryColors[0]);
+
+  const toggleProductExpansion = (productId: string) => {
+    setExpandedProductIds(prev => 
+        prev.includes(productId) 
+            ? prev.filter(id => id !== productId)
+            : [...prev, productId]
+    );
+  };
 
   const addProduct = (productData: Omit<Product, 'id' | 'recipe' | 'order'>) => {
     setProducts((prev) => {
@@ -190,7 +207,6 @@ export default function Home() {
 
   const updateProductRecipe = (productId: string, newRecipe: RecipeItem[]) => {
     setProducts(prev => prev.map(p => p.id === productId ? { ...p, recipe: newRecipe } : p));
-    setEditingRecipeProduct(null);
   }
 
   const handleAddMargin = () => {
@@ -277,10 +293,8 @@ export default function Home() {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
         
-        // This moves item in the array
         const reordered = arrayMove(items, oldIndex, newIndex);
         
-        // This updates the `order` property for persistence
         return reordered.map((item, index) => ({...item, order: index}));
       });
     }
@@ -342,104 +356,117 @@ export default function Home() {
               </Dialog>
             </div>
             <div className="overflow-x-auto">
-              <Table className="table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="font-semibold w-[250px]">Ürün</TableHead>
-                    <TableHead className="text-left font-semibold w-[90px]">Maliyet</TableHead>
-                    <TableHead className="text-left font-semibold w-[100px]">Mağaza Fiyatı</TableHead>
-                    <TableHead className="text-left font-semibold w-[100px]">Online Fiyat</TableHead>
-                    {margins.map((margin, index) => (
-                      <TableHead key={index} className="text-right font-semibold w-[90px]">
-                        {editingMargin?.index === index ? (
-                          <Input
-                            type="number"
-                            value={editingMargin.value}
-                            onChange={(e) => setEditingMargin({ index, value: e.target.value })}
-                            onBlur={() => handleUpdateMargin(index)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleUpdateMargin(index)
-                              if (e.key === 'Escape') setEditingMargin(null)
-                            }}
-                            className="text-right h-8"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="flex items-center justify-end gap-1 cursor-pointer group" onClick={() => setEditingMargin({ index, value: String(margin) })}>
-                            %{margin}
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); handleDeleteMargin(margin) }}>
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>Sütunu Sil</p></TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                        )}
-                      </TableHead>
-                    ))}
-                    <TableHead className="text-left px-1 w-[40px]">
-                      <Popover onOpenChange={(open) => !open && setNewMargin('')}>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="icon"><PlusCircle className="h-5 w-5" /></Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-60 p-4">
-                          <div className="grid gap-3">
-                            <div className="space-y-1">
-                              <h4 className="font-medium leading-none">Yeni Kâr Marjı</h4>
-                              <p className="text-sm text-muted-foreground">Analiz için yeni bir yüzde ekle.</p>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <Table className="table-fixed">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="font-semibold w-[250px]">Ürün</TableHead>
+                      <TableHead className="text-left font-semibold w-[90px]">Maliyet</TableHead>
+                      <TableHead className="text-left font-semibold w-[100px]">Mağaza Fiyatı</TableHead>
+                      <TableHead className="text-left font-semibold w-[100px]">Online Fiyat</TableHead>
+                      {margins.map((margin, index) => (
+                        <TableHead key={index} className="text-right font-semibold w-[90px]">
+                          {editingMargin?.index === index ? (
+                            <Input
+                              type="number"
+                              value={editingMargin.value}
+                              onChange={(e) => setEditingMargin({ index, value: e.target.value })}
+                              onBlur={() => handleUpdateMargin(index)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleUpdateMargin(index)
+                                if (e.key === 'Escape') setEditingMargin(null)
+                              }}
+                              className="text-right h-8"
+                              autoFocus
+                            />
+                          ) : (
+                            <div className="flex items-center justify-end gap-1 cursor-pointer group" onClick={() => setEditingMargin({ index, value: String(margin) })}>
+                              %{margin}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); handleDeleteMargin(margin) }}>
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent><p>Sütunu Sil</p></TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </div>
-                            <Input type="number" placeholder="Örn: 150" value={newMargin} onChange={(e) => setNewMargin(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleAddMargin(); }} />
-                            <Button onClick={handleAddMargin}>Marj Ekle</Button>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    <TableHead className="text-right font-semibold w-[60px]">İşlemler</TableHead>
-                  </TableRow>
-                </TableHeader>
-                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={productIds} strategy={verticalListSortingStrategy}>
-                       <TableBody>
-                        {products.length > 0 ? (
-                          productsByCategory.map(({ category, products: productGroup }) => (
-                            <React.Fragment key={category?.id || 'uncategorized'}>
-                              <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                <TableCell colSpan={margins.length + 6} className="py-2">
-                                  <div className="flex items-center gap-2">
-                                    {category && <div className="h-3 w-3 rounded-full shrink-0" style={{backgroundColor: category.color}} />}
-                                    <span className="font-semibold text-sm">{category?.name || 'Kategorisiz'}</span>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                              {productGroup.map(product => (
+                          )}
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-left px-1 w-[40px]">
+                        <Popover onOpenChange={(open) => !open && setNewMargin('')}>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon"><PlusCircle className="h-5 w-5" /></Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-60 p-4">
+                            <div className="grid gap-3">
+                              <div className="space-y-1">
+                                <h4 className="font-medium leading-none">Yeni Kâr Marjı</h4>
+                                <p className="text-sm text-muted-foreground">Analiz için yeni bir yüzde ekle.</p>
+                              </div>
+                              <Input type="number" placeholder="Örn: 150" value={newMargin} onChange={(e) => setNewMargin(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleAddMargin(); }} />
+                              <Button onClick={handleAddMargin}>Marj Ekle</Button>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead className="text-right font-semibold w-[60px]">İşlemler</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <SortableContext items={productIds} strategy={verticalListSortingStrategy}>
+                     <TableBody>
+                      {products.length > 0 ? (
+                        productsByCategory.map(({ category, products: productGroup }) => (
+                          <React.Fragment key={category?.id || 'uncategorized'}>
+                            <TableRow className="bg-muted/50 hover:bg-muted/50">
+                              <TableCell colSpan={margins.length + 6} className="py-2">
+                                <div className="flex items-center gap-2">
+                                  {category && <div className="h-3 w-3 rounded-full shrink-0" style={{backgroundColor: category.color}} />}
+                                  <span className="font-semibold text-sm">{category?.name || 'Kategorisiz'}</span>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            {productGroup.map(product => (
+                              <React.Fragment key={product.id}>
                                 <SortableProductRow
-                                  key={product.id}
                                   product={product}
                                   ingredients={ingredients}
                                   margins={margins}
                                   categories={categories}
                                   updateProduct={updateProduct}
-                                  setEditingRecipeProduct={setEditingRecipeProduct}
                                   deleteProduct={deleteProduct}
+                                  isExpanded={expandedProductIds.includes(product.id)}
+                                  onToggleExpand={() => toggleProductExpansion(product.id)}
                                 />
-                              ))}
-                            </React.Fragment>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={margins.length + 6} className="h-24 text-center text-muted-foreground">
-                              Başlamak için bir ürün ekleyin.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </SortableContext>
-                  </DndContext>
-              </Table>
+                                {expandedProductIds.includes(product.id) && (
+                                  <TableRow>
+                                      <TableCell colSpan={margins.length + 6} className="p-0 bg-muted/20">
+                                          <InlineRecipeEditor
+                                              product={product}
+                                              ingredients={ingredients}
+                                              onSave={(newRecipe) => updateProductRecipe(product.id, newRecipe)}
+                                          />
+                                      </TableCell>
+                                  </TableRow>
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </React.Fragment>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={margins.length + 6} className="h-24 text-center text-muted-foreground">
+                            Başlamak için bir ürün ekleyin.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </SortableContext>
+                </Table>
+              </DndContext>
             </div>
             <div className="mt-6 flex justify-center">
               <Dialog open={isAddProductDialogOpen} onOpenChange={setAddProductDialogOpen}>
@@ -457,22 +484,6 @@ export default function Home() {
             </div>
           </CardContent>
         </Card>
-
-        {editingRecipeProduct && (
-          <Dialog open={!!editingRecipeProduct} onOpenChange={(open) => !open && setEditingRecipeProduct(null)}>
-            <DialogContent className="max-w-xl">
-              <DialogHeader>
-                <DialogTitle>Reçete Düzenle: {editingRecipeProduct.name}</DialogTitle>
-              </DialogHeader>
-              <RecipeForm
-                product={editingRecipeProduct}
-                ingredients={ingredients}
-                onSave={(newRecipe) => updateProductRecipe(editingRecipeProduct.id, newRecipe)}
-              />
-            </DialogContent>
-          </Dialog>
-        )}
-
       </main>
     </div>
   );
