@@ -46,6 +46,48 @@ const formatCurrency = (amount: number) => {
 
 const categoryColors = ['#F87171', '#FBBF24', '#34D399', '#60A5FA', '#A78BFA'];
 
+const initialCategories: Category[] = [
+    { id: 'cig-kofte-durum', name: 'Çiğ Köfte Dürüm', color: '#60A5FA' },
+    { id: 'cig-kofte-porsiyon', name: 'Çiğ Köfte Porsiyon', color: '#34D399' },
+    { id: 'icecekler', name: 'İçecekler', color: '#A78BFA' },
+];
+
+const initialProducts: Product[] = [
+    // Çiğ Köfte Dürümler
+    { id: nanoid(), name: 'Standart Çiğ Köfte Dürüm (100 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 0, categoryId: 'cig-kofte-durum' },
+    { id: nanoid(), name: 'Çiğ Köfte Dürüm (125 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 1, categoryId: 'cig-kofte-durum' },
+    { id: nanoid(), name: 'Mega Çiğ Köfte Dürüm (150 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 2, categoryId: 'cig-kofte-durum' },
+    { id: nanoid(), name: 'Duble Çiğ Köfte Dürüm (200 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 3, categoryId: 'cig-kofte-durum' },
+    { id: nanoid(), name: 'Doritoslu Çiğ Köfte Dürüm (100 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 4, categoryId: 'cig-kofte-durum' },
+    { id: nanoid(), name: 'Doritoslu Mega Çiğ Köfte Dürüm (150 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 5, categoryId: 'cig-kofte-durum' },
+    { id: nanoid(), name: 'Doritoslu Duble Çiğ Köfte Dürüm (200 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 6, categoryId: 'cig-kofte-durum' },
+
+    // Çiğ Köfte Porsiyon
+    { id: nanoid(), name: 'Çiğ Köfte (160 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 7, categoryId: 'cig-kofte-porsiyon' },
+    { id: nanoid(), name: 'Çiğ Köfte (250 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 8, categoryId: 'cig-kofte-porsiyon' },
+    { id: nanoid(), name: 'Çiğ Köfte (350 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 9, categoryId: 'cig-kofte-porsiyon' },
+    { id: nanoid(), name: 'Çiğ Köfte (500 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 10, categoryId: 'cig-kofte-porsiyon' },
+    { id: nanoid(), name: 'Çiğ Köfte (600 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 11, categoryId: 'cig-kofte-porsiyon' },
+    { id: nanoid(), name: 'Çiğ Köfte (750 g)', recipe: [], storePrice: 100, onlinePrice: 100, order: 12, categoryId: 'cig-kofte-porsiyon' },
+    { id: nanoid(), name: 'Çiğ Köfte (1 kg)', recipe: [], storePrice: 100, onlinePrice: 100, order: 13, categoryId: 'cig-kofte-porsiyon' },
+    { id: nanoid(), name: 'Çiğ Köfte (500 g) (Sıkımsız) (Yeşilliksiz)', recipe: [], storePrice: 100, onlinePrice: 100, order: 14, categoryId: 'cig-kofte-porsiyon' },
+    { id: nanoid(), name: 'Çiğ Köfte (1 kg) (Sıkımsız) (Yeşilliksiz)', recipe: [], storePrice: 100, onlinePrice: 100, order: 15, categoryId: 'cig-kofte-porsiyon' },
+
+    // İçecekler
+    { id: nanoid(), name: 'Ayran (285 ml)', recipe: [], storePrice: 100, onlinePrice: 100, order: 16, categoryId: 'icecekler' },
+    { id: nanoid(), name: 'Ayran (170 ml)', recipe: [], storePrice: 100, onlinePrice: 100, order: 17, categoryId: 'icecekler' },
+    { id: nanoid(), name: 'Ekşi/Acılı/Naneli Ayran (275 ml)', recipe: [], storePrice: 100, onlinePrice: 100, order: 18, categoryId: 'icecekler' },
+    { id: nanoid(), name: 'Coca-Cola (330 ml)', recipe: [], storePrice: 100, onlinePrice: 100, order: 19, categoryId: 'icecekler' },
+    { id: nanoid(), name: 'Şalgam Suyu (300 ml)', recipe: [], storePrice: 100, onlinePrice: 100, order: 20, categoryId: 'icecekler' },
+    { id: nanoid(), name: 'Ayran (1 L)', recipe: [], storePrice: 100, onlinePrice: 100, order: 21, categoryId: 'icecekler' },
+    { id: nanoid(), name: 'Sek Ekşi Maya Ayran (1 L)', recipe: [], storePrice: 100, onlinePrice: 100, order: 22, categoryId: 'icecekler' },
+    { id: nanoid(), name: 'Coca-Cola (1 L)', recipe: [], storePrice: 100, onlinePrice: 100, order: 23, categoryId: 'icecekler' },
+    { id: nanoid(), name: 'Şalgam Suyu (1 L)', recipe: [], storePrice: 100, onlinePrice: 100, order: 24, categoryId: 'icecekler' },
+    { id: nanoid(), name: 'Limonlu Soda (200 ml)', recipe: [], storePrice: 100, onlinePrice: 100, order: 25, categoryId: 'icecekler' },
+    { id: nanoid(), name: 'Soda (200 ml)', recipe: [], storePrice: 100, onlinePrice: 100, order: 26, categoryId: 'icecekler' },
+    { id: nanoid(), name: 'Su (500 ml)', recipe: [], storePrice: 100, onlinePrice: 100, order: 27, categoryId: 'icecekler' },
+];
+
 
 function SortableProductRow({ 
     product, 
@@ -154,10 +196,10 @@ function SortableProductRow({
 }
 
 export default function Home() {
-  const [products, setProducts] = useLocalStorage<Product[]>('fiyatvizyon-products', []);
+  const [products, setProducts] = useLocalStorage<Product[]>('fiyatvizyon-products', initialProducts);
   const [ingredients, setIngredients] = useLocalStorage<Ingredient[]>('fiyatvizyon-ingredients', []);
   const [margins, setMargins] = useLocalStorage<number[]>('fiyatvizyon-margins', [25, 50, 75, 100]);
-  const [categories, setCategories] = useLocalStorage<Category[]>('fiyatvizyon-categories', []);
+  const [categories, setCategories] = useLocalStorage<Category[]>('fiyatvizyon-categories', initialCategories);
 
   const [newMargin, setNewMargin] = useState('');
   const [isAddProductDialogOpen, setAddProductDialogOpen] = useState(false);
