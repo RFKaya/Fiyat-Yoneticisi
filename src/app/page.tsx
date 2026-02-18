@@ -85,7 +85,7 @@ function SortableProductRow({
 
   return (
     <TableRow ref={setNodeRef} style={style} key={product.id}>
-      <TableCell className="w-[350px]">
+      <TableCell className="w-[250px]">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...attributes} {...listeners}>
             <GripVertical className="h-5 w-5 text-muted-foreground" />
@@ -97,21 +97,21 @@ function SortableProductRow({
           </Button>
         </div>
       </TableCell>
-      <TableCell className="text-left font-medium w-[100px]">{formatCurrency(cost)}</TableCell>
-      <TableCell className="w-[120px]">
+      <TableCell className="text-left font-medium w-[90px]">{formatCurrency(cost)}</TableCell>
+      <TableCell className="w-[100px]">
         <Input type="number" value={product.storePrice || ''} onChange={(e) => updateProduct(product.id, 'storePrice', e.target.value)} className="text-left" placeholder="0.00" />
       </TableCell>
-      <TableCell className="w-[120px]">
+      <TableCell className="w-[100px]">
         <Input type="number" value={product.onlinePrice || ''} onChange={(e) => updateProduct(product.id, 'onlinePrice', e.target.value)} className="text-left" placeholder="0.00" />
       </TableCell>
       {margins.map((margin) => {
         const sellingPrice = cost * (1 + margin / 100);
         return (
-          <TableCell key={margin} className="text-right w-[100px]">{formatCurrency(sellingPrice)}</TableCell>
+          <TableCell key={margin} className="text-right w-[90px]">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
-      <TableCell className="w-[50px]" />
-      <TableCell className="text-right w-[80px]">
+      <TableCell className="w-[40px]" />
+      <TableCell className="text-right w-[60px]">
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -345,12 +345,12 @@ export default function Home() {
               <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="font-semibold w-[350px]">Ürün</TableHead>
-                    <TableHead className="text-left font-semibold w-[100px]">Maliyet</TableHead>
-                    <TableHead className="text-left font-semibold w-[120px]">Mağaza Fiyatı</TableHead>
-                    <TableHead className="text-left font-semibold w-[120px]">Online Fiyat</TableHead>
+                    <TableHead className="font-semibold w-[250px]">Ürün</TableHead>
+                    <TableHead className="text-left font-semibold w-[90px]">Maliyet</TableHead>
+                    <TableHead className="text-left font-semibold w-[100px]">Mağaza Fiyatı</TableHead>
+                    <TableHead className="text-left font-semibold w-[100px]">Online Fiyat</TableHead>
                     {margins.map((margin, index) => (
-                      <TableHead key={index} className="text-right font-semibold w-[100px]">
+                      <TableHead key={index} className="text-right font-semibold w-[90px]">
                         {editingMargin?.index === index ? (
                           <Input
                             type="number"
@@ -381,7 +381,7 @@ export default function Home() {
                         )}
                       </TableHead>
                     ))}
-                    <TableHead className="text-left px-1 w-[50px]">
+                    <TableHead className="text-left px-1 w-[40px]">
                       <Popover onOpenChange={(open) => !open && setNewMargin('')}>
                         <PopoverTrigger asChild>
                           <Button variant="ghost" size="icon"><PlusCircle className="h-5 w-5" /></Button>
@@ -398,7 +398,7 @@ export default function Home() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="text-right font-semibold w-[80px]">İşlemler</TableHead>
+                    <TableHead className="text-right font-semibold w-[60px]">İşlemler</TableHead>
                   </TableRow>
                 </TableHeader>
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
