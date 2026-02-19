@@ -182,6 +182,7 @@ export default function Home() {
   
   const [commissionRate, setCommissionRate] = useState(15);
   const [commissionInput, setCommissionInput] = useState('15');
+  const [isCommissionPopoverOpen, setCommissionPopoverOpen] = useState(false);
 
   // Data Fetching and Saving
   useEffect(() => {
@@ -302,12 +303,20 @@ export default function Home() {
     setCategories(prev => prev.filter(c => c.id !== id));
   }
   
-    const handleSetCommission = () => {
-        const rate = parseFloat(commissionInput);
-        if (!isNaN(rate) && rate >= 0 && rate < 100) {
-            setCommissionRate(rate);
-        }
-    };
+  const handleSetCommission = () => {
+    const rate = parseFloat(commissionInput);
+    if (!isNaN(rate) && rate >= 0 && rate < 100) {
+      setCommissionRate(rate);
+      setCommissionPopoverOpen(false);
+    }
+  };
+
+  const handleCommissionPopoverOpenChange = (open: boolean) => {
+    if (open) {
+      setCommissionInput(String(commissionRate));
+    }
+    setCommissionPopoverOpen(open);
+  };
     
   const productsByCategory = useMemo(() => {
     const sorted = [...products].sort((a, b) => a.order - b.order);
@@ -386,32 +395,35 @@ export default function Home() {
                     Ürünlerinizi sürükleyip bırakarak sıralayın, maliyetleri ve kâr marjlarını anında analiz edin.
                     </CardDescription>
                 </div>
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline">
-                            <Percent className="mr-2 h-4 w-4" /> Komisyon Ayarla
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64 p-4">
-                        <div className="grid gap-3">
-                            <div className="space-y-1">
-                                <h4 className="font-medium leading-none">Komisyon Oranı</h4>
-                                <p className="text-sm text-muted-foreground">Online satış komisyonunu (%) girin.</p>
+                 <div className="text-right">
+                    <Popover open={isCommissionPopoverOpen} onOpenChange={handleCommissionPopoverOpenChange}>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline">
+                                <Percent className="mr-2 h-4 w-4" /> Komisyon Ayarla
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-4">
+                            <div className="grid gap-3">
+                                <div className="space-y-1">
+                                    <h4 className="font-medium leading-none">Komisyon Oranı</h4>
+                                    <p className="text-sm text-muted-foreground">Online satış komisyonunu (%) girin.</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Input 
+                                        type="number" 
+                                        placeholder="Örn: 15" 
+                                        value={commissionInput} 
+                                        onChange={(e) => setCommissionInput(e.target.value)} 
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleSetCommission(); }}
+                                    />
+                                    <span className="font-semibold">%</span>
+                                </div>
+                                <Button onClick={handleSetCommission}>Ayarla</Button>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Input 
-                                    type="number" 
-                                    placeholder="Örn: 15" 
-                                    value={commissionInput} 
-                                    onChange={(e) => setCommissionInput(e.target.value)} 
-                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSetCommission(); }}
-                                />
-                                <span className="font-semibold">%</span>
-                            </div>
-                            <Button onClick={handleSetCommission}>Ayarla</Button>
-                        </div>
-                    </PopoverContent>
-                </Popover>
+                        </PopoverContent>
+                    </Popover>
+                    <p className="text-sm text-muted-foreground mt-1">Mevcut Oran: %{commissionRate}</p>
+                </div>
             </div>
           </CardHeader>
           <CardContent>
