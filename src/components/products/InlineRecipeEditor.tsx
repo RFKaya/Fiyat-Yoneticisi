@@ -108,9 +108,29 @@ export default function InlineRecipeEditor({ product, ingredients, onSave, updat
                 const recipeItem = currentRecipe.find(item => item.ingredientId === ingredient.id);
                 const quantity = recipeItem?.quantity || 0;
                 
-                const pricePerPurchaseUnit = ingredient.purchasePrice / ingredient.purchaseQty;
-                const costPerRecipeUnit = pricePerPurchaseUnit / ingredient.recipeUnitsPerPurchaseUnit;
-                const itemCost = costPerRecipeUnit * quantity;
+                let costPerUnit = 0;
+                let recipeUnitLabel = '';
+
+                switch (ingredient.unit) {
+                    case 'kg':
+                        costPerUnit = ingredient.price / 1000;
+                        recipeUnitLabel = 'gram';
+                        break;
+                    case 'gram':
+                        costPerUnit = ingredient.price;
+                        recipeUnitLabel = 'gram';
+                        break;
+                    case 'adet':
+                        costPerUnit = ingredient.price;
+                        recipeUnitLabel = 'adet';
+                        break;
+                    case 'TL':
+                        costPerUnit = ingredient.price;
+                        recipeUnitLabel = 'TL';
+                        break;
+                }
+
+                const itemCost = costPerUnit * quantity;
 
                 return (
                   <TableRow key={ingredient.id}>
@@ -124,11 +144,11 @@ export default function InlineRecipeEditor({ product, ingredients, onSave, updat
                             value={quantity || ''}
                             onChange={(e) => handleQuantityChange(ingredient.id, e.target.value)}
                           />
-                          <span className="text-xs text-muted-foreground w-12 text-left">{ingredient.recipeUnit}</span>
+                          <span className="text-xs text-muted-foreground w-12 text-left">{recipeUnitLabel}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right text-sm">
-                        {formatCurrency(costPerRecipeUnit)} / {ingredient.recipeUnit}
+                        {formatCurrency(costPerUnit)} / {recipeUnitLabel}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                         {formatCurrency(itemCost)}

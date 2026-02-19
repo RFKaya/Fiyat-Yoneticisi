@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Trash2, Edit } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,11 +18,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'Malzeme adı zorunludur.' }),
-  purchasePrice: z.coerce.number().positive({ message: 'Fiyat pozitif bir sayı olmalıdır.' }),
-  purchaseQty: z.coerce.number().positive({ message: 'Miktar pozitif bir sayı olmalıdır.' }),
-  purchaseUnit: z.string().min(1, { message: 'Alış birimi zorunludur.'}),
-  recipeUnit: z.string().min(1, { message: 'Reçete birimi zorunludur.'}),
-  recipeUnitsPerPurchaseUnit: z.coerce.number().positive({ message: 'Dönüşüm faktörü pozitif bir sayı olmalıdır.' }),
+  price: z.coerce.number().min(0, { message: 'Fiyat pozitif bir sayı olmalıdır.' }),
+  unit: z.enum(['kg', 'gram', 'adet', 'TL'], { required_error: 'Birim seçimi zorunludur.'}),
 });
 
 function IngredientForm({
@@ -37,11 +35,8 @@ function IngredientForm({
     resolver: zodResolver(formSchema),
     defaultValues: initialData || {
       name: '',
-      purchasePrice: '' as any,
-      purchaseQty: 1,
-      purchaseUnit: '',
-      recipeUnit: '',
-      recipeUnitsPerPurchaseUnit: '' as any,
+      price: '' as any,
+      unit: undefined,
     },
   });
 
@@ -60,56 +55,43 @@ function IngredientForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Malzeme Adı</FormLabel>
-              <FormControl><Input placeholder="Örn: Lavaş" {...field} /></FormControl>
+              <FormControl><Input placeholder="Örn: Çiğ Köfte" {...field} /></FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <FormField control={form.control} name="purchasePrice" render={({ field }) => (
-            <FormItem>
-              <FormLabel>Alış Fiyatı (₺)</FormLabel>
-              <FormControl><Input type="number" placeholder="100" {...field} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )}/>
-          <FormField control={form.control} name="purchaseQty" render={({ field }) => (
-            <FormItem>
-              <FormLabel>Alış Miktarı</FormLabel>
-              <FormControl><Input type="number" placeholder="1" {...field} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )}/>
-          <FormField control={form.control} name="purchaseUnit" render={({ field }) => (
-            <FormItem>
-              <FormLabel>Alış Birimi</FormLabel>
-              <FormControl><Input placeholder="Paket, Kg, Kasa" {...field} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )}/>
-        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-           <FormField control={form.control} name="recipeUnit" render={({ field }) => (
+          <FormField control={form.control} name="price" render={({ field }) => (
             <FormItem>
-              <FormLabel>Reçete Birimi</FormLabel>
-              <FormControl><Input placeholder="Adet, Gram, Yaprak" {...field} /></FormControl>
+              <FormLabel>Birim Fiyatı (₺)</FormLabel>
+              <FormControl><Input type="number" placeholder="120" {...field} /></FormControl>
               <FormMessage />
             </FormItem>
           )}/>
-          <FormField control={form.control} name="recipeUnitsPerPurchaseUnit" render={({ field }) => (
+          <FormField control={form.control} name="unit" render={({ field }) => (
             <FormItem>
-              <FormLabel>Dönüşüm Oranı</FormLabel>
-              <FormControl><Input type="number" placeholder="50" {...field} /></FormControl>
+              <FormLabel>Birim</FormLabel>
+               <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Birim seçin" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="kg">kg</SelectItem>
+                  <SelectItem value="gram">gram</SelectItem>
+                  <SelectItem value="adet">adet</SelectItem>
+                  <SelectItem value="TL">TL</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}/>
         </div>
          <DialogDescription className="text-xs pt-2">
-            <b>Örnek:</b> 50'li bir lavaş paketini 100₺'ye alıyorsanız girmeniz gerekenler:
+            <b>Örnek:</b> 1 kg çiğ köfteyi 120₺'ye alıyorsanız: Fiyat: 120, Birim: kg. Sistem reçetede maliyeti gramaj üzerinden otomatik hesaplar.
             <br />
-            Alış Fiyatı: 100, Alış Miktarı: 1, Alış Birimi: Paket, Reçete Birimi: Adet, Dönüşüm Oranı: 50.
-            <br />
-            Böylece sistem 1 adet lavaşın maliyetini 2₺ olarak hesaplar.
+            50'li bir lavaş paketi 90₺ ise, 1 adet lavaşın fiyatı 1.8₺'dir. Fiyat: 1.8, Birim: adet.
         </DialogDescription>
         <Button type="submit" className="w-full">
           <PlusCircle className="mr-2 h-4 w-4" /> Malzemeyi Kaydet
@@ -233,26 +215,19 @@ export default function MaterialsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="font-semibold">Malzeme Adı</TableHead>
-                    <TableHead className="font-semibold">Birim Maliyet</TableHead>
-                    <TableHead className="font-semibold">Alış Bilgisi</TableHead>
+                    <TableHead className="font-semibold">Birim Fiyatı</TableHead>
                     <TableHead className="text-right font-semibold">İşlemler</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {ingredients.length > 0 ? (
                     ingredients.map((ingredient) => {
-                      const pricePerPurchaseUnit = ingredient.purchasePrice / ingredient.purchaseQty;
-                      const costPerRecipeUnit = pricePerPurchaseUnit / ingredient.recipeUnitsPerPurchaseUnit;
-
                       return (
                         <TableRow key={ingredient.id}>
                           <TableCell className="font-medium">{ingredient.name}</TableCell>
                            <TableCell>
-                            {formatCurrency(costPerRecipeUnit)} / {ingredient.recipeUnit}
+                            {formatCurrency(ingredient.price)} / {ingredient.unit}
                            </TableCell>
-                          <TableCell>
-                            {ingredient.purchaseQty} {ingredient.purchaseUnit} @ {formatCurrency(ingredient.purchasePrice)}
-                          </TableCell>
                           <TableCell className="text-right">
                              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-primary" onClick={() => handleOpenForm(ingredient)}>
                                 <Edit className="h-4 w-4" />
