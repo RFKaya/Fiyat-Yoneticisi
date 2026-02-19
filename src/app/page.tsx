@@ -116,7 +116,7 @@ function SortableProductRow({
         <Input type="number" value={product.onlinePrice || ''} onChange={(e) => updateProduct(product.id, 'onlinePrice', e.target.value)} className="text-left" placeholder="0.00" />
         {product.onlinePrice > 0 && commissionRate > 0 && (
             <div className="text-xs text-muted-foreground text-center pt-0.5 whitespace-nowrap">
-                ({formatCurrency(priceAfterCommission)} kalır)
+                ({formatCurrency(priceAfterCommission)} hesaba geçer)
             </div>
         )}
       </TableCell>
