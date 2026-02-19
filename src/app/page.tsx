@@ -72,21 +72,22 @@ function SortableProductRow({
     transition,
     isDragging,
   } = useSortable({ id: product.id });
+  
+  const hasRecipe = product.recipe && product.recipe.length > 0;
+  const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
+  const category = categories.find(c => c.id === product.categoryId);
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.8 : 1,
     zIndex: isDragging ? 10 : 'auto',
+    backgroundColor: category ? `${category.color}33` : undefined,
   };
-  
-  const hasRecipe = product.recipe && product.recipe.length > 0;
-  const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
-  const category = categories.find(c => c.id === product.categoryId);
 
   return (
     <TableRow ref={setNodeRef} style={style} key={product.id} className={isExpanded ? 'border-b-0' : ''}>
-      <TableCell className="w-[340px]">
+      <TableCell className="w-[340px] px-4 py-1">
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...attributes} {...listeners}>
             <GripVertical className="h-5 w-5 text-muted-foreground" />
@@ -104,21 +105,21 @@ function SortableProductRow({
           <Input value={product.name} onChange={(e) => updateProduct(product.id, 'name', e.target.value)} className="font-medium border-0 bg-transparent focus-visible:ring-1 focus-visible:bg-card flex-grow" placeholder="Yeni Ürün Adı" />
         </div>
       </TableCell>
-      <TableCell className="text-left font-medium w-[90px]">{formatCurrency(cost)}</TableCell>
-      <TableCell className="w-[100px]">
+      <TableCell className="text-left font-medium w-[90px] px-4 py-1">{formatCurrency(cost)}</TableCell>
+      <TableCell className="w-[100px] px-4 py-1">
         <Input type="number" value={product.storePrice || ''} onChange={(e) => updateProduct(product.id, 'storePrice', e.target.value)} className="text-left" placeholder="0.00" />
       </TableCell>
-      <TableCell className="w-[100px]">
+      <TableCell className="w-[100px] px-4 py-1">
         <Input type="number" value={product.onlinePrice || ''} onChange={(e) => updateProduct(product.id, 'onlinePrice', e.target.value)} className="text-left" placeholder="0.00" />
       </TableCell>
       {margins.map((margin) => {
         const sellingPrice = cost * (1 + margin / 100);
         return (
-          <TableCell key={margin} className="text-right w-[90px]">{formatCurrency(sellingPrice)}</TableCell>
+          <TableCell key={margin} className="text-right w-[90px] px-4 py-1">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
-      <TableCell className="w-[40px]" />
-      <TableCell className="text-right w-[60px]">
+      <TableCell className="w-[40px] px-1 py-1" />
+      <TableCell className="text-right w-[60px] px-4 py-1">
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -242,7 +243,14 @@ export default function Home() {
   };
 
   const updateProductRecipe = (productId: string, newRecipe: RecipeItem[]) => {
-    setProducts(prev => prev.map(p => p.id === productId ? { ...p, recipe: newRecipe } : p));
+    setProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        // If a recipe is added, clear manualCost. If recipe is cleared, user can set manualCost.
+        const manualCost = newRecipe.length > 0 ? 0 : p.manualCost;
+        return { ...p, recipe: newRecipe, manualCost };
+      }
+      return p;
+    }));
   }
 
   const handleAddMargin = () => {
@@ -407,12 +415,12 @@ export default function Home() {
                 <Table className="table-fixed min-w-[1200px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="font-semibold w-[340px]">Ürün</TableHead>
-                      <TableHead className="text-left font-semibold w-[90px]">Maliyet</TableHead>
-                      <TableHead className="text-left font-semibold w-[100px]">Mağaza Fiyatı</TableHead>
-                      <TableHead className="text-left font-semibold w-[100px]">Online Fiyat</TableHead>
+                      <TableHead className="font-semibold w-[340px] px-4 py-3">Ürün</TableHead>
+                      <TableHead className="text-left font-semibold w-[90px] px-4 py-3">Maliyet</TableHead>
+                      <TableHead className="text-left font-semibold w-[100px] px-4 py-3">Mağaza Fiyatı</TableHead>
+                      <TableHead className="text-left font-semibold w-[100px] px-4 py-3">Online Fiyat</TableHead>
                       {margins.map((margin, index) => (
-                        <TableHead key={index} className="text-right font-semibold w-[90px]">
+                        <TableHead key={index} className="text-right font-semibold w-[90px] px-4 py-3">
                           {editingMargin?.index === index ? (
                             <Input
                               type="number"
@@ -460,7 +468,7 @@ export default function Home() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="text-right font-semibold w-[60px]">İşlemler</TableHead>
+                      <TableHead className="text-right font-semibold w-[60px] px-4 py-3">İşlemler</TableHead>
                     </TableRow>
                   </TableHeader>
                   <SortableContext items={productIds} strategy={verticalListSortingStrategy}>
@@ -469,7 +477,7 @@ export default function Home() {
                         productsByCategory.map(({ category, products: productGroup }) => (
                           <React.Fragment key={category?.id || 'uncategorized'}>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
-                              <TableCell colSpan={margins.length + 6} className="py-2">
+                              <TableCell colSpan={margins.length + 6} className="py-1 px-4">
                                 <div className="flex items-center gap-2">
                                   {category && <div className="h-3 w-3 rounded-full shrink-0" style={{backgroundColor: category.color}} />}
                                   <span className="font-semibold text-sm">{category?.name || 'Kategorisiz'}</span>
@@ -489,8 +497,8 @@ export default function Home() {
                                   onToggleExpand={() => toggleProductExpansion(product.id)}
                                 />
                                 {expandedProductIds.includes(product.id) && (
-                                  <TableRow>
-                                      <TableCell colSpan={margins.length + 6} className="p-0 bg-muted/20">
+                                  <TableRow className="bg-card hover:bg-card">
+                                      <TableCell colSpan={margins.length + 6} className="p-0">
                                           <InlineRecipeEditor
                                               product={product}
                                               ingredients={ingredients}
@@ -506,7 +514,7 @@ export default function Home() {
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={margins.length + 6} className="h-24 text-center text-muted-foreground">
+                          <TableCell colSpan={margins.length + 6} className="h-20 text-center text-muted-foreground">
                             Başlamak için bir ürün ekleyin.
                           </TableCell>
                         </TableRow>
