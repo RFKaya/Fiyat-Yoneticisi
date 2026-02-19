@@ -193,6 +193,8 @@ export default function Home() {
         setIngredients(data.ingredients || []);
         setMargins(data.margins || []);
         setCategories(data.categories || []);
+        setCommissionRate(data.commissionRate ?? 15);
+        setCommissionInput(String(data.commissionRate ?? 15));
         setIsLoading(false);
       })
       .catch((error) => {
@@ -213,10 +215,10 @@ export default function Home() {
       fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products, ingredients, margins, categories }),
+        body: JSON.stringify({ products, ingredients, margins, categories, commissionRate }),
       }).catch(error => console.error('Failed to save data:', error));
     }
-  }, [products, ingredients, margins, categories, isLoading]);
+  }, [products, ingredients, margins, categories, commissionRate, isLoading]);
 
   const toggleProductExpansion = (productId: string) => {
     setExpandedProductIds(prev => 

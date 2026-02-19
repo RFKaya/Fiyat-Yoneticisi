@@ -106,6 +106,7 @@ type AppData = {
   ingredients: Ingredient[];
   categories: Category[];
   margins: number[];
+  commissionRate: number;
 };
 
 const formatCurrency = (amount: number) => {
@@ -119,7 +120,7 @@ const formatCurrency = (amount: number) => {
   };
 
 export default function MaterialsPage() {
-  const [appData, setAppData] = useState<AppData>({ products: [], ingredients: [], categories: [], margins: [] });
+  const [appData, setAppData] = useState<AppData>({ products: [], ingredients: [], categories: [], margins: [], commissionRate: 15 });
   const [isFormOpen, setFormOpen] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState<Ingredient | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
