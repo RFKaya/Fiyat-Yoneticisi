@@ -32,11 +32,11 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, ChevronDown, ChevronUp } from 'lucide-react';
+import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, ChevronDown, ChevronUp, Percent } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const formatCurrency = (amount: number) => {
-  if (isNaN(amount)) return '';
+  if (isNaN(amount) || !isFinite(amount)) return '';
   return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
     currency: 'TRY',
@@ -50,6 +50,7 @@ function SortableProductRow({
     ingredients, 
     margins, 
     categories,
+    commissionRate,
     updateProduct, 
     deleteProduct,
     isExpanded,
@@ -59,6 +60,7 @@ function SortableProductRow({
   ingredients: Ingredient[],
   margins: number[],
   categories: Category[],
+  commissionRate: number,
   updateProduct: (id: string, field: keyof Product, value: any) => void,
   deleteProduct: (id: string) => void,
   isExpanded: boolean,
@@ -76,6 +78,7 @@ function SortableProductRow({
   const hasRecipe = product.recipe && product.recipe.length > 0;
   const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
   const category = categories.find(c => c.id === product.categoryId);
+  const priceAfterCommission = product.onlinePrice * (1 - (commissionRate / 100));
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -109,8 +112,13 @@ function SortableProductRow({
       <TableCell className="w-[100px] px-4 py-1">
         <Input type="number" value={product.storePrice || ''} onChange={(e) => updateProduct(product.id, 'storePrice', e.target.value)} className="text-left" placeholder="0.00" />
       </TableCell>
-      <TableCell className="w-[100px] px-4 py-1">
+      <TableCell className="w-[100px] px-4 py-1 align-top">
         <Input type="number" value={product.onlinePrice || ''} onChange={(e) => updateProduct(product.id, 'onlinePrice', e.target.value)} className="text-left" placeholder="0.00" />
+        {product.onlinePrice > 0 && commissionRate > 0 && (
+            <div className="text-xs text-muted-foreground text-center pt-0.5 whitespace-nowrap">
+                ({formatCurrency(priceAfterCommission)} kalır)
+            </div>
+        )}
       </TableCell>
       {margins.map((margin) => {
         const sellingPrice = cost * (1 + margin / 100);
@@ -172,6 +180,9 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const isInitialMount = React.useRef(true);
   
+  const [commissionRate, setCommissionRate] = useState(15);
+  const [commissionInput, setCommissionInput] = useState('15');
+
   // Data Fetching and Saving
   useEffect(() => {
     fetch('/api/data')
@@ -291,6 +302,13 @@ export default function Home() {
     setCategories(prev => prev.filter(c => c.id !== id));
   }
   
+    const handleSetCommission = () => {
+        const rate = parseFloat(commissionInput);
+        if (!isNaN(rate) && rate >= 0 && rate < 100) {
+            setCommissionRate(rate);
+        }
+    };
+    
   const productsByCategory = useMemo(() => {
     const sorted = [...products].sort((a, b) => a.order - b.order);
     const grouped: { category?: Category, products: Product[] }[] = [];
@@ -361,10 +379,40 @@ export default function Home() {
       <main className="flex-grow container mx-auto p-4 md:p-8">
         <Card>
           <CardHeader>
-            <CardTitle>Ürün ve Kâr Analizi</CardTitle>
-            <CardDescription>
-              Ürünlerinizi sürükleyip bırakarak sıralayın, maliyetleri ve kâr marjlarını anında analiz edin.
-            </CardDescription>
+            <div className="flex justify-between items-start">
+                <div>
+                    <CardTitle>Ürün ve Kâr Analizi</CardTitle>
+                    <CardDescription>
+                    Ürünlerinizi sürükleyip bırakarak sıralayın, maliyetleri ve kâr marjlarını anında analiz edin.
+                    </CardDescription>
+                </div>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline">
+                            <Percent className="mr-2 h-4 w-4" /> Komisyon Ayarla
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-4">
+                        <div className="grid gap-3">
+                            <div className="space-y-1">
+                                <h4 className="font-medium leading-none">Komisyon Oranı</h4>
+                                <p className="text-sm text-muted-foreground">Online satış komisyonunu (%) girin.</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Input 
+                                    type="number" 
+                                    placeholder="Örn: 15" 
+                                    value={commissionInput} 
+                                    onChange={(e) => setCommissionInput(e.target.value)} 
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSetCommission(); }}
+                                />
+                                <span className="font-semibold">%</span>
+                            </div>
+                            <Button onClick={handleSetCommission}>Ayarla</Button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="mb-4">
@@ -491,6 +539,7 @@ export default function Home() {
                                   ingredients={ingredients}
                                   margins={margins}
                                   categories={categories}
+                                  commissionRate={commissionRate}
                                   updateProduct={updateProduct}
                                   deleteProduct={deleteProduct}
                                   isExpanded={expandedProductIds.includes(product.id)}
