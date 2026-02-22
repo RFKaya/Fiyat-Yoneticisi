@@ -20,6 +20,11 @@ export type Ingredient = {
   order: number;
 };
 
+export type Margin = {
+  id: string;
+  value: number;
+  type: 'store' | 'online';
+};
 
 export type Product = {
   id:string;
