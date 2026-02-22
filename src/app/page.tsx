@@ -170,7 +170,7 @@ function SortableProductRow({
   const netStoreAmount = product.storePrice / (1 + kdvRate / 100) * (1 - bankCommissionRate / 100);
   const showNetStoreAmount = product.storePrice > 0;
 
-  const netOnlineAmount = product.onlinePrice / (1 + kdvRate / 100) * (1 - platformCommissionRate / 100);
+  const netOnlineAmount = product.onlinePrice * (1 - platformCommissionRate / 100);
   const showNetOnlineAmount = product.onlinePrice > 0;
 
 
@@ -223,7 +223,7 @@ function SortableProductRow({
                 placeholder="0.00" 
             />
         ) : (
-            <div onClick={() => setEditingField('storePrice')} className="text-left cursor-pointer px-2 h-9 flex items-center rounded-md hover:bg-muted/50">
+            <div onClick={() => setEditingField('storePrice')} className="text-left cursor-pointer px-2 h-8 flex items-center rounded-md hover:bg-muted/50">
                 <div className="flex flex-col justify-center text-left">
                     <div>{formatCurrency(product.storePrice)}</div>
                     {showNetStoreAmount && (
@@ -240,14 +240,12 @@ function SortableProductRow({
          const sellingPrice = (basePrice * (1 + kdvRate / 100)) / (1 - bankCommissionRate / 100);
          
         return (
-          <TableCell key={margin.id} className="text-left w-[90px] px-2 py-1 text-muted-foreground">
+          <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
              {formatCurrency(sellingPrice)}
           </TableCell>
         );
       })}
-      <TableCell className="text-left px-0 w-[30px] py-1">
-          <MarginColumnPopover type="store" onAdd={handleAddMargin} />
-      </TableCell>
+      <TableCell className="text-left px-0 w-[30px] py-1"></TableCell>
       
       <TableCell className="w-8 px-1 py-1" />
 
@@ -263,7 +261,7 @@ function SortableProductRow({
                 placeholder="0.00" 
             />
         ) : (
-             <div onClick={() => setEditingField('onlinePrice')} className="h-9 cursor-pointer rounded-md hover:bg-muted/50 flex items-center justify-start px-2">
+             <div onClick={() => setEditingField('onlinePrice')} className="h-8 cursor-pointer rounded-md hover:bg-muted/50 flex items-center justify-start px-2">
                 <div className="flex flex-col justify-center text-left">
                     <div>{formatCurrency(product.onlinePrice)}</div>
                     {showNetOnlineAmount && (
@@ -280,14 +278,12 @@ function SortableProductRow({
         const basePrice = cost * (1 + margin.value / 100);
         const sellingPrice = (basePrice * (1 + kdvRate / 100)) / (1 - platformCommissionRate / 100);
         return (
-          <TableCell key={margin.id} className="text-left w-[90px] px-2 py-1 text-muted-foreground">
+          <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
               {formatCurrency(sellingPrice)}
           </TableCell>
         );
       })}
-      <TableCell className="text-left px-0 w-[30px] py-1">
-          <MarginColumnPopover type="online" onAdd={handleAddMargin} />
-      </TableCell>
+      <TableCell className="text-left px-0 w-[30px] py-1"></TableCell>
 
       <TableCell className="text-right w-[60px] px-4 py-1">
         <DropdownMenu>
@@ -732,25 +728,35 @@ export default function Home() {
                     <TableRow>
                       <TableHead className="font-semibold w-[340px] px-4 py-1">Ürün</TableHead>
                       <TableHead className="text-left font-semibold w-[120px] px-4 py-1">Maliyet</TableHead>
-                      <TableHead className="text-left font-semibold w-[140px] px-4 py-2 align-top">Mağaza Fiyatı</TableHead>
+                      <TableHead className="text-left font-semibold w-[140px] px-4 py-2 align-top">
+                        <div>Mağaza Fiyatı</div>
+                        <div className="text-xs font-normal text-muted-foreground">Net Kazanç: KDV & Banka Kom. Düşülmüş</div>
+                      </TableHead>
                       {storeMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-2 py-1 align-top">
+                        <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-1 align-top">
                            <div>%{margin.value} Kar</div>
                            <div className="text-xs font-normal text-muted-foreground">KDV ve Banka Kom.</div>
                         </TableHead>
                       ))}
-                      <TableHead className="text-left px-0 w-[30px] py-1" />
+                      <TableHead className="text-left px-0 w-[30px] py-1">
+                          <MarginColumnPopover type="store" onAdd={handleAddMargin} />
+                      </TableHead>
                       
                       <TableHead className="w-8 px-1 py-1" />
 
-                      <TableHead className="text-left font-semibold w-[140px] px-2 py-2 align-top">Online Fiyat</TableHead>
+                      <TableHead className="text-left font-semibold w-[140px] px-2 py-2 align-top">
+                        <div>Online Fiyat</div>
+                        <div className="text-xs font-normal text-muted-foreground">Net Kazanç: KDV & Platform Kom. Düşülmüş</div>
+                      </TableHead>
                       {onlineMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-2 py-1 align-top">
+                        <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-1 align-top">
                             <div>%{margin.value} Kar</div>
                             <div className="text-xs font-normal text-muted-foreground">KDV ve Platform Kom.</div>
                         </TableHead>
                       ))}
-                      <TableHead className="text-left px-0 w-[30px] py-1" />
+                      <TableHead className="text-left px-0 w-[30px] py-1">
+                          <MarginColumnPopover type="online" onAdd={handleAddMargin} />
+                      </TableHead>
                       
                       <TableHead className="text-right font-semibold w-[60px] px-4 py-1">İşlemler</TableHead>
                     </TableRow>
