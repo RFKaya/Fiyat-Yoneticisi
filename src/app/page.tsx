@@ -34,6 +34,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, ChevronDown, ChevronUp, Percent } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const formatCurrency = (amount: number) => {
   if (isNaN(amount) || !isFinite(amount)) return '';
@@ -51,6 +52,7 @@ function SortableProductRow({
     margins, 
     categories,
     commissionRate,
+    suggestionType,
     updateProduct, 
     deleteProduct,
     isExpanded,
@@ -62,6 +64,7 @@ function SortableProductRow({
   margins: number[],
   categories: Category[],
   commissionRate: number,
+  suggestionType: 'store' | 'online',
   updateProduct: (id: string, field: keyof Product, value: any) => void,
   deleteProduct: (id: string) => void,
   isExpanded: boolean,
@@ -129,12 +132,12 @@ function SortableProductRow({
         </div>
       </TableCell>
       <TableCell className="text-left font-medium w-[120px] px-4 py-1">
-        <div className="flex items-center justify-between">
-            <span>{formatCurrency(cost)}</span>
+        <div className="flex items-center justify-start">
+            <span className="text-muted-foreground">{formatCurrency(cost)}</span>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleExpand}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={onToggleExpand}>
                         {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                     </Button>
                 </TooltipTrigger>
@@ -160,7 +163,7 @@ function SortableProductRow({
             </div>
         )}
       </TableCell>
-      <TableCell className="w-[100px] px-4 py-1 align-top">
+      <TableCell className="w-[140px] px-4 py-1 align-top">
          {editingField === 'onlinePrice' ? (
             <Input 
                 type="number" 
@@ -183,9 +186,11 @@ function SortableProductRow({
         )}
       </TableCell>
       {margins.map((margin) => {
-        const sellingPrice = cost * (1 + margin / 100);
+         const sellingPrice = suggestionType === 'store'
+            ? cost * (1 + margin / 100)
+            : (cost * (1 + margin / 100)) / (1 - commissionRate / 100);
         return (
-          <TableCell key={margin} className="text-right w-[90px] px-4 py-1">{formatCurrency(sellingPrice)}</TableCell>
+          <TableCell key={margin} className="text-right w-[140px] px-4 py-1">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
       <TableCell className="w-[40px] px-1 py-1" />
@@ -245,6 +250,8 @@ export default function Home() {
   const [commissionRate, setCommissionRate] = useState(15);
   const [commissionInput, setCommissionInput] = useState('15');
   const [isCommissionPopoverOpen, setCommissionPopoverOpen] = useState(false);
+
+  const [suggestionType, setSuggestionType] = useState<'store' | 'online'>('store');
 
   // Data Fetching and Saving
   useEffect(() => {
@@ -502,7 +509,13 @@ export default function Home() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="mb-4">
+            <div className="flex justify-between items-center mb-4">
+               <Tabs value={suggestionType} onValueChange={(value) => setSuggestionType(value as 'store' | 'online')} className="w-auto">
+                <TabsList>
+                    <TabsTrigger value="store">Mağaza Fiyatı Önerileri</TabsTrigger>
+                    <TabsTrigger value="online">Online Fiyat Önerileri</TabsTrigger>
+                </TabsList>
+              </Tabs>
               <Dialog open={isCategoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline"><Tags className="mr-2 h-4 w-4" /> Kategorileri Yönet</Button>
@@ -553,9 +566,9 @@ export default function Home() {
                       <TableHead className="font-semibold w-[340px] px-4 py-3">Ürün</TableHead>
                       <TableHead className="text-left font-semibold w-[120px] px-4 py-3">Maliyet</TableHead>
                       <TableHead className="text-left font-semibold w-[100px] px-4 py-3">Mağaza Fiyatı</TableHead>
-                      <TableHead className="text-left font-semibold w-[100px] px-4 py-3">Online Fiyat</TableHead>
+                      <TableHead className="text-left font-semibold w-[140px] px-4 py-3">Online Fiyat</TableHead>
                       {margins.map((margin, index) => (
-                        <TableHead key={index} className="text-right font-semibold w-[90px] px-4 py-3">
+                        <TableHead key={index} className="text-right font-semibold w-[140px] px-4 py-3">
                           {editingMargin?.index === index ? (
                             <Input
                               type="number"
@@ -571,7 +584,12 @@ export default function Home() {
                             />
                           ) : (
                             <div className="flex items-center justify-end gap-1 cursor-pointer group" onClick={() => setEditingMargin({ index, value: String(margin) })}>
-                              %{margin}
+                              <span>
+                                {suggestionType === 'store'
+                                  ? `%${margin} Kar`
+                                  : `(%${margin} Kar + %${commissionRate})`
+                                }
+                              </span>
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -627,6 +645,7 @@ export default function Home() {
                                   margins={margins}
                                   categories={categories}
                                   commissionRate={commissionRate}
+                                  suggestionType={suggestionType}
                                   updateProduct={updateProduct}
                                   deleteProduct={deleteProduct}
                                   isExpanded={expandedProductIds.includes(product.id)}
