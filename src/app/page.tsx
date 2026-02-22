@@ -166,8 +166,7 @@ function SortableProductRow({
     }
   };
   
-  // Calculate net amounts for display
-  const netStoreAmount = product.storePrice / (1 + kdvRate / 100) * (1 - bankCommissionRate / 100);
+  const netStoreAmount = product.storePrice * (1 - bankCommissionRate / 100);
   const showNetStoreAmount = product.storePrice > 0;
 
   const netOnlineAmount = product.onlinePrice * (1 - platformCommissionRate / 100);
@@ -730,12 +729,15 @@ export default function Home() {
                       <TableHead className="text-left font-semibold w-[120px] px-4 py-1">Maliyet</TableHead>
                       <TableHead className="text-left font-semibold w-[140px] px-4 py-2 align-top">
                         <div>Mağaza Fiyatı</div>
-                        <div className="text-xs font-normal text-muted-foreground">Net Kazanç: KDV & Banka Kom. Düşülmüş</div>
+                        <div className="text-xs font-normal text-muted-foreground">
+                            <div>%{kdvRate} KDV</div>
+                            <div>%{bankCommissionRate} Banka Kom.</div>
+                        </div>
                       </TableHead>
                       {storeMargins.map((margin) => (
                         <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-1 align-top">
                            <div>%{margin.value} Kar</div>
-                           <div className="text-xs font-normal text-muted-foreground">KDV ve Banka Kom.</div>
+                           <div className="text-xs font-normal text-muted-foreground">KDV & Banka Kom. dahil</div>
                         </TableHead>
                       ))}
                       <TableHead className="text-left px-0 w-[30px] py-1">
@@ -746,12 +748,15 @@ export default function Home() {
 
                       <TableHead className="text-left font-semibold w-[140px] px-2 py-2 align-top">
                         <div>Online Fiyat</div>
-                        <div className="text-xs font-normal text-muted-foreground">Net Kazanç: KDV & Platform Kom. Düşülmüş</div>
+                        <div className="text-xs font-normal text-muted-foreground">
+                           <div>%{kdvRate} KDV</div>
+                           <div>%{platformCommissionRate} Platform Kom.</div>
+                        </div>
                       </TableHead>
                       {onlineMargins.map((margin) => (
                         <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-1 align-top">
                             <div>%{margin.value} Kar</div>
-                            <div className="text-xs font-normal text-muted-foreground">KDV ve Platform Kom.</div>
+                            <div className="text-xs font-normal text-muted-foreground">KDV & Platform Kom. dahil</div>
                         </TableHead>
                       ))}
                       <TableHead className="text-left px-0 w-[30px] py-1">
