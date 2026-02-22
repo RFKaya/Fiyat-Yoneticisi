@@ -45,6 +45,9 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
   
   const [ingredientToEdit, setIngredientToEdit] = useState<Ingredient | null>(null);
   const [newPriceInput, setNewPriceInput] = useState('');
+  
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [priceUpdatePayload, setPriceUpdatePayload] = useState<{ingredientId: string, newPrice: number} | null>(null);
 
   const handleOpenEditPriceDialog = (ingredient: Ingredient) => {
     setIngredientToEdit(ingredient);
@@ -54,6 +57,8 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
   const handleCloseEditPriceDialog = () => {
     setIngredientToEdit(null);
     setNewPriceInput('');
+    setPriceUpdatePayload(null);
+    setIsConfirming(false);
   }
 
   const handleQuantityChange = (ingredientId: string, quantityStr: string) => {
@@ -137,7 +142,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
             </>
         )}
 
-        <ScrollArea className="h-auto max-h-72 border rounded-md">
+        <ScrollArea className="h-auto border rounded-md">
             <Table>
             <TableHeader>
                 <TableRow>
@@ -197,12 +202,6 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                         </TableRow>
                         )
                     })
-                ) : !isRecipeEmpty ? (
-                     <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                          Bu ürüne ait reçete bulundu ancak malzemeler yüklenemedi.
-                        </TableCell>
-                    </TableRow>
                 ) : (
                     <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
@@ -244,11 +243,9 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
             </PopoverContent>
           </Popover>
 
-            {!isRecipeEmpty && (
-                <div className="text-right">
-                    <span className="text-sm font-semibold">Toplam Reçete Maliyeti: {formatCurrency(totalCost)}</span>
-                </div>
-            )}
+            <div className="text-right">
+                <span className="text-sm font-semibold">Toplam Reçete Maliyeti: {formatCurrency(totalCost)}</span>
+            </div>
         </div>
 
         <Dialog open={!!ingredientToEdit} onOpenChange={(open) => !open && handleCloseEditPriceDialog()}>
