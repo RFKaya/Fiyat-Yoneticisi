@@ -54,7 +54,8 @@ function SortableProductRow({
     updateProduct, 
     deleteProduct,
     isExpanded,
-    onToggleExpand
+    onToggleExpand,
+    updateIngredientPrice,
   }: {
   product: Product,
   ingredients: Ingredient[],
@@ -65,6 +66,7 @@ function SortableProductRow({
   deleteProduct: (id: string) => void,
   isExpanded: boolean,
   onToggleExpand: () => void,
+  updateIngredientPrice: (ingredientId: string, newPrice: number) => void;
 }) {
   const {
     attributes,
@@ -266,6 +268,14 @@ export default function Home() {
       return p;
     }));
   }
+
+  const updateIngredientPrice = (ingredientId: string, newPrice: number) => {
+    setIngredients(prevIngredients =>
+        prevIngredients.map(ing =>
+            ing.id === ingredientId ? { ...ing, price: newPrice } : ing
+        )
+    );
+  };
 
   const handleAddMargin = () => {
     const marginValue = parseFloat(newMargin);
@@ -558,6 +568,7 @@ export default function Home() {
                                   deleteProduct={deleteProduct}
                                   isExpanded={expandedProductIds.includes(product.id)}
                                   onToggleExpand={() => toggleProductExpansion(product.id)}
+                                  updateIngredientPrice={updateIngredientPrice}
                                 />
                                 {expandedProductIds.includes(product.id) && (
                                   <TableRow className="bg-card hover:bg-card">
@@ -567,6 +578,7 @@ export default function Home() {
                                               ingredients={ingredients}
                                               onSave={(newRecipe) => updateProductRecipe(product.id, newRecipe)}
                                               updateProduct={updateProduct}
+                                              updateIngredientPrice={updateIngredientPrice}
                                           />
                                       </TableCell>
                                   </TableRow>
