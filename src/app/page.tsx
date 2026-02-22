@@ -45,207 +45,6 @@ const formatCurrency = (amount: number) => {
 
 const categoryColors = ['#F87171', '#FBBF24', '#34D399', '#60A5FA', '#A78BFA'];
 
-function SortableProductRow({ 
-    product, 
-    ingredients, 
-    margins, 
-    categories,
-    commissionRate,
-    updateProduct, 
-    deleteProduct,
-    isExpanded,
-    onToggleExpand,
-    updateIngredientPrice,
-    handleAddMargin,
-  }: {
-  product: Product,
-  ingredients: Ingredient[],
-  margins: Margin[],
-  categories: Category[],
-  commissionRate: number,
-  updateProduct: (id: string, field: keyof Product, value: any) => void,
-  deleteProduct: (id: string) => void,
-  isExpanded: boolean,
-  onToggleExpand: () => void,
-  updateIngredientPrice: (ingredientId: string, newPrice: number) => void;
-  handleAddMargin: (type: 'store' | 'online', value: number) => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: product.id });
-  
-  const [editingField, setEditingField] = useState<'name' | 'storePrice' | 'onlinePrice' | null>(null);
-
-  const hasRecipe = product.recipe && product.recipe.length > 0;
-  const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
-  const category = categories.find(c => c.id === product.categoryId);
-  const priceAfterCommission = product.onlinePrice * (1 - (commissionRate / 100));
-
-  const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a,b) => a.value - b.value), [margins]);
-  const onlineMargins = useMemo(() => margins.filter(m => m.type === 'online').sort((a,b) => a.value - b.value), [margins]);
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.8 : 1,
-    zIndex: isDragging ? 10 : 'auto',
-    backgroundColor: category ? `${category.color}33` : undefined,
-  };
-  
-  const handleUpdate = (field: 'name' | 'storePrice' | 'onlinePrice', value: string) => {
-    updateProduct(product.id, field, value);
-    setEditingField(null);
-  };
-  
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.currentTarget.blur();
-    } else if (e.key === 'Escape') {
-      setEditingField(null);
-    }
-  };
-
-
-  return (
-    <TableRow ref={setNodeRef} style={style} key={product.id} className={isExpanded ? 'border-b-0' : ''}>
-      <TableCell className="w-[340px] px-4 py-1">
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...attributes} {...listeners}>
-            <GripVertical className="h-5 w-5 text-muted-foreground" />
-          </Button>
-          {editingField === 'name' ? (
-             <Input 
-                defaultValue={product.name} 
-                onBlur={(e) => handleUpdate('name', e.target.value)}
-                onKeyDown={handleKeyDown}
-                autoFocus
-                className="font-medium border-dashed focus-visible:ring-1 focus-visible:bg-card flex-grow h-8"
-             />
-          ) : (
-             <div onClick={() => setEditingField('name')} className="font-medium flex-grow cursor-pointer truncate px-2 h-8 flex items-center rounded-md hover:bg-muted/50">
-                {product.name || <span className="text-muted-foreground">Yeni Ürün Adı</span>}
-             </div>
-          )}
-        </div>
-      </TableCell>
-      <TableCell className="text-left w-[120px] px-4 py-1">
-        <div className="flex items-center justify-start gap-0">
-            <span className="font-medium text-foreground">{formatCurrency(cost)}</span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={onToggleExpand}>
-                        {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Reçeteyi Göster/Gizle</p></TooltipContent>
-              </Tooltip>
-          </TooltipProvider>
-        </div>
-      </TableCell>
-      <TableCell className="w-[100px] px-4 py-1 text-left">
-        {editingField === 'storePrice' ? (
-            <Input 
-                type="number" 
-                defaultValue={product.storePrice || ''}
-                onBlur={(e) => handleUpdate('storePrice', e.target.value)}
-                onKeyDown={handleKeyDown}
-                autoFocus
-                className="text-left h-8 border-dashed" 
-                placeholder="0.00" 
-            />
-        ) : (
-            <div onClick={() => setEditingField('storePrice')} className="text-left cursor-pointer px-2 h-8 flex items-center rounded-md hover:bg-muted/50">
-                {formatCurrency(product.storePrice)}
-            </div>
-        )}
-      </TableCell>
-      {storeMargins.map((margin) => {
-         const sellingPrice = cost * (1 + margin.value / 100);
-        return (
-          <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
-        );
-      })}
-      <TableCell className="text-left px-0 w-[30px] py-1">
-         <MarginColumnPopover type="store" onAdd={handleAddMargin} />
-      </TableCell>
-      
-      <TableCell className="w-8 px-1 py-1" />
-
-      <TableCell className="w-[120px] px-2 py-1 text-left">
-         {editingField === 'onlinePrice' ? (
-            <Input 
-                type="number" 
-                defaultValue={product.onlinePrice || ''}
-                onBlur={(e) => handleUpdate('onlinePrice', e.target.value)}
-                onKeyDown={handleKeyDown}
-                autoFocus
-                className="text-left h-8 border-dashed" 
-                placeholder="0.00" 
-            />
-        ) : (
-            <div onClick={() => setEditingField('onlinePrice')} className="h-8 cursor-pointer rounded-md hover:bg-muted/50 flex items-center px-2">
-                <div className="flex flex-col justify-center">
-                    <div>{formatCurrency(product.onlinePrice)}</div>
-                    {product.onlinePrice > 0 && commissionRate > 0 && (
-                        <div className="text-xs text-muted-foreground text-left whitespace-nowrap -mt-1 leading-tight">
-                            hesaba geçer {formatCurrency(priceAfterCommission)}
-                        </div>
-                    )}
-                </div>
-            </div>
-        )}
-      </TableCell>
-
-      {onlineMargins.map((margin) => {
-        const sellingPrice = (cost * (1 + margin.value / 100)) / (1 - commissionRate / 100);
-        return (
-          <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
-        );
-      })}
-      <TableCell className="text-left px-0 w-[30px] py-1">
-         <MarginColumnPopover type="online" onAdd={handleAddMargin} />
-      </TableCell>
-
-      <TableCell className="text-right w-[60px] px-4 py-1">
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                    <MoreVertical className="h-4 w-4"/>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>Taşı</DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                        <DropdownMenuSubContent>
-                             <DropdownMenuItem onClick={() => updateProduct(product.id, 'categoryId', undefined)}>
-                                Kategorisiz
-                            </DropdownMenuItem>
-                            {categories.map(cat => (
-                                <DropdownMenuItem key={cat.id} onClick={() => updateProduct(product.id, 'categoryId', cat.id)}>
-                                    {cat.name}
-                                </DropdownMenuItem>
-                            ))}
-                        </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator/>
-                <DropdownMenuItem className="text-destructive" onClick={() => deleteProduct(product.id)}>
-                    <Trash2 className="mr-2 h-4 w-4"/> Ürünü Sil
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-      </TableCell>
-    </TableRow>
-  );
-}
-
 function MarginColumnPopover({
   type,
   onAdd,
@@ -298,6 +97,200 @@ function MarginColumnPopover({
   );
 }
 
+function SortableProductRow({ 
+    product, 
+    ingredients, 
+    margins, 
+    categories,
+    commissionRate,
+    updateProduct, 
+    deleteProduct,
+    isExpanded,
+    onToggleExpand,
+    updateIngredientPrice,
+  }: {
+  product: Product,
+  ingredients: Ingredient[],
+  margins: Margin[],
+  categories: Category[],
+  commissionRate: number,
+  updateProduct: (id: string, field: keyof Product, value: any) => void,
+  deleteProduct: (id: string) => void,
+  isExpanded: boolean,
+  onToggleExpand: () => void,
+  updateIngredientPrice: (ingredientId: string, newPrice: number) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: product.id });
+  
+  const [editingField, setEditingField] = useState<'name' | 'storePrice' | 'onlinePrice' | null>(null);
+
+  const hasRecipe = product.recipe && product.recipe.length > 0;
+  const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
+  const category = categories.find(c => c.id === product.categoryId);
+  const priceAfterCommission = product.onlinePrice * (1 - (commissionRate / 100));
+
+  const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a,b) => a.value - b.value), [margins]);
+  const onlineMargins = useMemo(() => margins.filter(m => m.type === 'online').sort((a,b) => a.value - b.value), [margins]);
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.8 : 1,
+    zIndex: isDragging ? 10 : 'auto',
+    backgroundColor: category ? `${category.color}33` : undefined,
+  };
+  
+  const handleUpdate = (field: 'name' | 'storePrice' | 'onlinePrice', value: string) => {
+    updateProduct(product.id, field, value);
+    setEditingField(null);
+  };
+  
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape') {
+      setEditingField(null);
+    }
+  };
+
+
+  return (
+    <TableRow ref={setNodeRef} style={style} key={product.id} className={isExpanded ? 'border-b-0' : ''}>
+      <TableCell className="w-[340px] px-4 py-1">
+        <div className="flex items-center gap-1 h-8">
+          <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...attributes} {...listeners}>
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
+          </Button>
+          {editingField === 'name' ? (
+             <Input 
+                defaultValue={product.name} 
+                onBlur={(e) => handleUpdate('name', e.target.value)}
+                onKeyDown={handleKeyDown}
+                autoFocus
+                className="font-medium border-dashed focus-visible:ring-1 focus-visible:bg-card flex-grow h-8"
+             />
+          ) : (
+             <div onClick={() => setEditingField('name')} className="font-medium flex-grow cursor-pointer truncate px-2 h-8 flex items-center rounded-md hover:bg-muted/50">
+                {product.name || <span className="text-muted-foreground">Yeni Ürün Adı</span>}
+             </div>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-left w-[120px] px-4 py-1">
+        <div className="flex items-center justify-start gap-0 h-8">
+            <span className="font-medium text-foreground">{formatCurrency(cost)}</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={onToggleExpand}>
+                        {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Reçeteyi Göster/Gizle</p></TooltipContent>
+              </Tooltip>
+          </TooltipProvider>
+        </div>
+      </TableCell>
+      <TableCell className="w-[100px] px-4 py-1 text-left">
+        {editingField === 'storePrice' ? (
+            <Input 
+                type="number" 
+                defaultValue={product.storePrice || ''}
+                onBlur={(e) => handleUpdate('storePrice', e.target.value)}
+                onKeyDown={handleKeyDown}
+                autoFocus
+                className="text-left h-8 border-dashed" 
+                placeholder="0.00" 
+            />
+        ) : (
+            <div onClick={() => setEditingField('storePrice')} className="text-left cursor-pointer px-2 h-8 flex items-center rounded-md hover:bg-muted/50">
+                {formatCurrency(product.storePrice)}
+            </div>
+        )}
+      </TableCell>
+      {storeMargins.map((margin) => {
+         const sellingPrice = cost * (1 + margin.value / 100);
+        return (
+          <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
+        );
+      })}
+      <TableCell className="text-left px-0 w-[30px] py-1"></TableCell>
+      
+      <TableCell className="w-8 px-1 py-1" />
+
+      <TableCell className="w-[120px] px-2 py-1 text-left">
+         {editingField === 'onlinePrice' ? (
+            <Input 
+                type="number" 
+                defaultValue={product.onlinePrice || ''}
+                onBlur={(e) => handleUpdate('onlinePrice', e.target.value)}
+                onKeyDown={handleKeyDown}
+                autoFocus
+                className="text-left h-8 border-dashed" 
+                placeholder="0.00" 
+            />
+        ) : (
+            <div onClick={() => setEditingField('onlinePrice')} className="h-8 cursor-pointer rounded-md hover:bg-muted/50 flex items-center px-2">
+                <div className="flex flex-col justify-center">
+                    <div>{formatCurrency(product.onlinePrice)}</div>
+                    {product.onlinePrice > 0 && commissionRate > 0 && (
+                        <div className="text-xs text-muted-foreground text-left whitespace-nowrap -mt-1 leading-tight">
+                            hesaba geçer {formatCurrency(priceAfterCommission)}
+                        </div>
+                    )}
+                </div>
+            </div>
+        )}
+      </TableCell>
+
+      {onlineMargins.map((margin) => {
+        const sellingPrice = (cost * (1 + margin.value / 100)) / (1 - commissionRate / 100);
+        return (
+          <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
+        );
+      })}
+      <TableCell className="text-left px-0 w-[30px] py-1"></TableCell>
+
+      <TableCell className="text-right w-[60px] px-4 py-1">
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                    <MoreVertical className="h-4 w-4"/>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>Taşı</DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                        <DropdownMenuSubContent>
+                             <DropdownMenuItem onClick={() => updateProduct(product.id, 'categoryId', undefined)}>
+                                Kategorisiz
+                            </DropdownMenuItem>
+                            {categories.map(cat => (
+                                <DropdownMenuItem key={cat.id} onClick={() => updateProduct(product.id, 'categoryId', cat.id)}>
+                                    {cat.name}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator/>
+                <DropdownMenuItem className="text-destructive" onClick={() => deleteProduct(product.id)}>
+                    <Trash2 className="mr-2 h-4 w-4"/> Ürünü Sil
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+}
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -742,7 +735,6 @@ export default function Home() {
                                   isExpanded={expandedProductIds.includes(product.id)}
                                   onToggleExpand={() => toggleProductExpansion(product.id)}
                                   updateIngredientPrice={updateIngredientPrice}
-                                  handleAddMargin={handleAddMargin}
                                 />
                                 {expandedProductIds.includes(product.id) && (
                                   <TableRow className="bg-card hover:bg-card">
