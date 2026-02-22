@@ -2,6 +2,7 @@ export type RecipeItem = {
   ingredientId: string;
   // Quantity of the ingredient used in the product.
   // The unit depends on the ingredient's unit (e.g. grams for 'kg'/'gram', count for 'adet')
+  // If ingredient has no unit, this is the cost in TL.
   quantity: number;
 };
 
@@ -14,9 +15,10 @@ export type Category = {
 export type Ingredient = {
   id: string;
   name: string;
-  // Price per unit ('kg', 'gram', 'adet', or 'TL')
-  price: number;
-  unit: 'kg' | 'gram' | 'adet' | 'TL';
+  // Price per unit ('kg', 'gram', 'adet') - now optional
+  price?: number;
+  // The unit is now optional. If not present, cost is specified directly in recipe.
+  unit?: 'kg' | 'gram' | 'adet';
   order: number;
 };
 

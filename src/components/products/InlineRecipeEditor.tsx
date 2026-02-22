@@ -46,10 +46,8 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
   const [ingredientToEdit, setIngredientToEdit] = useState<Ingredient | null>(null);
   const [newPriceInput, setNewPriceInput] = useState('');
   
-  const [isConfirming, setIsConfirming] = useState(false);
-  const [priceUpdatePayload, setPriceUpdatePayload] = useState<{ingredientId: string, newPrice: number} | null>(null);
-
   const handleOpenEditPriceDialog = (ingredient: Ingredient) => {
+    if (ingredient.price === undefined) return;
     setIngredientToEdit(ingredient);
     setNewPriceInput(String(ingredient.price));
   };
@@ -57,14 +55,12 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
   const handleCloseEditPriceDialog = () => {
     setIngredientToEdit(null);
     setNewPriceInput('');
-    setPriceUpdatePayload(null);
-    setIsConfirming(false);
   }
 
   const handleQuantityChange = (ingredientId: string, quantityStr: string) => {
-    const quantity = parseFloat(quantityStr);
+    const quantity = parseFloat(quantityStr.replace(',', '.'));
     
-    if (isNaN(quantity) && quantityStr !== '' && quantityStr !== '.') return;
+    if (isNaN(quantity) && quantityStr !== '' && quantityStr !== '.' && quantityStr !== ',') return;
 
     const newRecipe = (product.recipe || []).map(item =>
         item.ingredientId === ingredientId
@@ -100,7 +96,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
   
   const availableIngredients = ingredients.filter(
       (ing) => !(product.recipe || []).some((item) => item.ingredientId === ing.id)
-  );
+  ).sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
 
   const isRecipeEmpty = !product.recipe || product.recipe.length === 0;
 
@@ -118,9 +114,9 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
     <div className="p-4 bg-muted/30">
         {isRecipeEmpty && (
             <>
-                <div className="mb-6">
-                    <p className="text-sm text-muted-foreground mb-4">
-                        Bu ürünün reçetesi yok. Maliyeti doğrudan girebilir veya malzeme ekleyerek bir reçete oluşturabilirsiniz.
+                <div className="mb-2">
+                    <p className="text-sm text-muted-foreground mb-2">
+                        Bu ürünün reçetesi yok. Maliyeti doğrudan girebilir veya malzeme ekleyebilirsiniz.
                     </p>
                     <div className="flex items-center gap-2 max-w-sm">
                         <Label htmlFor={`manual-cost-${product.id}`} className="shrink-0">Doğrudan Maliyet (₺)</Label>
@@ -133,7 +129,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                         />
                     </div>
                 </div>
-                <div className="relative mb-6">
+                <div className="relative my-4">
                     <Separator />
                     <div className="absolute inset-0 flex items-center justify-center">
                         <span className="bg-muted/30 px-2 text-sm text-muted-foreground">VEYA</span>
@@ -142,7 +138,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
             </>
         )}
 
-        <ScrollArea className="h-auto border rounded-md">
+        <div className="border rounded-md bg-card">
             <Table>
             <TableHeader>
                 <TableRow>
@@ -161,22 +157,31 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                         const itemCost = calculateCost([recipeItem], ingredients);
 
                         let recipeUnitLabel = '';
-                        switch (ingredient.unit) {
-                            case 'kg': recipeUnitLabel = 'gram'; break;
-                            case 'gram': recipeUnitLabel = 'gram'; break;
-                            case 'adet': recipeUnitLabel = 'adet'; break;
-                            case 'TL': recipeUnitLabel = 'TL'; break;
+                        if (ingredient.unit) {
+                            switch (ingredient.unit) {
+                                case 'kg': recipeUnitLabel = 'gram'; break;
+                                case 'gram': recipeUnitLabel = 'gram'; break;
+                                case 'adet': recipeUnitLabel = 'adet'; break;
+                            }
+                        } else {
+                            recipeUnitLabel = 'TL';
                         }
+                        
+                        const priceText = ingredient.price !== undefined && ingredient.unit
+                            ? `${formatCurrency(ingredient.price)} / ${ingredient.unit}`
+                            : `Birim fiyat yok`;
 
                         return (
                         <TableRow key={ingredient.id}>
                             <TableCell className="font-medium align-top py-2">
                             <div>{ingredient.name}</div>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <span>{formatCurrency(ingredient.price)} / {ingredient.unit}</span>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-primary" onClick={() => handleOpenEditPriceDialog(ingredient)}>
-                                    <Edit className="h-3 w-3"/>
-                                </Button>
+                                <span>{priceText}</span>
+                                {ingredient.unit && (
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-primary" onClick={() => handleOpenEditPriceDialog(ingredient)}>
+                                        <Edit className="h-3 w-3"/>
+                                    </Button>
+                                )}
                             </div>
                             </TableCell>
                             <TableCell className="py-2">
@@ -185,7 +190,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                                     type="number"
                                     placeholder="0"
                                     className="w-24 text-right h-8"
-                                    value={quantity || ''}
+                                    value={String(quantity || '')}
                                     onChange={(e) => handleQuantityChange(ingredient.id, e.target.value)}
                                 />
                                 <span className="text-xs text-muted-foreground w-12 text-left">{recipeUnitLabel}</span>
@@ -202,7 +207,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                         </TableRow>
                         )
                     })
-                ) : (
+                ) : !isRecipeEmpty && (
                     <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                           Reçete oluşturmak için malzeme ekleyin.
@@ -211,7 +216,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                 )}
             </TableBody>
             </Table>
-        </ScrollArea>
+        </div>
        <div className="mt-4 flex justify-between items-center">
           <Popover open={isAddIngredientOpen} onOpenChange={setAddIngredientOpen}>
             <PopoverTrigger asChild>
