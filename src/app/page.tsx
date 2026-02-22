@@ -146,7 +146,7 @@ function SortableProductRow({
           </TooltipProvider>
         </div>
       </TableCell>
-      <TableCell className="w-[100px] px-4 py-1">
+      <TableCell className="w-[100px] px-4 py-1 text-left">
         {editingField === 'storePrice' ? (
             <Input 
                 type="number" 
@@ -166,12 +166,13 @@ function SortableProductRow({
       {storeMargins.map((margin) => {
          const sellingPrice = cost * (1 + margin.value / 100);
         return (
-          <TableCell key={margin.id} className="text-right w-[140px] px-4 py-1">{formatCurrency(sellingPrice)}</TableCell>
+          <TableCell key={margin.id} className="text-left w-[140px] px-4 py-1">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
       <TableCell className="w-[40px] px-1 py-1" />
+      <TableCell className="w-8 px-1" />
 
-      <TableCell className="w-[140px] px-4 py-1 align-top">
+      <TableCell className="w-[140px] px-4 py-1 align-top text-left">
          {editingField === 'onlinePrice' ? (
             <Input 
                 type="number" 
@@ -188,7 +189,7 @@ function SortableProductRow({
             </div>
         )}
         {product.onlinePrice > 0 && commissionRate > 0 && editingField !== 'onlinePrice' && (
-            <div className="text-xs text-muted-foreground text-center pt-0.5 whitespace-nowrap">
+            <div className="text-xs text-muted-foreground text-left pt-0.5 whitespace-nowrap">
                 ({formatCurrency(priceAfterCommission)} hesaba geçer)
             </div>
         )}
@@ -197,7 +198,7 @@ function SortableProductRow({
       {onlineMargins.map((margin) => {
         const sellingPrice = (cost * (1 + margin.value / 100)) / (1 - commissionRate / 100);
         return (
-          <TableCell key={margin.id} className="text-right w-[140px] px-4 py-1">{formatCurrency(sellingPrice)}</TableCell>
+          <TableCell key={margin.id} className="text-left w-[140px] px-4 py-1">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
       <TableCell className="w-[40px] px-1 py-1" />
@@ -238,17 +239,25 @@ function SortableProductRow({
 
 function MarginColumnPopover({
   type,
-  newMargin,
-  setNewMargin,
-  handleAddMargin,
+  onAdd,
 }: {
   type: 'store' | 'online';
-  newMargin: string;
-  setNewMargin: (value: string) => void;
-  handleAddMargin: (type: 'store' | 'online') => void;
+  onAdd: (type: 'store' | 'online', value: number) => void;
 }) {
+  const [newMargin, setNewMargin] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleAdd = () => {
+    const marginValue = parseFloat(newMargin);
+    if (!isNaN(marginValue) && marginValue > 0) {
+      onAdd(type, marginValue);
+      setNewMargin('');
+      setIsOpen(false);
+    }
+  };
+
   return (
-    <Popover onOpenChange={(open) => !open && setNewMargin('')}>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon">
           <PlusCircle className="h-5 w-5" />
@@ -270,10 +279,10 @@ function MarginColumnPopover({
             value={newMargin}
             onChange={(e) => setNewMargin(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleAddMargin(type);
+              if (e.key === 'Enter') handleAdd();
             }}
           />
-          <Button onClick={() => handleAddMargin(type)}>Marj Ekle</Button>
+          <Button onClick={handleAdd}>Marj Ekle</Button>
         </div>
       </PopoverContent>
     </Popover>
@@ -287,7 +296,6 @@ export default function Home() {
   const [margins, setMargins] = useState<Margin[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
 
-  const [newMargin, setNewMargin] = useState('');
   const [isAddProductDialogOpen, setAddProductDialogOpen] = useState(false);
   const [editingMargin, setEditingMargin] = useState<{ id: string; value: string } | null>(null);
   
@@ -401,16 +409,12 @@ export default function Home() {
     );
   };
 
-  const handleAddMargin = (type: 'store' | 'online') => {
-    const marginValue = parseFloat(newMargin);
-    if (!isNaN(marginValue) && marginValue > 0) {
-      const newMarginObject: Margin = { id: nanoid(), value: marginValue, type };
-      
-      const exists = margins.some(m => m.value === marginValue && m.type === type);
-      if(!exists) {
-        setMargins((prev) => [...prev, newMarginObject]);
-      }
-      setNewMargin('');
+  const handleAddMargin = (type: 'store' | 'online', value: number) => {
+    const newMarginObject: Margin = { id: nanoid(), value, type };
+    
+    const exists = margins.some(m => m.value === value && m.type === type);
+    if(!exists) {
+      setMargins((prev) => [...prev, newMarginObject]);
     }
   };
   
@@ -499,7 +503,7 @@ export default function Home() {
     })
   );
   
-  const totalColumns = 7 + storeMargins.length + onlineMargins.length;
+  const totalColumns = 8 + storeMargins.length + onlineMargins.length;
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -623,7 +627,7 @@ export default function Home() {
                       <TableHead className="text-left font-semibold w-[120px] px-4 py-3">Maliyet</TableHead>
                       <TableHead className="text-left font-semibold w-[100px] px-4 py-3">Mağaza Fiyatı</TableHead>
                       {storeMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-right font-semibold w-[140px] px-4 py-3">
+                        <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-4 py-3">
                           {editingMargin?.id === margin.id ? (
                             <Input
                               type="number"
@@ -634,11 +638,11 @@ export default function Home() {
                                 if (e.key === 'Enter') handleUpdateMargin(margin.id)
                                 if (e.key === 'Escape') setEditingMargin(null)
                               }}
-                              className="text-right h-8"
+                              className="text-left h-8"
                               autoFocus
                             />
                           ) : (
-                            <div className="flex items-center justify-end gap-1 cursor-pointer group" onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })}>
+                            <div className="flex items-center justify-start gap-1 cursor-pointer group" onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })}>
                               <span>%{margin.value} Kar</span>
                               <TooltipProvider>
                                 <Tooltip>
@@ -655,12 +659,14 @@ export default function Home() {
                         </TableHead>
                       ))}
                       <TableHead className="text-left px-1 w-[40px]">
-                         <MarginColumnPopover type="store" newMargin={newMargin} setNewMargin={setNewMargin} handleAddMargin={handleAddMargin} />
+                         <MarginColumnPopover type="store" onAdd={handleAddMargin} />
                       </TableHead>
+                      
+                      <TableHead className="w-8 px-1" />
 
                       <TableHead className="text-left font-semibold w-[140px] px-4 py-3">Online Fiyat</TableHead>
                       {onlineMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-right font-semibold w-[140px] px-4 py-3">
+                        <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-4 py-3">
                           {editingMargin?.id === margin.id ? (
                              <Input
                               type="number"
@@ -671,11 +677,11 @@ export default function Home() {
                                 if (e.key === 'Enter') handleUpdateMargin(margin.id)
                                 if (e.key === 'Escape') setEditingMargin(null)
                               }}
-                              className="text-right h-8"
+                              className="text-left h-8"
                               autoFocus
                             />
                           ) : (
-                            <div className="flex items-center justify-end gap-1 cursor-pointer group" onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })}>
+                            <div className="flex items-center justify-start gap-1 cursor-pointer group" onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })}>
                                <span>(%{margin.value} Kar + %{commissionRate})</span>
                                <TooltipProvider>
                                 <Tooltip>
@@ -692,7 +698,7 @@ export default function Home() {
                         </TableHead>
                       ))}
                       <TableHead className="text-left px-1 w-[40px]">
-                         <MarginColumnPopover type="online" newMargin={newMargin} setNewMargin={setNewMargin} handleAddMargin={handleAddMargin} />
+                         <MarginColumnPopover type="online" onAdd={handleAddMargin} />
                       </TableHead>
                       
                       <TableHead className="text-right font-semibold w-[60px] px-4 py-3">İşlemler</TableHead>
