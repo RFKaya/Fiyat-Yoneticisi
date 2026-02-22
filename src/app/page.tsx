@@ -203,7 +203,7 @@ function SortableProductRow({
           </TooltipProvider>
         </div>
       </TableCell>
-      <TableCell className="w-[100px] px-4 py-1 text-left">
+      <TableCell className="w-[140px] px-4 py-1 text-left">
         {editingField === 'storePrice' ? (
             <Input 
                 type="number" 
@@ -237,7 +237,7 @@ function SortableProductRow({
       
       <TableCell className="w-8 px-1 py-1" />
 
-      <TableCell className="w-[120px] px-2 py-1 text-left">
+      <TableCell className="w-[140px] px-2 py-1 text-left">
          {editingField === 'onlinePrice' ? (
             <Input 
                 type="number" 
@@ -644,7 +644,10 @@ export default function Home() {
                     <TableRow>
                       <TableHead className="font-semibold w-[340px] px-4 py-1">Ürün</TableHead>
                       <TableHead className="text-left font-semibold w-[120px] px-4 py-1">Maliyet</TableHead>
-                      <TableHead className="text-left font-semibold w-[100px] px-4 py-1">Mağaza Fiyatı (KDV Dahil)</TableHead>
+                      <TableHead className="text-left font-semibold w-[140px] px-4 py-1">
+                        Mağaza Fiyatı
+                        <span className="block text-xs font-normal text-muted-foreground">(KDV Dahil)</span>
+                      </TableHead>
                       {storeMargins.map((margin) => (
                         <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-1 py-1">
                           {editingMargin?.id === margin.id ? (
@@ -683,7 +686,10 @@ export default function Home() {
                       
                       <TableHead className="w-8 px-1 py-1" />
 
-                      <TableHead className="text-left font-semibold w-[120px] px-2 py-1">Online Fiyat (KDV Dahil)</TableHead>
+                      <TableHead className="text-left font-semibold w-[140px] px-2 py-1">
+                        Online Fiyat
+                        <span className="block text-xs font-normal text-muted-foreground">(KDV Dahil)</span>
+                      </TableHead>
                       {onlineMargins.map((margin) => (
                         <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-1 py-1">
                           {editingMargin?.id === margin.id ? (
