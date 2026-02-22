@@ -238,12 +238,12 @@ function SortableProductRow({
                 placeholder="0.00" 
             />
         ) : (
-             <div onClick={() => setEditingField('onlinePrice')} className="h-8 cursor-pointer rounded-md hover:bg-muted/50 flex items-center justify-center px-2">
+             <div onClick={() => setEditingField('onlinePrice')} className="h-8 cursor-pointer rounded-md hover:bg-muted/50 flex items-center justify-start px-2">
                 <div className="flex flex-col justify-center text-left">
                     <div>{formatCurrency(product.onlinePrice)}</div>
                     {product.onlinePrice > 0 && commissionRate > 0 && (
                         <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                            hesaba geçer {formatCurrency(priceAfterCommission)}
+                            {formatCurrency(priceAfterCommission)}
                         </div>
                     )}
                 </div>
