@@ -36,8 +36,6 @@ import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, Chevron
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 
-const KDV_RATE = 0.10;
-
 const formatCurrency = (amount: number) => {
   if (isNaN(amount) || !isFinite(amount)) return '';
   return new Intl.NumberFormat('tr-TR', {
@@ -106,6 +104,7 @@ function SortableProductRow({
     margins, 
     categories,
     commissionRate,
+    kdvRate,
     updateProduct, 
     deleteProduct,
     isExpanded,
@@ -117,6 +116,7 @@ function SortableProductRow({
   margins: Margin[],
   categories: Category[],
   commissionRate: number,
+  kdvRate: number,
   updateProduct: (id: string, field: keyof Product, value: any) => void,
   deleteProduct: (id: string) => void,
   isExpanded: boolean,
@@ -138,7 +138,7 @@ function SortableProductRow({
   const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
   const category = categories.find(c => c.id === product.categoryId);
   
-  const onlinePriceWithoutVat = product.onlinePrice / (1 + KDV_RATE);
+  const onlinePriceWithoutVat = product.onlinePrice / (1 + kdvRate / 100);
   const priceAfterCommission = onlinePriceWithoutVat * (1 - (commissionRate / 100));
 
   const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a,b) => a.value - b.value), [margins]);
@@ -220,7 +220,7 @@ function SortableProductRow({
                     <div>{formatCurrency(product.storePrice)}</div>
                     {product.storePrice > 0 && (
                         <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                            {formatCurrency(product.storePrice / (1 + KDV_RATE))} + KDV
+                            {formatCurrency(product.storePrice / (1 + kdvRate/100))} + KDV
                         </div>
                     )}
                 </div>
@@ -228,9 +228,17 @@ function SortableProductRow({
         )}
       </TableCell>
       {storeMargins.map((margin) => {
-         const sellingPrice = cost * (1 + margin.value / 100) * (1 + KDV_RATE);
+         const basePrice = cost * (1 + margin.value / 100);
+         const sellingPrice = basePrice * (1 + kdvRate / 100);
         return (
-          <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
+          <TableCell key={margin.id} className="text-left w-[100px] px-1 py-1 text-muted-foreground">
+             <div className="flex flex-col justify-center text-left px-2">
+                <div>{formatCurrency(sellingPrice)}</div>
+                <div className="text-xs text-muted-foreground -mt-1 leading-tight">
+                    {formatCurrency(basePrice)} + KDV
+                </div>
+            </div>
+          </TableCell>
         );
       })}
       <TableCell className="text-left px-0 w-[30px] py-1" />
@@ -263,9 +271,17 @@ function SortableProductRow({
       </TableCell>
 
       {onlineMargins.map((margin) => {
-        const sellingPrice = ((cost * (1 + margin.value / 100)) / (1 - commissionRate / 100)) * (1 + KDV_RATE);
+        const basePrice = ((cost * (1 + margin.value / 100)) / (1 - commissionRate / 100));
+        const sellingPrice = basePrice * (1 + kdvRate / 100);
         return (
-          <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
+          <TableCell key={margin.id} className="text-left w-[100px] px-1 py-1 text-muted-foreground">
+              <div className="flex flex-col justify-center text-left px-2">
+                <div>{formatCurrency(sellingPrice)}</div>
+                <div className="text-xs text-muted-foreground -mt-1 leading-tight">
+                    {formatCurrency(basePrice)} + KDV
+                </div>
+            </div>
+          </TableCell>
         );
       })}
       <TableCell className="text-left px-0 w-[30px] py-1" />
@@ -325,6 +341,10 @@ export default function Home() {
   const [commissionRate, setCommissionRate] = useState(15);
   const [commissionInput, setCommissionInput] = useState('15');
   const [isCommissionPopoverOpen, setCommissionPopoverOpen] = useState(false);
+
+  const [kdvRate, setKdvRate] = useState(10);
+  const [kdvInput, setKdvInput] = useState('10');
+  const [isKdvPopoverOpen, setKdvPopoverOpen] = useState(false);
   
   const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a,b) => a.value - b.value), [margins]);
   const onlineMargins = useMemo(() => margins.filter(m => m.type === 'online').sort((a,b) => a.value - b.value), [margins]);
@@ -343,6 +363,8 @@ export default function Home() {
         setCategories(data.categories || []);
         setCommissionRate(data.commissionRate ?? 15);
         setCommissionInput(String(data.commissionRate ?? 15));
+        setKdvRate(data.kdvRate ?? 10);
+        setKdvInput(String(data.kdvRate ?? 10));
         setIsLoading(false);
       })
       .catch((error) => {
@@ -363,10 +385,10 @@ export default function Home() {
       fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products, ingredients, margins, categories, commissionRate }),
+        body: JSON.stringify({ products, ingredients, margins, categories, commissionRate, kdvRate }),
       }).catch(error => console.error('Failed to save data:', error));
     }
-  }, [products, ingredients, margins, categories, commissionRate, isLoading]);
+  }, [products, ingredients, margins, categories, commissionRate, kdvRate, isLoading]);
 
   const toggleProductExpansion = (productId: string) => {
     setExpandedProductIds(prev => 
@@ -477,6 +499,21 @@ export default function Home() {
     }
     setCommissionPopoverOpen(open);
   };
+
+  const handleSetKdv = () => {
+    const rate = parseFloat(kdvInput);
+    if (!isNaN(rate) && rate >= 0) {
+      setKdvRate(rate);
+      setKdvPopoverOpen(false);
+    }
+  };
+
+  const handleKdvPopoverOpenChange = (open: boolean) => {
+    if (open) {
+      setKdvInput(String(kdvRate));
+    }
+    setKdvPopoverOpen(open);
+  };
     
   const productsByCategory = useMemo(() => {
     const sorted = [...products].sort((a, b) => a.order - b.order);
@@ -562,35 +599,66 @@ export default function Home() {
                     Ürünlerinizi sürükleyip bırakarak sıralayın, maliyetleri ve kâr marjlarını anında analiz edin.
                     </CardDescription>
                 </div>
-                 <div className="text-right">
-                    <Popover open={isCommissionPopoverOpen} onOpenChange={handleCommissionPopoverOpenChange}>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline">
-                                <Percent className="mr-2 h-4 w-4" /> Komisyon Ayarla
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 p-4">
-                            <div className="grid gap-3">
-                                <div className="space-y-1">
-                                    <h4 className="font-medium leading-none">Komisyon Oranı</h4>
-                                    <p className="text-sm text-muted-foreground">Online satış komisyonunu (%) girin.</p>
+                 <div className="flex items-start gap-2">
+                     <div className="text-right">
+                        <Popover open={isKdvPopoverOpen} onOpenChange={handleKdvPopoverOpenChange}>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline">
+                                    <Percent className="mr-2 h-4 w-4" /> KDV Ayarla
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-4">
+                                <div className="grid gap-3">
+                                    <div className="space-y-1">
+                                        <h4 className="font-medium leading-none">KDV Oranı</h4>
+                                        <p className="text-sm text-muted-foreground">Satış KDV oranını (%) girin.</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Input 
+                                            type="number" 
+                                            placeholder="Örn: 10" 
+                                            value={kdvInput} 
+                                            onChange={(e) => setKdvInput(e.target.value)} 
+                                            onKeyDown={(e) => { if (e.key === 'Enter') handleSetKdv(); }}
+                                        />
+                                        <span className="font-semibold">%</span>
+                                    </div>
+                                    <Button onClick={handleSetKdv}>Ayarla</Button>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <Input 
-                                        type="number" 
-                                        placeholder="Örn: 15" 
-                                        value={commissionInput} 
-                                        onChange={(e) => setCommissionInput(e.target.value)} 
-                                        onKeyDown={(e) => { if (e.key === 'Enter') handleSetCommission(); }}
-                                    />
-                                    <span className="font-semibold">%</span>
+                            </PopoverContent>
+                        </Popover>
+                        <p className="text-sm text-muted-foreground mt-1">Mevcut Oran: %{kdvRate}</p>
+                    </div>
+                    <div className="text-right">
+                        <Popover open={isCommissionPopoverOpen} onOpenChange={handleCommissionPopoverOpenChange}>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline">
+                                    <Percent className="mr-2 h-4 w-4" /> Komisyon Ayarla
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-4">
+                                <div className="grid gap-3">
+                                    <div className="space-y-1">
+                                        <h4 className="font-medium leading-none">Komisyon Oranı</h4>
+                                        <p className="text-sm text-muted-foreground">Online satış komisyonunu (%) girin.</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Input 
+                                            type="number" 
+                                            placeholder="Örn: 15" 
+                                            value={commissionInput} 
+                                            onChange={(e) => setCommissionInput(e.target.value)} 
+                                            onKeyDown={(e) => { if (e.key === 'Enter') handleSetCommission(); }}
+                                        />
+                                        <span className="font-semibold">%</span>
+                                    </div>
+                                    <Button onClick={handleSetCommission}>Ayarla</Button>
                                 </div>
-                                <Button onClick={handleSetCommission}>Ayarla</Button>
-                            </div>
-                        </PopoverContent>
-                    </Popover>
-                    <p className="text-sm text-muted-foreground mt-1">Mevcut Oran: %{commissionRate}</p>
-                </div>
+                            </PopoverContent>
+                        </Popover>
+                        <p className="text-sm text-muted-foreground mt-1">Mevcut Oran: %{commissionRate}</p>
+                    </div>
+                 </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -646,10 +714,10 @@ export default function Home() {
                       <TableHead className="text-left font-semibold w-[120px] px-4 py-1">Maliyet</TableHead>
                       <TableHead className="text-left font-semibold w-[140px] px-4 py-1">
                         Mağaza Fiyatı
-                        <span className="block text-xs font-normal text-muted-foreground">(KDV Dahil)</span>
+                        <span className="block text-xs font-normal text-muted-foreground">KDV Dahil</span>
                       </TableHead>
                       {storeMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-1 py-1">
+                        <TableHead key={margin.id} className="text-left font-semibold w-[100px] px-1 py-1">
                           {editingMargin?.id === margin.id ? (
                             <Input
                               type="number"
@@ -665,7 +733,10 @@ export default function Home() {
                             />
                           ) : (
                             <div className="flex items-center justify-start gap-1 cursor-pointer group" onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })}>
-                              <span>%{margin.value} Kar (+KDV)</span>
+                              <div className="flex flex-col">
+                                  <span className="leading-tight">%{margin.value} Kar</span>
+                                  <span className="text-xs font-normal text-muted-foreground leading-tight">KDV Dahil</span>
+                               </div>
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -688,10 +759,10 @@ export default function Home() {
 
                       <TableHead className="text-left font-semibold w-[140px] px-2 py-1">
                         Online Fiyat
-                        <span className="block text-xs font-normal text-muted-foreground">(KDV Dahil)</span>
+                        <span className="block text-xs font-normal text-muted-foreground">(KDV & komisyon)</span>
                       </TableHead>
                       {onlineMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-1 py-1">
+                        <TableHead key={margin.id} className="text-left font-semibold w-[100px] px-1 py-1">
                           {editingMargin?.id === margin.id ? (
                              <Input
                               type="number"
@@ -709,7 +780,7 @@ export default function Home() {
                             <div className="flex items-start justify-start gap-1 cursor-pointer group" onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })}>
                                <div className="flex flex-col">
                                   <span className="leading-tight">%{margin.value} Kar</span>
-                                  <span className="text-xs font-normal text-muted-foreground leading-tight">ve %{commissionRate} Kom. (+KDV)</span>
+                                  <span className="text-xs font-normal text-muted-foreground leading-tight">KDV & Komisyon dahil</span>
                                </div>
                                <TooltipProvider>
                                 <Tooltip>
@@ -753,6 +824,7 @@ export default function Home() {
                                   margins={margins}
                                   categories={categories}
                                   commissionRate={commissionRate}
+                                  kdvRate={kdvRate}
                                   updateProduct={updateProduct}
                                   deleteProduct={deleteProduct}
                                   isExpanded={expandedProductIds.includes(product.id)}
