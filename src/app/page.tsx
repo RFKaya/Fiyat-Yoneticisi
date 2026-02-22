@@ -236,6 +236,51 @@ function SortableProductRow({
   );
 }
 
+function MarginColumnPopover({
+  type,
+  newMargin,
+  setNewMargin,
+  handleAddMargin,
+}: {
+  type: 'store' | 'online';
+  newMargin: string;
+  setNewMargin: (value: string) => void;
+  handleAddMargin: (type: 'store' | 'online') => void;
+}) {
+  return (
+    <Popover onOpenChange={(open) => !open && setNewMargin('')}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <PlusCircle className="h-5 w-5" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-60 p-4" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <div className="grid gap-3">
+          <div className="space-y-1">
+            <h4 className="font-medium leading-none">
+              Yeni Kâr Marjı ({type === 'store' ? 'Mağaza' : 'Online'})
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              Analiz için yeni bir yüzde ekle.
+            </p>
+          </div>
+          <Input
+            type="number"
+            placeholder="150"
+            value={newMargin}
+            onChange={(e) => setNewMargin(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleAddMargin(type);
+            }}
+          />
+          <Button onClick={() => handleAddMargin(type)}>Marj Ekle</Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
@@ -454,7 +499,7 @@ export default function Home() {
     })
   );
   
-  const totalColumns = 7 + margins.length;
+  const totalColumns = 7 + storeMargins.length + onlineMargins.length;
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -481,24 +526,6 @@ export default function Home() {
     );
   }
   
-  const MarginColumnPopover = ({type}: {type: 'store' | 'online'}) => (
-      <Popover onOpenChange={(open) => !open && setNewMargin('')}>
-        <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon"><PlusCircle className="h-5 w-5" /></Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-60 p-4">
-            <div className="grid gap-3">
-            <div className="space-y-1">
-                <h4 className="font-medium leading-none">Yeni Kâr Marjı ({type === 'store' ? 'Mağaza' : 'Online'})</h4>
-                <p className="text-sm text-muted-foreground">Analiz için yeni bir yüzde ekle.</p>
-            </div>
-            <Input type="number" placeholder="150" value={newMargin} onChange={(e) => setNewMargin(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleAddMargin(type); }} />
-            <Button onClick={() => handleAddMargin(type)}>Marj Ekle</Button>
-            </div>
-        </PopoverContent>
-    </Popover>
-  );
-
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -628,7 +655,7 @@ export default function Home() {
                         </TableHead>
                       ))}
                       <TableHead className="text-left px-1 w-[40px]">
-                         <MarginColumnPopover type="store"/>
+                         <MarginColumnPopover type="store" newMargin={newMargin} setNewMargin={setNewMargin} handleAddMargin={handleAddMargin} />
                       </TableHead>
 
                       <TableHead className="text-left font-semibold w-[140px] px-4 py-3">Online Fiyat</TableHead>
@@ -665,7 +692,7 @@ export default function Home() {
                         </TableHead>
                       ))}
                       <TableHead className="text-left px-1 w-[40px]">
-                         <MarginColumnPopover type="online"/>
+                         <MarginColumnPopover type="online" newMargin={newMargin} setNewMargin={setNewMargin} handleAddMargin={handleAddMargin} />
                       </TableHead>
                       
                       <TableHead className="text-right font-semibold w-[60px] px-4 py-3">İşlemler</TableHead>
