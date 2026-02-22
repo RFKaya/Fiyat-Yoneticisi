@@ -737,7 +737,10 @@ export default function Home() {
                         </div>
                       </TableHead>
                       {storeMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-1 align-top">
+                        <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-2 align-top relative group">
+                           <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
+                             <X className="h-4 w-4" />
+                           </Button>
                            <div>%{margin.value} Kar</div>
                            <div className="text-xs font-normal text-muted-foreground">
                                 <div>%{kdvRate} KDV</div>
@@ -759,7 +762,10 @@ export default function Home() {
                         </div>
                       </TableHead>
                       {onlineMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-1 align-top">
+                        <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-2 align-top relative group">
+                            <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
+                              <X className="h-4 w-4" />
+                            </Button>
                             <div>%{margin.value} Kar</div>
                             <div className="text-xs font-normal text-muted-foreground">
                                <div>%{kdvRate} KDV</div>
