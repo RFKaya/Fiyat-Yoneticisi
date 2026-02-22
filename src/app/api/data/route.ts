@@ -15,7 +15,7 @@ async function readData() {
     // Let's check the error code.
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       // File not found, which is okay on first start. Return a default structure.
-      return { products: [], ingredients: [], categories: [], margins: [], commissionRate: 15, kdvRate: 10 };
+      return { products: [], ingredients: [], categories: [], margins: [], platformCommissionRate: 15, kdvRate: 10, bankCommissionRate: 2.5 };
     }
     // For other errors, we should throw them.
     throw error;
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const newData = await request.json();
     
     // Basic validation to ensure we're not writing junk
-    if (typeof newData.products === 'undefined' || typeof newData.ingredients === 'undefined' || typeof newData.commissionRate === 'undefined' || typeof newData.kdvRate === 'undefined') {
+    if (typeof newData.products === 'undefined' || typeof newData.ingredients === 'undefined' || typeof newData.platformCommissionRate === 'undefined' || typeof newData.kdvRate === 'undefined' || typeof newData.bankCommissionRate === 'undefined') {
         throw new Error("Invalid data structure received.");
     }
 
