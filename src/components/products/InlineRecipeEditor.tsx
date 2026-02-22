@@ -12,16 +12,6 @@ import { calculateCost } from '@/lib/utils';
 import { PlusCircle, Trash2, Edit } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -53,14 +43,6 @@ const formatCurrency = (amount: number) => {
 export default function InlineRecipeEditor({ product, ingredients, allProducts, onSave, updateProduct, updateIngredientPrice }: InlineRecipeEditorProps) {
   const [isAddIngredientOpen, setAddIngredientOpen] = useState(false);
   
-  const [priceChangeInfo, setPriceChangeInfo] = useState<{ 
-    ingredientId: string; 
-    newPrice: number; 
-    oldPrice: number, 
-    ingredientName: string;
-    affectedProducts: string[];
-  } | null>(null);
-
   const [ingredientToEdit, setIngredientToEdit] = useState<Ingredient | null>(null);
   const [newPriceInput, setNewPriceInput] = useState('');
 
@@ -87,41 +69,14 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
     onSave(newRecipe);
   };
   
-  const handlePriceChangeRequest = () => {
+  const handlePriceUpdateRequest = () => {
     if (!ingredientToEdit) return;
 
     const newPrice = parseFloat(newPriceInput);
-    const ingredient = ingredientToEdit;
-
-    if (ingredient && !isNaN(newPrice) && newPrice > 0 && newPrice !== ingredient.price) {
-      const affectedProducts = allProducts
-        .filter(p => 
-            p.id !== product.id && 
-            p.recipe?.some(item => item.ingredientId === ingredient.id)
-        )
-        .map(p => p.name);
-
-      setPriceChangeInfo({ 
-          ingredientId: ingredient.id, 
-          newPrice, 
-          oldPrice: ingredient.price, 
-          ingredientName: ingredient.name,
-          affectedProducts: affectedProducts,
-      });
-      handleCloseEditPriceDialog();
-    } else {
-      handleCloseEditPriceDialog();
+    if (!isNaN(newPrice) && newPrice > 0) {
+        updateIngredientPrice(ingredientToEdit.id, newPrice);
     }
-  };
-
-  const confirmPriceChange = () => {
-    if (priceChangeInfo) {
-      const { ingredientId, newPrice } = priceChangeInfo;
-      // First, close the dialog to prevent the UI from locking
-      setPriceChangeInfo(null);
-      // Then, call the parent function to update the state
-      updateIngredientPrice(ingredientId, newPrice);
-    }
+    handleCloseEditPriceDialog();
   };
 
   const handleAddIngredient = (ingredientId: string) => {
@@ -143,6 +98,8 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
   );
 
   const isRecipeEmpty = !product.recipe || product.recipe.length === 0;
+
+  const totalCost = calculateCost(product.recipe || [], ingredients);
 
   return (
     <div className="p-4 bg-muted/30">
@@ -243,7 +200,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
             </TableBody>
             </Table>
         </ScrollArea>
-       <div className="mt-4">
+       <div className="mt-4 flex justify-between items-center">
           <Popover open={isAddIngredientOpen} onOpenChange={setAddIngredientOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
@@ -273,6 +230,12 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
               </ScrollArea>
             </PopoverContent>
           </Popover>
+
+            {!isRecipeEmpty && (
+                <div className="text-right">
+                    <span className="text-sm font-semibold">Toplam Reçete Maliyeti: {formatCurrency(totalCost)}</span>
+                </div>
+            )}
         </div>
 
         <Dialog open={!!ingredientToEdit} onOpenChange={(open) => !open && handleCloseEditPriceDialog()}>
@@ -287,42 +250,15 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                         type="number" 
                         value={newPriceInput} 
                         onChange={(e) => setNewPriceInput(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handlePriceChangeRequest(); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handlePriceUpdateRequest(); }}
                     />
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={handleCloseEditPriceDialog}>İptal</Button>
-                    <Button onClick={handlePriceChangeRequest}>Güncelle ve Onayla</Button>
+                    <Button onClick={handlePriceUpdateRequest}>Güncelle</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-
-        <AlertDialog open={!!priceChangeInfo} onOpenChange={(open) => !open && setPriceChangeInfo(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Fiyat Değişikliği Onayı</AlertDialogTitle>
-              <AlertDialogDescription>
-                <strong>{priceChangeInfo?.ingredientName}</strong> malzemesinin birim fiyatını değiştirmek üzeresiniz.
-                <br/><br/>
-                Bu değişiklik, bu malzemeyi içeren <strong>tüm ürün reçetelerini</strong> etkileyecektir ve geri alınamaz.
-                 {priceChangeInfo?.affectedProducts && priceChangeInfo.affectedProducts.length > 0 && (
-                    <div className="mt-4">
-                        <p className="font-medium">Etkilenecek diğer ürünler:</p>
-                        <ul className="list-disc list-inside text-sm text-muted-foreground max-h-24 overflow-y-auto bg-muted/50 p-2 rounded-md">
-                            {priceChangeInfo.affectedProducts.map(name => <li key={name}>{name}</li>)}
-                        </ul>
-                    </div>
-                 )}
-                <br />
-                Devam etmek istiyor musunuz?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>İptal</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmPriceChange}>Onayla ve Değiştir</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
     </div>
   );
 }
