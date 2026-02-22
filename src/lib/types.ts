@@ -17,6 +17,7 @@ export type Ingredient = {
   // Price per unit ('kg', 'gram', 'adet', or 'TL')
   price: number;
   unit: 'kg' | 'gram' | 'adet' | 'TL';
+  order: number;
 };
 
 

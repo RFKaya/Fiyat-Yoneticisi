@@ -10,11 +10,28 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Edit } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, GripVertical } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'Malzeme adı zorunludur.' }),
@@ -27,9 +44,9 @@ function IngredientForm({
   closeDialog,
   initialData,
 }: {
-  onSave: (data: Omit<Ingredient, 'id'>) => void;
+  onSave: (data: Omit<Ingredient, 'id' | 'order'>) => void;
   closeDialog: () => void;
-  initialData?: Omit<Ingredient, 'id'>;
+  initialData?: Omit<Ingredient, 'id' | 'order'>;
 }) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -88,11 +105,6 @@ function IngredientForm({
             </FormItem>
           )}/>
         </div>
-         <DialogDescription className="text-xs pt-2">
-            <b>Örnek:</b> 1 kg çiğ köfteyi 120₺'ye alıyorsanız: Fiyat: 120, Birim: kg. Sistem reçetede maliyeti gramaj üzerinden otomatik hesaplar.
-            <br />
-            50'li bir lavaş paketi 90₺ ise, 1 adet lavaşın fiyatı 1.8₺'dir. Fiyat: 1.8, Birim: adet.
-        </DialogDescription>
         <Button type="submit" className="w-full">
           <PlusCircle className="mr-2 h-4 w-4" /> Malzemeyi Kaydet
         </Button>
@@ -119,6 +131,48 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
   };
 
+function SortableIngredientRow({ ingredient, deleteIngredient, handleOpenForm }: { ingredient: Ingredient; deleteIngredient: (id: string) => void; handleOpenForm: (ingredient: Ingredient) => void; }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: ingredient.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.8 : 1,
+    zIndex: isDragging ? 10 : 'auto',
+  };
+
+  return (
+    <TableRow ref={setNodeRef} style={style}>
+      <TableCell className="w-12 pl-4">
+         <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...attributes} {...listeners}>
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
+          </Button>
+      </TableCell>
+      <TableCell className="font-medium">{ingredient.name}</TableCell>
+      <TableCell>
+        {formatCurrency(ingredient.price)} / {ingredient.unit}
+      </TableCell>
+      <TableCell className="text-right">
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-primary" onClick={() => handleOpenForm(ingredient)}>
+          <Edit className="h-4 w-4" />
+          <span className="sr-only">Malzemeyi Düzenle</span>
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteIngredient(ingredient.id)}>
+          <Trash2 className="h-4 w-4" />
+          <span className="sr-only">Malzemeyi Sil</span>
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export default function MaterialsPage() {
   const [appData, setAppData] = useState<AppData>({ products: [], ingredients: [], categories: [], margins: [], commissionRate: 15 });
   const [isFormOpen, setFormOpen] = useState(false);
@@ -127,12 +181,21 @@ export default function MaterialsPage() {
   const isInitialMount = React.useRef(true);
 
   const { ingredients } = appData;
+  const ingredientIds = React.useMemo(() => ingredients.map(i => i.id), [ingredients]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     fetch('/api/data')
       .then((res) => res.json())
       .then((data) => {
-        setAppData(data);
+        const sortedIngredients = (data.ingredients || []).sort((a: Ingredient, b: Ingredient) => (a.order ?? 0) - (b.order ?? 0));
+        setAppData({...data, ingredients: sortedIngredients});
         setIsLoading(false);
       })
       .catch((error) => {
@@ -158,19 +221,22 @@ export default function MaterialsPage() {
     }
   }, [appData, isLoading]);
 
-  const handleSaveIngredient = (data: Omit<Ingredient, 'id'>) => {
+  const handleSaveIngredient = (data: Omit<Ingredient, 'id' | 'order'>) => {
     if (editingIngredient) {
       setAppData((prev) => ({
         ...prev,
         ingredients: prev.ingredients.map((i) =>
-          i.id === editingIngredient.id ? { ...i, ...data } : i
+          i.id === editingIngredient.id ? { ...editingIngredient, ...data } : i
         ),
       }));
     } else {
-      setAppData((prev) => ({
-        ...prev,
-        ingredients: [...prev.ingredients, { ...data, id: nanoid() }],
-      }));
+      setAppData((prev) => {
+        const newOrder = prev.ingredients.length > 0 ? Math.max(...prev.ingredients.map(i => i.order)) + 1 : 0;
+        return {
+          ...prev,
+          ingredients: [...prev.ingredients, { ...data, id: nanoid(), order: newOrder }],
+        }
+      });
     }
   };
   
@@ -187,6 +253,23 @@ export default function MaterialsPage() {
   const deleteIngredient = (id: string) => {
     setAppData((prev) => ({ ...prev, ingredients: prev.ingredients.filter((i) => i.id !== id) }));
   };
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setAppData((prev) => {
+        const oldIndex = prev.ingredients.findIndex((item) => item.id === active.id);
+        const newIndex = prev.ingredients.findIndex((item) => item.id === over.id);
+        
+        const reordered = arrayMove(prev.ingredients, oldIndex, newIndex);
+        
+        return {
+            ...prev,
+            ingredients: reordered.map((item, index) => ({...item, order: index}))
+        };
+      });
+    }
+  }
 
   if (isLoading) {
     return (
@@ -207,51 +290,44 @@ export default function MaterialsPage() {
           <CardHeader>
             <CardTitle>Malzeme Yönetimi</CardTitle>
             <CardDescription>
-              Ürün maliyetlerinizi hesaplamak için kullandığınız hammaddeleri ve birim fiyatlarını yönetin.
+              Malzemelerinizi sürükleyip bırakarak sıralayın. Bu sıralama, ürün reçetelerindeki görünümü belirleyecektir.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="font-semibold">Malzeme Adı</TableHead>
-                    <TableHead className="font-semibold">Birim Fiyatı</TableHead>
-                    <TableHead className="text-right font-semibold">İşlemler</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ingredients.length > 0 ? (
-                    ingredients.map((ingredient) => {
-                      return (
-                        <TableRow key={ingredient.id}>
-                          <TableCell className="font-medium">{ingredient.name}</TableCell>
-                           <TableCell>
-                            {formatCurrency(ingredient.price)} / {ingredient.unit}
-                           </TableCell>
-                          <TableCell className="text-right">
-                             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-primary" onClick={() => handleOpenForm(ingredient)}>
-                                <Edit className="h-4 w-4" />
-                                <span className="sr-only">Malzemeyi Düzenle</span>
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteIngredient(ingredient.id)}>
-                              <Trash2 className="h-4 w-4" />
-                              <span className="sr-only">Malzemeyi Sil</span>
-                            </Button>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12"></TableHead>
+                      <TableHead className="font-semibold">Malzeme Adı</TableHead>
+                      <TableHead className="font-semibold">Birim Fiyatı</TableHead>
+                      <TableHead className="text-right font-semibold">İşlemler</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <SortableContext items={ingredientIds} strategy={verticalListSortingStrategy}>
+                    <TableBody>
+                      {ingredients.length > 0 ? (
+                        ingredients.map((ingredient) => (
+                          <SortableIngredientRow
+                            key={ingredient.id}
+                            ingredient={ingredient}
+                            deleteIngredient={deleteIngredient}
+                            handleOpenForm={handleOpenForm}
+                          />
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                            Henüz malzeme eklenmemiş.
                           </TableCell>
                         </TableRow>
-                      );
-                    })
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                        Henüz malzeme eklenmemiş.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                      )}
+                    </TableBody>
+                  </SortableContext>
+                </Table>
+              </div>
+            </DndContext>
             <div className="mt-6 flex justify-center">
               <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
                 <DialogTrigger asChild>

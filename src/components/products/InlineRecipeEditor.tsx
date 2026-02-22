@@ -73,7 +73,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
     if (!ingredientToEdit) return;
 
     const newPrice = parseFloat(newPriceInput);
-    if (!isNaN(newPrice) && newPrice > 0) {
+    if (!isNaN(newPrice) && newPrice >= 0) {
         updateIngredientPrice(ingredientToEdit.id, newPrice);
     }
     handleCloseEditPriceDialog();
@@ -100,6 +100,14 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
   const isRecipeEmpty = !product.recipe || product.recipe.length === 0;
 
   const totalCost = calculateCost(product.recipe || [], ingredients);
+
+  const recipeIngredients = (product.recipe || [])
+    .map(recipeItem => {
+        const ingredient = ingredients.find(i => i.id === recipeItem.ingredientId);
+        return { recipeItem, ingredient };
+    })
+    .filter(item => !!item.ingredient)
+    .sort((a, b) => (a.ingredient!.order ?? 0) - (b.ingredient!.order ?? 0));
 
   return (
     <div className="p-4 bg-muted/30">
@@ -140,9 +148,8 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {!isRecipeEmpty ? (
-                    (product.recipe || []).map(recipeItem => {
-                        const ingredient = ingredients.find(i => i.id === recipeItem.ingredientId);
+                {recipeIngredients.length > 0 ? (
+                    recipeIngredients.map(({ recipeItem, ingredient }) => {
                         if (!ingredient) return null;
                         
                         const quantity = recipeItem?.quantity || 0;
@@ -153,7 +160,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                             case 'kg': recipeUnitLabel = 'gram'; break;
                             case 'gram': recipeUnitLabel = 'gram'; break;
                             case 'adet': recipeUnitLabel = 'adet'; break;
-                            case 'TL': recipeUnitLabel = 'adet'; break;
+                            case 'TL': recipeUnitLabel = 'TL'; break;
                         }
 
                         return (
@@ -190,10 +197,16 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                         </TableRow>
                         )
                     })
+                ) : !isRecipeEmpty ? (
+                     <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                          Bu ürüne ait reçete bulundu ancak malzemeler yüklenemedi.
+                        </TableCell>
+                    </TableRow>
                 ) : (
                     <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                        Reçete oluşturmak için malzeme ekleyin.
+                          Reçete oluşturmak için malzeme ekleyin.
                         </TableCell>
                     </TableRow>
                 )}
