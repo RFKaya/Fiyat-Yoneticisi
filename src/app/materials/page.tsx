@@ -38,14 +38,6 @@ const formSchema = z.object({
   name: z.string().min(1, { message: 'Malzeme adı zorunludur.' }),
   price: z.coerce.number().optional(),
   unit: z.enum(['kg', 'gram', 'adet']).optional(),
-}).refine(data => {
-    if (data.price !== undefined && data.price !== null && data.price >= 0) {
-        return !!data.unit;
-    }
-    return true;
-}, {
-    message: "Fiyat girildiğinde birim seçimi zorunludur.",
-    path: ["unit"],
 });
 
 function IngredientForm({
@@ -71,12 +63,7 @@ function IngredientForm({
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const dataToSave: Omit<Ingredient, 'id'|'order'> = { name: values.name };
-    if (values.price !== undefined && values.unit) {
-        dataToSave.price = values.price;
-        dataToSave.unit = values.unit;
-    }
-    onSave(dataToSave);
+    onSave(values);
     form.reset();
     closeDialog();
   }

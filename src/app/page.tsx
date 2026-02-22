@@ -166,12 +166,10 @@ function SortableProductRow({
     }
   };
   
-  const storePriceExclKdv = product.storePrice / (1 + kdvRate / 100);
-  const netStoreAmount = storePriceExclKdv * (1 - (bankCommissionRate / 100));
+  const netStoreAmount =  product.storePrice * (1 - (bankCommissionRate / 100) - ((kdvRate / 100) / (1 + (kdvRate / 100))));
   const showNetStoreAmount = product.storePrice > 0;
 
-  const onlinePriceExclKdv = product.onlinePrice / (1 + kdvRate / 100);
-  const netOnlineAmount = onlinePriceExclKdv * (1 - (platformCommissionRate / 100));
+  const netOnlineAmount = product.onlinePrice * (1 - (platformCommissionRate / 100) - ((kdvRate / 100) / (1 + (kdvRate / 100))));
   const showNetOnlineAmount = product.onlinePrice > 0;
 
 
@@ -238,7 +236,7 @@ function SortableProductRow({
       </TableCell>
       {storeMargins.map((margin) => {
          const basePrice = cost * (1 + margin.value / 100);
-         const sellingPrice = (basePrice * (1 + kdvRate / 100)) / (1 - bankCommissionRate / 100);
+         const sellingPrice = (basePrice / ((1 / (1 + kdvRate / 100)) - (bankCommissionRate / 100)));
          
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
@@ -278,7 +276,8 @@ function SortableProductRow({
 
       {onlineMargins.map((margin) => {
         const basePrice = cost * (1 + margin.value / 100);
-        const sellingPrice = (basePrice * (1 + kdvRate / 100)) / (1 - platformCommissionRate / 100);
+        const sellingPrice = (basePrice / ((1 / (1 + kdvRate / 100)) - (platformCommissionRate / 100)));
+        
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
               {formatCurrency(sellingPrice)}
