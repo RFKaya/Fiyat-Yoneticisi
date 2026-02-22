@@ -760,14 +760,14 @@ export default function Home() {
                     <TableRow>
                       <TableHead className="font-semibold w-[340px] px-4 py-1">Ürün</TableHead>
                       <TableHead className="text-left font-semibold w-[120px] px-4 py-1">Maliyet</TableHead>
-                      <TableHead className="text-left font-semibold w-[140px] px-4 py-1 align-top">
+                      <TableHead className="text-left font-semibold w-[140px] px-4 py-1 align-top pt-2">
                         Mağaza Fiyatı
-                        <div className="flex items-center gap-3 mt-1">
-                            <div className="flex items-center gap-1.5">
+                        <div className="flex flex-col items-start gap-1 mt-2">
+                            <div className="flex items-center gap-2">
                                 <Switch id="store-kdv" checked={storeIncludesKdv} onCheckedChange={setStoreIncludesKdv} />
                                 <Label htmlFor="store-kdv" className="text-xs font-normal">KDV</Label>
                             </div>
-                             <div className="flex items-center gap-1.5">
+                             <div className="flex items-center gap-2">
                                 <Switch id="store-bank" checked={storeIncludesBankComm} onCheckedChange={setStoreIncludesBankComm} />
                                 <Label htmlFor="store-bank" className="text-xs font-normal">Banka Kom.</Label>
                             </div>
@@ -813,14 +813,14 @@ export default function Home() {
                       
                       <TableHead className="w-8 px-1 py-1" />
 
-                      <TableHead className="text-left font-semibold w-[140px] px-2 py-1 align-top">
+                      <TableHead className="text-left font-semibold w-[140px] px-2 py-1 align-top pt-2">
                         Online Fiyat
-                        <div className="flex items-center gap-3 mt-1">
-                            <div className="flex items-center gap-1.5">
+                        <div className="flex flex-col items-start gap-1 mt-2">
+                            <div className="flex items-center gap-2">
                                 <Switch id="online-kdv" checked={onlineIncludesKdv} onCheckedChange={setOnlineIncludesKdv} />
                                 <Label htmlFor="online-kdv" className="text-xs font-normal">KDV</Label>
                             </div>
-                             <div className="flex items-center gap-1.5">
+                             <div className="flex items-center gap-2">
                                 <Switch id="online-platform" checked={onlineIncludesPlatformComm} onCheckedChange={setOnlineIncludesPlatformComm} />
                                 <Label htmlFor="online-platform" className="text-xs font-normal">Platform Kom.</Label>
                             </div>
