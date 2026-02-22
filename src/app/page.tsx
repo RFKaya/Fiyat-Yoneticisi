@@ -127,7 +127,7 @@ function SortableProductRow({
                 className="font-medium border-dashed focus-visible:ring-1 focus-visible:bg-card flex-grow h-8"
              />
           ) : (
-             <div onClick={() => setEditingField('name')} className="font-medium flex-grow cursor-pointer truncate p-2 h-10 flex items-center rounded-md hover:bg-muted/50">
+             <div onClick={() => setEditingField('name')} className="font-medium flex-grow cursor-pointer truncate p-2 h-9 flex items-center rounded-md hover:bg-muted/50">
                 {product.name || <span className="text-muted-foreground">Yeni Ürün Adı</span>}
              </div>
           )}
@@ -135,7 +135,7 @@ function SortableProductRow({
       </TableCell>
       <TableCell className="text-left w-[120px] px-4 py-1">
         <div className="flex items-center justify-start gap-0">
-            <span className="font-medium">{formatCurrency(cost)}</span>
+            <span className="font-medium text-foreground">{formatCurrency(cost)}</span>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -160,7 +160,7 @@ function SortableProductRow({
                 placeholder="0.00" 
             />
         ) : (
-            <div onClick={() => setEditingField('storePrice')} className="text-left cursor-pointer p-2 h-10 flex items-center rounded-md hover:bg-muted/50">
+            <div onClick={() => setEditingField('storePrice')} className="text-left cursor-pointer p-2 h-9 flex items-center rounded-md hover:bg-muted/50">
                 {formatCurrency(product.storePrice)}
             </div>
         )}
@@ -189,11 +189,11 @@ function SortableProductRow({
                 placeholder="0.00" 
             />
         ) : (
-            <div onClick={() => setEditingField('onlinePrice')} className="cursor-pointer p-2 h-10 rounded-md hover:bg-muted/50 flex flex-col justify-center">
+            <div onClick={() => setEditingField('onlinePrice')} className="cursor-pointer p-2 h-9 rounded-md hover:bg-muted/50 flex flex-col justify-center">
                 <div>{formatCurrency(product.onlinePrice)}</div>
                 {product.onlinePrice > 0 && commissionRate > 0 && (
                     <div className="text-xs text-muted-foreground text-left whitespace-nowrap -mt-1 leading-tight">
-                        {formatCurrency(priceAfterCommission)} hesaba geçer
+                        hesaba geçer {formatCurrency(priceAfterCommission)}
                     </div>
                 )}
             </div>
@@ -266,7 +266,7 @@ function MarginColumnPopover({
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" className="h-8 w-8">
           <PlusCircle className="h-5 w-5" />
         </Button>
       </PopoverTrigger>
@@ -630,11 +630,11 @@ export default function Home() {
                 <Table className="table-fixed min-w-[1200px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="font-semibold w-[340px] px-4 py-3">Ürün</TableHead>
-                      <TableHead className="text-left font-semibold w-[120px] px-4 py-3">Maliyet</TableHead>
-                      <TableHead className="text-left font-semibold w-[100px] px-4 py-3">Mağaza Fiyatı</TableHead>
+                      <TableHead className="font-semibold w-[340px] px-4 py-2">Ürün</TableHead>
+                      <TableHead className="text-left font-semibold w-[120px] px-4 py-2">Maliyet</TableHead>
+                      <TableHead className="text-left font-semibold w-[100px] px-4 py-2">Mağaza Fiyatı</TableHead>
                       {storeMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-1 py-3">
+                        <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-1 py-2">
                           {editingMargin?.id === margin.id ? (
                             <Input
                               type="number"
@@ -665,15 +665,15 @@ export default function Home() {
                           )}
                         </TableHead>
                       ))}
-                      <TableHead className="text-left px-0 w-[30px]">
+                      <TableHead className="text-left px-0 w-[30px] py-2">
                          <MarginColumnPopover type="store" onAdd={handleAddMargin} />
                       </TableHead>
                       
-                      <TableHead className="w-8 px-1" />
+                      <TableHead className="w-8 px-1 py-2" />
 
-                      <TableHead className="text-left font-semibold w-[120px] px-2 py-3">Online Fiyat</TableHead>
+                      <TableHead className="text-left font-semibold w-[120px] px-2 py-2">Online Fiyat</TableHead>
                       {onlineMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-1 py-3">
+                        <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-1 py-2">
                           {editingMargin?.id === margin.id ? (
                              <Input
                               type="number"
@@ -707,11 +707,11 @@ export default function Home() {
                           )}
                         </TableHead>
                       ))}
-                      <TableHead className="text-left px-0 w-[30px]">
+                      <TableHead className="text-left px-0 w-[30px] py-2">
                          <MarginColumnPopover type="online" onAdd={handleAddMargin} />
                       </TableHead>
                       
-                      <TableHead className="text-right font-semibold w-[60px] px-4 py-3">İşlemler</TableHead>
+                      <TableHead className="text-right font-semibold w-[60px] px-4 py-2">İşlemler</TableHead>
                     </TableRow>
                   </TableHeader>
                   <SortableContext items={productIds} strategy={verticalListSortingStrategy}>
