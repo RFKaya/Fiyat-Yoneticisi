@@ -169,7 +169,7 @@ function SortableProductRow({
   const netStoreAmount = product.storePrice * (1 - bankCommissionRate / 100);
   const showNetStoreAmount = product.storePrice > 0;
 
-  const netOnlineAmount = product.onlinePrice * (1 - platformCommissionRate / 100);
+  const netOnlineAmount = (product.onlinePrice / (1 + kdvRate / 100)) * (1 - platformCommissionRate / 100);
   const showNetOnlineAmount = product.onlinePrice > 0;
 
 
@@ -244,7 +244,8 @@ function SortableProductRow({
           </TableCell>
         );
       })}
-      <TableCell className="text-left px-0 w-[30px] py-1"></TableCell>
+      <TableCell className="text-left px-0 w-[30px] py-1">
+      </TableCell>
       
       <TableCell className="w-8 px-1 py-1" />
 
@@ -282,7 +283,8 @@ function SortableProductRow({
           </TableCell>
         );
       })}
-      <TableCell className="text-left px-0 w-[30px] py-1"></TableCell>
+      <TableCell className="text-left px-0 w-[30px] py-1">
+      </TableCell>
 
       <TableCell className="text-right w-[60px] px-4 py-1">
         <DropdownMenu>
@@ -737,7 +739,10 @@ export default function Home() {
                       {storeMargins.map((margin) => (
                         <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-1 align-top">
                            <div>%{margin.value} Kar</div>
-                           <div className="text-xs font-normal text-muted-foreground">KDV & Banka Kom. dahil</div>
+                           <div className="text-xs font-normal text-muted-foreground">
+                                <div>%{kdvRate} KDV</div>
+                                <div>%{bankCommissionRate} Banka Kom.</div>
+                           </div>
                         </TableHead>
                       ))}
                       <TableHead className="text-left px-0 w-[30px] py-1">
@@ -756,7 +761,10 @@ export default function Home() {
                       {onlineMargins.map((margin) => (
                         <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-1 align-top">
                             <div>%{margin.value} Kar</div>
-                            <div className="text-xs font-normal text-muted-foreground">KDV & Platform Kom. dahil</div>
+                            <div className="text-xs font-normal text-muted-foreground">
+                               <div>%{kdvRate} KDV</div>
+                               <div>%{platformCommissionRate} Platform Kom.</div>
+                           </div>
                         </TableHead>
                       ))}
                       <TableHead className="text-left px-0 w-[30px] py-1">
