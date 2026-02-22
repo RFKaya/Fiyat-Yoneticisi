@@ -34,6 +34,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, ChevronDown, ChevronUp, Percent } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Label } from '@/components/ui/label';
 
 const formatCurrency = (amount: number) => {
   if (isNaN(amount) || !isFinite(amount)) return '';
@@ -221,7 +222,7 @@ function SortableProductRow({
           <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
-      <TableCell className="text-left px-0 w-[30px] py-1"></TableCell>
+      <TableCell className="text-left px-0 w-[30px] py-1" />
       
       <TableCell className="w-8 px-1 py-1" />
 
@@ -237,11 +238,11 @@ function SortableProductRow({
                 placeholder="0.00" 
             />
         ) : (
-            <div onClick={() => setEditingField('onlinePrice')} className="h-8 cursor-pointer rounded-md hover:bg-muted/50 flex items-center px-2">
-                <div className="flex flex-col justify-center">
+             <div onClick={() => setEditingField('onlinePrice')} className="h-8 cursor-pointer rounded-md hover:bg-muted/50 flex items-center justify-center px-2">
+                <div className="flex flex-col justify-center text-left">
                     <div>{formatCurrency(product.onlinePrice)}</div>
                     {product.onlinePrice > 0 && commissionRate > 0 && (
-                        <div className="text-xs text-muted-foreground text-left whitespace-nowrap -mt-1 leading-tight">
+                        <div className="text-xs text-muted-foreground -mt-1 leading-tight">
                             hesaba geçer {formatCurrency(priceAfterCommission)}
                         </div>
                     )}
@@ -256,7 +257,7 @@ function SortableProductRow({
           <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
-      <TableCell className="text-left px-0 w-[30px] py-1"></TableCell>
+      <TableCell className="text-left px-0 w-[30px] py-1" />
 
       <TableCell className="text-right w-[60px] px-4 py-1">
         <DropdownMenu>
@@ -506,6 +507,11 @@ export default function Home() {
   );
   
   const totalColumns = 8 + storeMargins.length + onlineMargins.length;
+  
+  const pricedIngredients = useMemo(() => 
+    ingredients.filter(ing => ing.price !== undefined && ing.unit)
+               .sort((a,b) => (a.order ?? 0) - (b.order ?? 0)), 
+  [ingredients]);
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -783,6 +789,50 @@ export default function Home() {
           </CardContent>
         </Card>
       </main>
+
+      {pricedIngredients.length > 0 && (
+        <div className="container mx-auto px-4 md:px-8 pb-8">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Hızlı Malzeme Fiyat Güncelleme</CardTitle>
+                    <CardDescription>Birim fiyatı tanımlı malzemelerin fiyatlarını buradan hızlıca güncelleyebilirsiniz.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+                        {pricedIngredients.map(ing => (
+                           <div key={ing.id} className="space-y-1">
+                            <Label htmlFor={`price-${ing.id}`}>{ing.name}</Label>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    id={`price-${ing.id}`}
+                                    type="number" 
+                                    className="w-24 text-right"
+                                    key={ing.id + ing.price} 
+                                    defaultValue={ing.price}
+                                    onBlur={(e) => {
+                                        const newPrice = parseFloat(e.target.value.replace(',', '.'));
+                                        if (!isNaN(newPrice) && newPrice >= 0 && newPrice !== ing.price) {
+                                            updateIngredientPrice(ing.id, newPrice);
+                                        } else {
+                                            e.target.value = String(ing.price || '');
+                                        }
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            (e.target as HTMLInputElement).blur();
+                                        }
+                                    }}
+                                />
+                                <span className="text-sm text-muted-foreground">{`₺ / ${ing.unit}`}</span>
+                            </div>
+                        </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+      )}
+
     </div>
   );
 }
