@@ -36,6 +36,8 @@ import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, Chevron
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 
+const KDV_RATE = 0.10;
+
 const formatCurrency = (amount: number) => {
   if (isNaN(amount) || !isFinite(amount)) return '';
   return new Intl.NumberFormat('tr-TR', {
@@ -135,7 +137,9 @@ function SortableProductRow({
   const hasRecipe = product.recipe && product.recipe.length > 0;
   const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
   const category = categories.find(c => c.id === product.categoryId);
-  const priceAfterCommission = product.onlinePrice * (1 - (commissionRate / 100));
+  
+  const onlinePriceWithoutVat = product.onlinePrice / (1 + KDV_RATE);
+  const priceAfterCommission = onlinePriceWithoutVat * (1 - (commissionRate / 100));
 
   const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a,b) => a.value - b.value), [margins]);
   const onlineMargins = useMemo(() => margins.filter(m => m.type === 'online').sort((a,b) => a.value - b.value), [margins]);
@@ -211,13 +215,20 @@ function SortableProductRow({
                 placeholder="0.00" 
             />
         ) : (
-            <div onClick={() => setEditingField('storePrice')} className="text-left cursor-pointer px-2 h-8 flex items-center rounded-md hover:bg-muted/50">
-                {formatCurrency(product.storePrice)}
+            <div onClick={() => setEditingField('storePrice')} className="text-left cursor-pointer px-2 h-9 flex items-center rounded-md hover:bg-muted/50">
+                <div className="flex flex-col justify-center text-left">
+                    <div>{formatCurrency(product.storePrice)}</div>
+                    {product.storePrice > 0 && (
+                        <div className="text-xs text-muted-foreground -mt-1 leading-tight">
+                            {formatCurrency(product.storePrice / (1 + KDV_RATE))} + KDV
+                        </div>
+                    )}
+                </div>
             </div>
         )}
       </TableCell>
       {storeMargins.map((margin) => {
-         const sellingPrice = cost * (1 + margin.value / 100);
+         const sellingPrice = cost * (1 + margin.value / 100) * (1 + KDV_RATE);
         return (
           <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
         );
@@ -238,7 +249,7 @@ function SortableProductRow({
                 placeholder="0.00" 
             />
         ) : (
-             <div onClick={() => setEditingField('onlinePrice')} className="h-8 cursor-pointer rounded-md hover:bg-muted/50 flex items-center justify-start px-2">
+             <div onClick={() => setEditingField('onlinePrice')} className="h-9 cursor-pointer rounded-md hover:bg-muted/50 flex items-center justify-start px-2">
                 <div className="flex flex-col justify-center text-left">
                     <div>{formatCurrency(product.onlinePrice)}</div>
                     {product.onlinePrice > 0 && commissionRate > 0 && (
@@ -252,7 +263,7 @@ function SortableProductRow({
       </TableCell>
 
       {onlineMargins.map((margin) => {
-        const sellingPrice = (cost * (1 + margin.value / 100)) / (1 - commissionRate / 100);
+        const sellingPrice = ((cost * (1 + margin.value / 100)) / (1 - commissionRate / 100)) * (1 + KDV_RATE);
         return (
           <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
         );
@@ -633,7 +644,7 @@ export default function Home() {
                     <TableRow>
                       <TableHead className="font-semibold w-[340px] px-4 py-1">Ürün</TableHead>
                       <TableHead className="text-left font-semibold w-[120px] px-4 py-1">Maliyet</TableHead>
-                      <TableHead className="text-left font-semibold w-[100px] px-4 py-1">Mağaza Fiyatı</TableHead>
+                      <TableHead className="text-left font-semibold w-[100px] px-4 py-1">Mağaza Fiyatı (KDV Dahil)</TableHead>
                       {storeMargins.map((margin) => (
                         <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-1 py-1">
                           {editingMargin?.id === margin.id ? (
@@ -651,7 +662,7 @@ export default function Home() {
                             />
                           ) : (
                             <div className="flex items-center justify-start gap-1 cursor-pointer group" onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })}>
-                              <span>%{margin.value} Kar</span>
+                              <span>%{margin.value} Kar (+KDV)</span>
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -672,7 +683,7 @@ export default function Home() {
                       
                       <TableHead className="w-8 px-1 py-1" />
 
-                      <TableHead className="text-left font-semibold w-[120px] px-2 py-1">Online Fiyat</TableHead>
+                      <TableHead className="text-left font-semibold w-[120px] px-2 py-1">Online Fiyat (KDV Dahil)</TableHead>
                       {onlineMargins.map((margin) => (
                         <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-1 py-1">
                           {editingMargin?.id === margin.id ? (
@@ -692,7 +703,7 @@ export default function Home() {
                             <div className="flex items-start justify-start gap-1 cursor-pointer group" onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })}>
                                <div className="flex flex-col">
                                   <span className="leading-tight">%{margin.value} Kar</span>
-                                  <span className="text-xs font-normal text-muted-foreground leading-tight">ve %{commissionRate} Komisyon</span>
+                                  <span className="text-xs font-normal text-muted-foreground leading-tight">ve %{commissionRate} Kom. (+KDV)</span>
                                </div>
                                <TooltipProvider>
                                 <Tooltip>
