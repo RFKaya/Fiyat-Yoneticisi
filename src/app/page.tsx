@@ -166,10 +166,10 @@ function SortableProductRow({
     }
   };
   
-  const netStoreAmount = product.storePrice * (1 - bankCommissionRate / 100);
+  const netStoreAmount = (product.storePrice / (1 + kdvRate / 100)) - (product.storePrice * (bankCommissionRate / 100));
   const showNetStoreAmount = product.storePrice > 0;
 
-  const netOnlineAmount = (product.onlinePrice / (1 + kdvRate / 100)) * (1 - platformCommissionRate / 100);
+  const netOnlineAmount = (product.onlinePrice / (1 + kdvRate / 100)) - (product.onlinePrice * (platformCommissionRate / 100));
   const showNetOnlineAmount = product.onlinePrice > 0;
 
 
