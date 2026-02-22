@@ -133,7 +133,7 @@ function SortableProductRow({
       </TableCell>
       <TableCell className="text-left font-medium w-[120px] px-4 py-1">
         <div className="flex items-center justify-start gap-0">
-            <span className="text-muted-foreground">{formatCurrency(cost)}</span>
+            <span>{formatCurrency(cost)}</span>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -166,7 +166,7 @@ function SortableProductRow({
       {storeMargins.map((margin) => {
          const sellingPrice = cost * (1 + margin.value / 100);
         return (
-          <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1">{formatCurrency(sellingPrice)}</TableCell>
+          <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
       <TableCell className="w-[30px] px-0 py-1" />
@@ -191,7 +191,7 @@ function SortableProductRow({
         )}
         {product.onlinePrice > 0 && commissionRate > 0 && editingField !== 'onlinePrice' && (
             <div className="text-xs text-muted-foreground text-left pt-0.5 whitespace-nowrap">
-                ({formatCurrency(priceAfterCommission)} hesaba geçer)
+                {formatCurrency(priceAfterCommission)} hesaba geçer
             </div>
         )}
       </TableCell>
@@ -199,7 +199,7 @@ function SortableProductRow({
       {onlineMargins.map((margin) => {
         const sellingPrice = (cost * (1 + margin.value / 100)) / (1 - commissionRate / 100);
         return (
-          <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1">{formatCurrency(sellingPrice)}</TableCell>
+          <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
       <TableCell className="w-[30px] px-0 py-1" />
@@ -682,8 +682,11 @@ export default function Home() {
                               autoFocus
                             />
                           ) : (
-                            <div className="flex items-center justify-start gap-1 cursor-pointer group" onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })}>
-                               <span>(%{margin.value} Kar + %{commissionRate})</span>
+                            <div className="flex items-start justify-start gap-1 cursor-pointer group" onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })}>
+                               <div className="flex flex-col">
+                                  <span className="leading-tight">%{margin.value} Kar</span>
+                                  <span className="text-xs font-normal text-muted-foreground leading-tight">ve %{commissionRate} Komisyon</span>
+                               </div>
                                <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
