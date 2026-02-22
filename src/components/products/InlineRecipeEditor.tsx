@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { calculateCost } from '@/lib/utils';
-import { Save, PlusCircle, Trash2, Edit } from 'lucide-react';
+import { PlusCircle, Trash2, Edit } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog,
@@ -51,7 +51,6 @@ const formatCurrency = (amount: number) => {
 
 
 export default function InlineRecipeEditor({ product, ingredients, allProducts, onSave, updateProduct, updateIngredientPrice }: InlineRecipeEditorProps) {
-  const [currentRecipe, setCurrentRecipe] = useState<RecipeItem[]>(product.recipe || []);
   const [isAddIngredientOpen, setAddIngredientOpen] = useState(false);
   
   const [priceChangeInfo, setPriceChangeInfo] = useState<{ 
@@ -78,15 +77,14 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
   const handleQuantityChange = (ingredientId: string, quantityStr: string) => {
     const quantity = parseFloat(quantityStr);
     
-    setCurrentRecipe(prev => {
-        if (isNaN(quantity) && quantityStr !== '') return prev;
-      
-        return prev.map(item =>
-          item.ingredientId === ingredientId
-            ? { ...item, quantity: isNaN(quantity) ? 0 : quantity }
-            : item
-        );
-      });
+    if (isNaN(quantity) && quantityStr !== '' && quantityStr !== '.') return;
+
+    const newRecipe = (product.recipe || []).map(item =>
+        item.ingredientId === ingredientId
+        ? { ...item, quantity: isNaN(quantity) ? 0 : quantity }
+        : item
+    );
+    onSave(newRecipe);
   };
   
   const handlePriceChangeRequest = () => {
@@ -99,7 +97,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
       const affectedProducts = allProducts
         .filter(p => 
             p.id !== product.id && 
-            p.recipe.some(item => item.ingredientId === ingredient.id)
+            p.recipe?.some(item => item.ingredientId === ingredient.id)
         )
         .map(p => p.name);
 
@@ -118,41 +116,44 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
 
   const confirmPriceChange = () => {
     if (priceChangeInfo) {
-      updateIngredientPrice(priceChangeInfo.ingredientId, priceChangeInfo.newPrice);
+      const { ingredientId, newPrice } = priceChangeInfo;
+      // First, close the dialog to prevent the UI from locking
       setPriceChangeInfo(null);
+      // Then, call the parent function to update the state
+      updateIngredientPrice(ingredientId, newPrice);
     }
   };
 
   const handleAddIngredient = (ingredientId: string) => {
+    const currentRecipe = product.recipe || [];
     if (currentRecipe.some(item => item.ingredientId === ingredientId)) return;
     
-    setCurrentRecipe(prev => [...prev, { ingredientId, quantity: 0 }]);
+    const newRecipe = [...currentRecipe, { ingredientId, quantity: 0 }];
+    onSave(newRecipe);
     setAddIngredientOpen(false);
   };
 
   const handleRemoveIngredient = (ingredientId: string) => {
-    setCurrentRecipe(prev => prev.filter(item => item.ingredientId !== ingredientId));
+    const newRecipe = (product.recipe || []).filter(item => item.ingredientId !== ingredientId);
+    onSave(newRecipe);
   };
   
-  const totalCost = calculateCost(currentRecipe, ingredients);
-  
   const availableIngredients = ingredients.filter(
-      (ing) => !currentRecipe.some((item) => item.ingredientId === ing.id)
+      (ing) => !(product.recipe || []).some((item) => item.ingredientId === ing.id)
   );
 
-  const isRecipeActive = (product.recipe && product.recipe.length > 0) || currentRecipe.length > 0;
+  const isRecipeEmpty = !product.recipe || product.recipe.length === 0;
 
   return (
-    <div className="p-4">
-        {!isRecipeActive && (
+    <div className="p-4 bg-muted/30">
+        {isRecipeEmpty && (
             <>
                 <div className="mb-6">
-                    <h4 className="font-semibold text-base mb-2">Doğrudan Maliyet Girişi</h4>
                     <p className="text-sm text-muted-foreground mb-4">
-                        Bu ürün bir reçeteye sahip değil (örneğin bir içecek). Maliyeti doğrudan girebilir veya bir reçete oluşturabilirsiniz.
+                        Bu ürünün reçetesi yok. Maliyeti doğrudan girebilir veya malzeme ekleyerek bir reçete oluşturabilirsiniz.
                     </p>
                     <div className="flex items-center gap-2 max-w-sm">
-                        <Label htmlFor={`manual-cost-${product.id}`} className="shrink-0">Ürün Maliyeti (₺)</Label>
+                        <Label htmlFor={`manual-cost-${product.id}`} className="shrink-0">Doğrudan Maliyet (₺)</Label>
                         <Input
                             id={`manual-cost-${product.id}`}
                             type="number"
@@ -165,114 +166,83 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                 <div className="relative mb-6">
                     <Separator />
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="bg-background px-2 text-sm text-muted-foreground">VEYA</span>
+                        <span className="bg-muted/30 px-2 text-sm text-muted-foreground">VEYA</span>
                     </div>
                 </div>
             </>
         )}
 
-        <div className="flex justify-between items-center mb-2">
-            <h4 className="font-semibold text-base">Reçete Yönetimi</h4>
-            <div className="flex items-center gap-4">
-                 <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Toplam Reçete Maliyeti</p>
-                    <p className="font-bold text-lg">{formatCurrency(totalCost)}</p>
-                </div>
-                <Button onClick={() => onSave(currentRecipe)} size="sm">
-                    <Save className="mr-2 h-4 w-4" />
-                    Reçeteyi Kaydet
-                </Button>
-            </div>
-        </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          Ürün maliyetini hesaplamak için kullanılacak malzemeleri ve miktarlarını belirtin. Kaydedildiğinde, bu reçete maliyeti kullanılacaktır.
-        </p>
-      <ScrollArea className="h-auto max-h-72 border rounded-md">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Malzeme</TableHead>
-              <TableHead className="w-[150px]">Miktar</TableHead>
-              <TableHead className="w-[120px] text-right">Reçete Maliyeti</TableHead>
-              <TableHead className="w-[50px] text-right">İşlem</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {currentRecipe.length > 0 ? (
-                currentRecipe.map(recipeItem => {
-                    const ingredient = ingredients.find(i => i.id === recipeItem.ingredientId);
-                    if (!ingredient) return null;
-                    
-                    const quantity = recipeItem?.quantity || 0;
-                    
-                    let costPerUnit = 0;
-                    let recipeUnitLabel = '';
+        <ScrollArea className="h-auto max-h-72 border rounded-md">
+            <Table>
+            <TableHeader>
+                <TableRow>
+                <TableHead>Malzeme</TableHead>
+                <TableHead className="w-[150px]">Miktar</TableHead>
+                <TableHead className="w-[120px] text-right">Reçete Maliyeti</TableHead>
+                <TableHead className="w-[50px] text-right">İşlem</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {!isRecipeEmpty ? (
+                    (product.recipe || []).map(recipeItem => {
+                        const ingredient = ingredients.find(i => i.id === recipeItem.ingredientId);
+                        if (!ingredient) return null;
+                        
+                        const quantity = recipeItem?.quantity || 0;
+                        const itemCost = calculateCost([recipeItem], ingredients);
 
-                    switch (ingredient.unit) {
-                        case 'kg':
-                            costPerUnit = ingredient.price / 1000;
-                            recipeUnitLabel = 'gram';
-                            break;
-                        case 'gram':
-                            costPerUnit = ingredient.price;
-                            recipeUnitLabel = 'gram';
-                            break;
-                        case 'adet':
-                            costPerUnit = ingredient.price;
-                            recipeUnitLabel = 'adet';
-                            break;
-                        case 'TL':
-                            costPerUnit = ingredient.price;
-                            recipeUnitLabel = 'TL';
-                            break;
-                    }
+                        let recipeUnitLabel = '';
+                        switch (ingredient.unit) {
+                            case 'kg': recipeUnitLabel = 'gram'; break;
+                            case 'gram': recipeUnitLabel = 'gram'; break;
+                            case 'adet': recipeUnitLabel = 'adet'; break;
+                            case 'TL': recipeUnitLabel = 'adet'; break;
+                        }
 
-                    const itemCost = costPerUnit * quantity;
-
-                    return (
-                    <TableRow key={ingredient.id}>
-                        <TableCell className="font-medium align-top">
-                           <div>{ingredient.name}</div>
-                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        return (
+                        <TableRow key={ingredient.id}>
+                            <TableCell className="font-medium align-top py-2">
+                            <div>{ingredient.name}</div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <span>{formatCurrency(ingredient.price)} / {ingredient.unit}</span>
                                 <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-primary" onClick={() => handleOpenEditPriceDialog(ingredient)}>
                                     <Edit className="h-3 w-3"/>
                                 </Button>
-                           </div>
-                        </TableCell>
-                        <TableCell>
-                        <div className="flex items-center justify-end gap-2">
-                            <Input
-                                type="number"
-                                placeholder="0"
-                                className="w-24 text-right h-8"
-                                value={quantity || ''}
-                                onChange={(e) => handleQuantityChange(ingredient.id, e.target.value)}
-                            />
-                            <span className="text-xs text-muted-foreground w-12 text-left">{recipeUnitLabel}</span>
-                        </div>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                            {formatCurrency(itemCost)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleRemoveIngredient(ingredient.id)}>
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
+                            </div>
+                            </TableCell>
+                            <TableCell className="py-2">
+                            <div className="flex items-center justify-end gap-2">
+                                <Input
+                                    type="number"
+                                    placeholder="0"
+                                    className="w-24 text-right h-8"
+                                    value={quantity || ''}
+                                    onChange={(e) => handleQuantityChange(ingredient.id, e.target.value)}
+                                />
+                                <span className="text-xs text-muted-foreground w-12 text-left">{recipeUnitLabel}</span>
+                            </div>
+                            </TableCell>
+                            <TableCell className="text-right font-medium py-2">
+                                {formatCurrency(itemCost)}
+                            </TableCell>
+                            <TableCell className="text-right py-2">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleRemoveIngredient(ingredient.id)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                        )
+                    })
+                ) : (
+                    <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                        Reçete oluşturmak için malzeme ekleyin.
                         </TableCell>
                     </TableRow>
-                    )
-                })
-            ) : (
-                <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    Bu ürüne malzeme ekleyerek reçete oluşturun.
-                    </TableCell>
-                </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </ScrollArea>
+                )}
+            </TableBody>
+            </Table>
+        </ScrollArea>
        <div className="mt-4">
           <Popover open={isAddIngredientOpen} onOpenChange={setAddIngredientOpen}>
             <PopoverTrigger asChild>
