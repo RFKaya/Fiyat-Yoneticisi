@@ -112,11 +112,7 @@ function SortableProductRow({
     deleteProduct,
     isExpanded,
     onToggleExpand,
-    updateIngredientPrice,
-    storeIncludesKdv,
-    storeIncludesBankComm,
-    onlineIncludesKdv,
-    onlineIncludesPlatformComm
+    updateIngredientPrice
   }: {
   product: Product,
   ingredients: Ingredient[],
@@ -130,10 +126,6 @@ function SortableProductRow({
   isExpanded: boolean,
   onToggleExpand: () => void,
   updateIngredientPrice: (ingredientId: string, newPrice: number) => void;
-  storeIncludesKdv: boolean;
-  storeIncludesBankComm: boolean;
-  onlineIncludesKdv: boolean;
-  onlineIncludesPlatformComm: boolean;
 }) {
   const {
     attributes,
@@ -175,15 +167,11 @@ function SortableProductRow({
   };
   
   // Calculate net amounts for display
-  let netStoreAmount = product.storePrice;
-  if (storeIncludesKdv) netStoreAmount /= (1 + kdvRate / 100);
-  if (storeIncludesBankComm) netStoreAmount *= (1 - bankCommissionRate / 100);
-  const showNetStoreAmount = (storeIncludesKdv || storeIncludesBankComm) && product.storePrice > 0;
+  const netStoreAmount = product.storePrice / (1 + kdvRate / 100) * (1 - bankCommissionRate / 100);
+  const showNetStoreAmount = product.storePrice > 0;
 
-  let netOnlineAmount = product.onlinePrice;
-  if (onlineIncludesKdv) netOnlineAmount /= (1 + kdvRate / 100);
-  if (onlineIncludesPlatformComm) netOnlineAmount *= (1 - platformCommissionRate / 100);
-  const showNetOnlineAmount = (onlineIncludesKdv || onlineIncludesPlatformComm) && product.onlinePrice > 0;
+  const netOnlineAmount = product.onlinePrice / (1 + kdvRate / 100) * (1 - platformCommissionRate / 100);
+  const showNetOnlineAmount = product.onlinePrice > 0;
 
 
   return (
@@ -249,22 +237,17 @@ function SortableProductRow({
       </TableCell>
       {storeMargins.map((margin) => {
          const basePrice = cost * (1 + margin.value / 100);
-         let sellingPrice = basePrice;
-         if (storeIncludesBankComm) sellingPrice /= (1 - bankCommissionRate / 100);
-         if (storeIncludesKdv) sellingPrice *= (1 + kdvRate / 100);
+         const sellingPrice = (basePrice * (1 + kdvRate / 100)) / (1 - bankCommissionRate / 100);
          
         return (
-          <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">
-             <div className="flex flex-col justify-center text-left px-2">
-                <div>{formatCurrency(sellingPrice)}</div>
-                <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                    {formatCurrency(basePrice)}
-                </div>
-            </div>
+          <TableCell key={margin.id} className="text-left w-[90px] px-2 py-1 text-muted-foreground">
+             {formatCurrency(sellingPrice)}
           </TableCell>
         );
       })}
-      <TableCell className="text-left px-0 w-[30px] py-1" />
+      <TableCell className="text-left px-0 w-[30px] py-1">
+          <MarginColumnPopover type="store" onAdd={handleAddMargin} />
+      </TableCell>
       
       <TableCell className="w-8 px-1 py-1" />
 
@@ -295,21 +278,16 @@ function SortableProductRow({
 
       {onlineMargins.map((margin) => {
         const basePrice = cost * (1 + margin.value / 100);
-        let sellingPrice = basePrice;
-        if(onlineIncludesPlatformComm) sellingPrice /= (1 - platformCommissionRate / 100);
-        if(onlineIncludesKdv) sellingPrice *= (1 + kdvRate / 100);
+        const sellingPrice = (basePrice * (1 + kdvRate / 100)) / (1 - platformCommissionRate / 100);
         return (
-          <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">
-              <div className="flex flex-col justify-center text-left px-2">
-                <div>{formatCurrency(sellingPrice)}</div>
-                <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                    {formatCurrency(basePrice)}
-                </div>
-            </div>
+          <TableCell key={margin.id} className="text-left w-[90px] px-2 py-1 text-muted-foreground">
+              {formatCurrency(sellingPrice)}
           </TableCell>
         );
       })}
-      <TableCell className="text-left px-0 w-[30px] py-1" />
+      <TableCell className="text-left px-0 w-[30px] py-1">
+          <MarginColumnPopover type="online" onAdd={handleAddMargin} />
+      </TableCell>
 
       <TableCell className="text-right w-[60px] px-4 py-1">
         <DropdownMenu>
@@ -376,12 +354,6 @@ export default function Home() {
   const [kdvInput, setKdvInput] = useState('10');
   const [isKdvPopoverOpen, setKdvPopoverOpen] = useState(false);
   
-  // Global calculation toggles
-  const [storeIncludesKdv, setStoreIncludesKdv] = useState(true);
-  const [storeIncludesBankComm, setStoreIncludesBankComm] = useState(true);
-  const [onlineIncludesKdv, setOnlineIncludesKdv] = useState(true);
-  const [onlineIncludesPlatformComm, setOnlineIncludesPlatformComm] = useState(true);
-
   const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a,b) => a.value - b.value), [margins]);
   const onlineMargins = useMemo(() => margins.filter(m => m.type === 'online').sort((a,b) => a.value - b.value), [margins]);
 
@@ -760,109 +732,25 @@ export default function Home() {
                     <TableRow>
                       <TableHead className="font-semibold w-[340px] px-4 py-1">Ürün</TableHead>
                       <TableHead className="text-left font-semibold w-[120px] px-4 py-1">Maliyet</TableHead>
-                      <TableHead className="text-left font-semibold w-[140px] px-4 py-1 align-top pt-2">
-                        Mağaza Fiyatı
-                        <div className="flex flex-col items-start gap-1 mt-2">
-                            <div className="flex items-center gap-2">
-                                <Switch id="store-kdv" checked={storeIncludesKdv} onCheckedChange={setStoreIncludesKdv} />
-                                <Label htmlFor="store-kdv" className="text-xs font-normal">KDV</Label>
-                            </div>
-                             <div className="flex items-center gap-2">
-                                <Switch id="store-bank" checked={storeIncludesBankComm} onCheckedChange={setStoreIncludesBankComm} />
-                                <Label htmlFor="store-bank" className="text-xs font-normal">Banka Kom.</Label>
-                            </div>
-                        </div>
-                      </TableHead>
+                      <TableHead className="text-left font-semibold w-[140px] px-4 py-2 align-top">Mağaza Fiyatı</TableHead>
                       {storeMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-1 py-1">
-                          {editingMargin?.id === margin.id ? (
-                            <Input
-                              type="number"
-                              value={editingMargin.value}
-                              onChange={(e) => setEditingMargin({ id: margin.id, value: e.target.value })}
-                              onBlur={() => handleUpdateMargin(margin.id)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleUpdateMargin(margin.id)
-                                if (e.key === 'Escape') setEditingMargin(null)
-                              }}
-                              className="text-left h-8"
-                              autoFocus
-                            />
-                          ) : (
-                            <div className="flex items-center justify-start gap-1 cursor-pointer group" onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })}>
-                              <div className="flex flex-col">
-                                  <span className="leading-tight">%{margin.value} Kar</span>
-                               </div>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); handleDeleteMargin(margin.id) }}>
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent><p>Sütunu Sil</p></TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          )}
+                        <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-2 py-1 align-top">
+                           <div>%{margin.value} Kar</div>
+                           <div className="text-xs font-normal text-muted-foreground">KDV ve Banka Kom.</div>
                         </TableHead>
                       ))}
-                      <TableHead className="text-left px-0 w-[30px] py-1">
-                         <MarginColumnPopover type="store" onAdd={handleAddMargin} />
-                      </TableHead>
+                      <TableHead className="text-left px-0 w-[30px] py-1" />
                       
                       <TableHead className="w-8 px-1 py-1" />
 
-                      <TableHead className="text-left font-semibold w-[140px] px-2 py-1 align-top pt-2">
-                        Online Fiyat
-                        <div className="flex flex-col items-start gap-1 mt-2">
-                            <div className="flex items-center gap-2">
-                                <Switch id="online-kdv" checked={onlineIncludesKdv} onCheckedChange={setOnlineIncludesKdv} />
-                                <Label htmlFor="online-kdv" className="text-xs font-normal">KDV</Label>
-                            </div>
-                             <div className="flex items-center gap-2">
-                                <Switch id="online-platform" checked={onlineIncludesPlatformComm} onCheckedChange={setOnlineIncludesPlatformComm} />
-                                <Label htmlFor="online-platform" className="text-xs font-normal">Platform Kom.</Label>
-                            </div>
-                        </div>
-                      </TableHead>
+                      <TableHead className="text-left font-semibold w-[140px] px-2 py-2 align-top">Online Fiyat</TableHead>
                       {onlineMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-1 py-1">
-                          {editingMargin?.id === margin.id ? (
-                             <Input
-                              type="number"
-                              value={editingMargin.value}
-                              onChange={(e) => setEditingMargin({ id: margin.id, value: e.target.value })}
-                              onBlur={() => handleUpdateMargin(margin.id)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleUpdateMargin(margin.id)
-                                if (e.key === 'Escape') setEditingMargin(null)
-                              }}
-                              className="text-left h-8"
-                              autoFocus
-                            />
-                          ) : (
-                            <div className="flex items-start justify-start gap-1 cursor-pointer group" onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })}>
-                               <div className="flex flex-col">
-                                  <span className="leading-tight">%{margin.value} Kar</span>
-                               </div>
-                               <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); handleDeleteMargin(margin.id) }}>
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent><p>Sütunu Sil</p></TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          )}
+                        <TableHead key={margin.id} className="text-left font-semibold w-[90px] px-2 py-1 align-top">
+                            <div>%{margin.value} Kar</div>
+                            <div className="text-xs font-normal text-muted-foreground">KDV ve Platform Kom.</div>
                         </TableHead>
                       ))}
-                      <TableHead className="text-left px-0 w-[30px] py-1">
-                         <MarginColumnPopover type="online" onAdd={handleAddMargin} />
-                      </TableHead>
+                      <TableHead className="text-left px-0 w-[30px] py-1" />
                       
                       <TableHead className="text-right font-semibold w-[60px] px-4 py-1">İşlemler</TableHead>
                     </TableRow>
@@ -895,10 +783,6 @@ export default function Home() {
                                   isExpanded={expandedProductIds.includes(product.id)}
                                   onToggleExpand={() => toggleProductExpansion(product.id)}
                                   updateIngredientPrice={updateIngredientPrice}
-                                  storeIncludesKdv={storeIncludesKdv}
-                                  storeIncludesBankComm={storeIncludesBankComm}
-                                  onlineIncludesKdv={onlineIncludesKdv}
-                                  onlineIncludesPlatformComm={onlineIncludesPlatformComm}
                                 />
                                 {expandedProductIds.includes(product.id) && (
                                   <TableRow className="bg-card hover:bg-card">
