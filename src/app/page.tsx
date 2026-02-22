@@ -576,6 +576,7 @@ export default function Home() {
                                           <InlineRecipeEditor
                                               product={product}
                                               ingredients={ingredients}
+                                              allProducts={products}
                                               onSave={(newRecipe) => updateProductRecipe(product.id, newRecipe)}
                                               updateProduct={updateProduct}
                                               updateIngredientPrice={updateIngredientPrice}

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { calculateCost } from '@/lib/utils';
-import { Save, PlusCircle, Trash2 } from 'lucide-react';
+import { Save, PlusCircle, Trash2, Edit } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog,
@@ -21,11 +21,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 
 type InlineRecipeEditorProps = {
   product: Product;
   ingredients: Ingredient[];
+  allProducts: Product[];
   onSave: (newRecipe: RecipeItem[]) => void;
   updateProduct: (id: string, field: keyof Product, value: any) => void;
   updateIngredientPrice: (ingredientId: string, newPrice: number) => void;
@@ -42,10 +50,30 @@ const formatCurrency = (amount: number) => {
   };
 
 
-export default function InlineRecipeEditor({ product, ingredients, onSave, updateProduct, updateIngredientPrice }: InlineRecipeEditorProps) {
+export default function InlineRecipeEditor({ product, ingredients, allProducts, onSave, updateProduct, updateIngredientPrice }: InlineRecipeEditorProps) {
   const [currentRecipe, setCurrentRecipe] = useState<RecipeItem[]>(product.recipe || []);
   const [isAddIngredientOpen, setAddIngredientOpen] = useState(false);
-  const [priceChangeInfo, setPriceChangeInfo] = useState<{ ingredientId: string; newPrice: number; oldPrice: number, ingredientName: string; } | null>(null);
+  
+  const [priceChangeInfo, setPriceChangeInfo] = useState<{ 
+    ingredientId: string; 
+    newPrice: number; 
+    oldPrice: number, 
+    ingredientName: string;
+    affectedProducts: string[];
+  } | null>(null);
+
+  const [ingredientToEdit, setIngredientToEdit] = useState<Ingredient | null>(null);
+  const [newPriceInput, setNewPriceInput] = useState('');
+
+  const handleOpenEditPriceDialog = (ingredient: Ingredient) => {
+    setIngredientToEdit(ingredient);
+    setNewPriceInput(String(ingredient.price));
+  };
+  
+  const handleCloseEditPriceDialog = () => {
+    setIngredientToEdit(null);
+    setNewPriceInput('');
+  }
 
   const handleQuantityChange = (ingredientId: string, quantityStr: string) => {
     const quantity = parseFloat(quantityStr);
@@ -61,12 +89,30 @@ export default function InlineRecipeEditor({ product, ingredients, onSave, updat
       });
   };
   
-  const handlePriceChangeRequest = (ingredientId: string, newPriceStr: string, ingredientName: string) => {
-    const newPrice = parseFloat(newPriceStr);
-    const ingredient = ingredients.find(i => i.id === ingredientId);
+  const handlePriceChangeRequest = () => {
+    if (!ingredientToEdit) return;
+
+    const newPrice = parseFloat(newPriceInput);
+    const ingredient = ingredientToEdit;
 
     if (ingredient && !isNaN(newPrice) && newPrice > 0 && newPrice !== ingredient.price) {
-      setPriceChangeInfo({ ingredientId, newPrice, oldPrice: ingredient.price, ingredientName });
+      const affectedProducts = allProducts
+        .filter(p => 
+            p.id !== product.id && 
+            p.recipe.some(item => item.ingredientId === ingredient.id)
+        )
+        .map(p => p.name);
+
+      setPriceChangeInfo({ 
+          ingredientId: ingredient.id, 
+          newPrice, 
+          oldPrice: ingredient.price, 
+          ingredientName: ingredient.name,
+          affectedProducts: affectedProducts,
+      });
+      handleCloseEditPriceDialog();
+    } else {
+      handleCloseEditPriceDialog();
     }
   };
 
@@ -76,18 +122,6 @@ export default function InlineRecipeEditor({ product, ingredients, onSave, updat
       setPriceChangeInfo(null);
     }
   };
-
-  const onPriceChangeDialogChange = (open: boolean) => {
-    if (!open) {
-      if (priceChangeInfo) {
-          const input = document.getElementById(`price-input-${priceChangeInfo.ingredientId}`) as HTMLInputElement;
-          if (input) {
-              input.value = String(priceChangeInfo.oldPrice);
-          }
-      }
-      setPriceChangeInfo(null);
-    }
-  }
 
   const handleAddIngredient = (ingredientId: string) => {
     if (currentRecipe.some(item => item.ingredientId === ingredientId)) return;
@@ -158,7 +192,6 @@ export default function InlineRecipeEditor({ product, ingredients, onSave, updat
           <TableHeader>
             <TableRow>
               <TableHead>Malzeme</TableHead>
-              <TableHead className="w-[200px]">Birim Fiyatı (Değiştir)</TableHead>
               <TableHead className="w-[150px]">Miktar</TableHead>
               <TableHead className="w-[120px] text-right">Reçete Maliyeti</TableHead>
               <TableHead className="w-[50px] text-right">İşlem</TableHead>
@@ -198,19 +231,14 @@ export default function InlineRecipeEditor({ product, ingredients, onSave, updat
 
                     return (
                     <TableRow key={ingredient.id}>
-                        <TableCell className="font-medium">{ingredient.name}</TableCell>
-                        <TableCell>
-                            <div className="flex items-center gap-2">
-                                <Input
-                                    id={`price-input-${ingredient.id}`}
-                                    type="number"
-                                    defaultValue={ingredient.price}
-                                    onBlur={(e) => handlePriceChangeRequest(ingredient.id, e.target.value, ingredient.name)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                                    className="w-24 text-right h-8"
-                                />
-                                <span className="text-xs text-muted-foreground">₺ / {ingredient.unit}</span>
-                            </div>
+                        <TableCell className="font-medium align-top">
+                           <div>{ingredient.name}</div>
+                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <span>{formatCurrency(ingredient.price)} / {ingredient.unit}</span>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-primary" onClick={() => handleOpenEditPriceDialog(ingredient)}>
+                                    <Edit className="h-3 w-3"/>
+                                </Button>
+                           </div>
                         </TableCell>
                         <TableCell>
                         <div className="flex items-center justify-end gap-2">
@@ -276,14 +304,47 @@ export default function InlineRecipeEditor({ product, ingredients, onSave, updat
             </PopoverContent>
           </Popover>
         </div>
-        <AlertDialog open={!!priceChangeInfo} onOpenChange={onPriceChangeDialogChange}>
+
+        <Dialog open={!!ingredientToEdit} onOpenChange={(open) => !open && handleCloseEditPriceDialog()}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{ingredientToEdit?.name} Fiyatını Güncelle</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-2 py-4">
+                    <Label htmlFor="new-price">Yeni Birim Fiyat (₺)</Label>
+                    <Input 
+                        id="new-price"
+                        type="number" 
+                        value={newPriceInput} 
+                        onChange={(e) => setNewPriceInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handlePriceChangeRequest(); }}
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={handleCloseEditPriceDialog}>İptal</Button>
+                    <Button onClick={handlePriceChangeRequest}>Güncelle ve Onayla</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={!!priceChangeInfo} onOpenChange={(open) => !open && setPriceChangeInfo(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Fiyat Değişikliği Onayı</AlertDialogTitle>
               <AlertDialogDescription>
                 <strong>{priceChangeInfo?.ingredientName}</strong> malzemesinin birim fiyatını değiştirmek üzeresiniz.
                 <br/><br/>
-                Bu değişiklik, bu malzemeyi içeren <strong>tüm ürün reçetelerini</strong> etkileyecektir ve geri alınamaz. Devam etmek istiyor musunuz?
+                Bu değişiklik, bu malzemeyi içeren <strong>tüm ürün reçetelerini</strong> etkileyecektir ve geri alınamaz.
+                 {priceChangeInfo?.affectedProducts && priceChangeInfo.affectedProducts.length > 0 && (
+                    <div className="mt-4">
+                        <p className="font-medium">Etkilenecek diğer ürünler:</p>
+                        <ul className="list-disc list-inside text-sm text-muted-foreground max-h-24 overflow-y-auto bg-muted/50 p-2 rounded-md">
+                            {priceChangeInfo.affectedProducts.map(name => <li key={name}>{name}</li>)}
+                        </ul>
+                    </div>
+                 )}
+                <br />
+                Devam etmek istiyor musunuz?
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
