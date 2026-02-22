@@ -166,13 +166,14 @@ function SortableProductRow({
       {storeMargins.map((margin) => {
          const sellingPrice = cost * (1 + margin.value / 100);
         return (
-          <TableCell key={margin.id} className="text-left w-[140px] px-4 py-1">{formatCurrency(sellingPrice)}</TableCell>
+          <TableCell key={margin.id} className="text-left w-[110px] px-2 py-1">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
       <TableCell className="w-[40px] px-1 py-1" />
+      
       <TableCell className="w-8 px-1" />
 
-      <TableCell className="w-[140px] px-4 py-1 align-top text-left">
+      <TableCell className="w-[120px] px-2 py-1 align-top text-left">
          {editingField === 'onlinePrice' ? (
             <Input 
                 type="number" 
@@ -198,7 +199,7 @@ function SortableProductRow({
       {onlineMargins.map((margin) => {
         const sellingPrice = (cost * (1 + margin.value / 100)) / (1 - commissionRate / 100);
         return (
-          <TableCell key={margin.id} className="text-left w-[140px] px-4 py-1">{formatCurrency(sellingPrice)}</TableCell>
+          <TableCell key={margin.id} className="text-left w-[110px] px-2 py-1">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
       <TableCell className="w-[40px] px-1 py-1" />
@@ -627,7 +628,7 @@ export default function Home() {
                       <TableHead className="text-left font-semibold w-[120px] px-4 py-3">Maliyet</TableHead>
                       <TableHead className="text-left font-semibold w-[100px] px-4 py-3">Mağaza Fiyatı</TableHead>
                       {storeMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-4 py-3">
+                        <TableHead key={margin.id} className="text-left font-semibold w-[110px] px-2 py-3">
                           {editingMargin?.id === margin.id ? (
                             <Input
                               type="number"
@@ -664,9 +665,9 @@ export default function Home() {
                       
                       <TableHead className="w-8 px-1" />
 
-                      <TableHead className="text-left font-semibold w-[140px] px-4 py-3">Online Fiyat</TableHead>
+                      <TableHead className="text-left font-semibold w-[120px] px-2 py-3">Online Fiyat</TableHead>
                       {onlineMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-4 py-3">
+                        <TableHead key={margin.id} className="text-left font-semibold w-[110px] px-2 py-3">
                           {editingMargin?.id === margin.id ? (
                              <Input
                               type="number"
