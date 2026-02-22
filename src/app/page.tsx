@@ -77,6 +77,8 @@ function SortableProductRow({
     isDragging,
   } = useSortable({ id: product.id });
   
+  const [editingField, setEditingField] = useState<'name' | 'storePrice' | 'onlinePrice' | null>(null);
+
   const hasRecipe = product.recipe && product.recipe.length > 0;
   const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
   const category = categories.find(c => c.id === product.categoryId);
@@ -89,6 +91,20 @@ function SortableProductRow({
     zIndex: isDragging ? 10 : 'auto',
     backgroundColor: category ? `${category.color}33` : undefined,
   };
+  
+  const handleUpdate = (field: 'name' | 'storePrice' | 'onlinePrice', value: string) => {
+    updateProduct(product.id, field, value);
+    setEditingField(null);
+  };
+  
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    } else if (e.key === 'Escape') {
+      setEditingField(null);
+    }
+  };
+
 
   return (
     <TableRow ref={setNodeRef} style={style} key={product.id} className={isExpanded ? 'border-b-0' : ''}>
@@ -97,7 +113,25 @@ function SortableProductRow({
           <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...attributes} {...listeners}>
             <GripVertical className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <TooltipProvider>
+          {editingField === 'name' ? (
+             <Input 
+                defaultValue={product.name} 
+                onBlur={(e) => handleUpdate('name', e.target.value)}
+                onKeyDown={handleKeyDown}
+                autoFocus
+                className="font-medium border-dashed focus-visible:ring-1 focus-visible:bg-card flex-grow h-8"
+             />
+          ) : (
+             <div onClick={() => setEditingField('name')} className="font-medium flex-grow cursor-pointer truncate p-2 h-10 flex items-center rounded-md hover:bg-muted/50">
+                {product.name || <span className="text-muted-foreground">Yeni Ürün Adı</span>}
+             </div>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-left font-medium w-[120px] px-4 py-1">
+        <div className="flex items-center justify-between">
+            <span>{formatCurrency(cost)}</span>
+            <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleExpand}>
@@ -107,16 +141,42 @@ function SortableProductRow({
                 <TooltipContent><p>Reçeteyi Göster/Gizle</p></TooltipContent>
               </Tooltip>
           </TooltipProvider>
-          <Input value={product.name} onChange={(e) => updateProduct(product.id, 'name', e.target.value)} className="font-medium border-0 bg-transparent focus-visible:ring-1 focus-visible:bg-card flex-grow" placeholder="Yeni Ürün Adı" />
         </div>
       </TableCell>
-      <TableCell className="text-left font-medium w-[90px] px-4 py-1">{formatCurrency(cost)}</TableCell>
       <TableCell className="w-[100px] px-4 py-1">
-        <Input type="number" value={product.storePrice || ''} onChange={(e) => updateProduct(product.id, 'storePrice', e.target.value)} className="text-left" placeholder="0.00" />
+        {editingField === 'storePrice' ? (
+            <Input 
+                type="number" 
+                defaultValue={product.storePrice || ''}
+                onBlur={(e) => handleUpdate('storePrice', e.target.value)}
+                onKeyDown={handleKeyDown}
+                autoFocus
+                className="text-left h-8 border-dashed" 
+                placeholder="0.00" 
+            />
+        ) : (
+            <div onClick={() => setEditingField('storePrice')} className="text-left cursor-pointer p-2 h-10 flex items-center rounded-md hover:bg-muted/50">
+                {formatCurrency(product.storePrice)}
+            </div>
+        )}
       </TableCell>
       <TableCell className="w-[100px] px-4 py-1 align-top">
-        <Input type="number" value={product.onlinePrice || ''} onChange={(e) => updateProduct(product.id, 'onlinePrice', e.target.value)} className="text-left" placeholder="0.00" />
-        {product.onlinePrice > 0 && commissionRate > 0 && (
+         {editingField === 'onlinePrice' ? (
+            <Input 
+                type="number" 
+                defaultValue={product.onlinePrice || ''}
+                onBlur={(e) => handleUpdate('onlinePrice', e.target.value)}
+                onKeyDown={handleKeyDown}
+                autoFocus
+                className="text-left h-8 border-dashed" 
+                placeholder="0.00" 
+            />
+        ) : (
+            <div onClick={() => setEditingField('onlinePrice')} className="cursor-pointer p-2 h-10 flex items-center rounded-md hover:bg-muted/50">
+                {formatCurrency(product.onlinePrice)}
+            </div>
+        )}
+        {product.onlinePrice > 0 && commissionRate > 0 && editingField !== 'onlinePrice' && (
             <div className="text-xs text-muted-foreground text-center pt-0.5 whitespace-nowrap">
                 ({formatCurrency(priceAfterCommission)} hesaba geçer)
             </div>
@@ -191,8 +251,11 @@ export default function Home() {
     fetch('/api/data')
       .then((res) => res.json())
       .then((data) => {
-        setProducts(data.products || []);
-        setIngredients(data.ingredients || []);
+        const sortedProducts = (data.products || []).sort((a: Product, b: Product) => (a.order ?? 0) - (b.order ?? 0));
+        const sortedIngredients = (data.ingredients || []).sort((a: Ingredient, b: Ingredient) => (a.order ?? 0) - (b.order ?? 0));
+
+        setProducts(sortedProducts);
+        setIngredients(sortedIngredients);
         setMargins(data.margins || []);
         setCategories(data.categories || []);
         setCommissionRate(data.commissionRate ?? 15);
@@ -488,7 +551,7 @@ export default function Home() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="font-semibold w-[340px] px-4 py-3">Ürün</TableHead>
-                      <TableHead className="text-left font-semibold w-[90px] px-4 py-3">Maliyet</TableHead>
+                      <TableHead className="text-left font-semibold w-[120px] px-4 py-3">Maliyet</TableHead>
                       <TableHead className="text-left font-semibold w-[100px] px-4 py-3">Mağaza Fiyatı</TableHead>
                       <TableHead className="text-left font-semibold w-[100px] px-4 py-3">Online Fiyat</TableHead>
                       {margins.map((margin, index) => (
@@ -534,7 +597,7 @@ export default function Home() {
                                 <h4 className="font-medium leading-none">Yeni Kâr Marjı</h4>
                                 <p className="text-sm text-muted-foreground">Analiz için yeni bir yüzde ekle.</p>
                               </div>
-                              <Input type="number" placeholder="Örn: 150" value={newMargin} onChange={(e) => setNewMargin(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleAddMargin(); }} />
+                              <Input type="number" placeholder="150" value={newMargin} onChange={(e) => setNewMargin(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleAddMargin(); }} />
                               <Button onClick={handleAddMargin}>Marj Ekle</Button>
                             </div>
                           </PopoverContent>
