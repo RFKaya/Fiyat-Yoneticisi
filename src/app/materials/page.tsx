@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { nanoid } from 'nanoid';
-import type { Ingredient, Product, Category, RecipeItem } from '@/lib/types';
+import type { Ingredient, Product, Category, RecipeItem, Margin } from '@/lib/types';
 import Header from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Edit, GripVertical, ChevronRight, ChevronsUpDown } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, GripVertical, ChevronsUpDown } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -122,8 +122,10 @@ type AppData = {
   products: Product[];
   ingredients: Ingredient[];
   categories: Category[];
-  margins: number[];
-  commissionRate: number;
+  margins: Margin[];
+  platformCommissionRate: number;
+  kdvRate: number;
+  bankCommissionRate: number;
 };
 
 const formatCurrency = (amount: number) => {
@@ -299,7 +301,7 @@ function SortableIngredientRow({ ingredient, products, onRecipeChange, deleteIng
 }
 
 export default function MaterialsPage() {
-  const [appData, setAppData] = useState<AppData>({ products: [], ingredients: [], categories: [], margins: [], commissionRate: 15 });
+  const [appData, setAppData] = useState<AppData>({ products: [], ingredients: [], categories: [], margins: [], platformCommissionRate: 15, kdvRate: 10, bankCommissionRate: 2.5 });
   const [isFormOpen, setFormOpen] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState<Ingredient | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
@@ -325,7 +327,9 @@ export default function MaterialsPage() {
             ingredients: (data.ingredients || []).sort((a: Ingredient, b: Ingredient) => (a.order ?? 0) - (b.order ?? 0)),
             categories: data.categories || [],
             margins: data.margins || [],
-            commissionRate: data.commissionRate || 15,
+            platformCommissionRate: data.platformCommissionRate ?? 15,
+            kdvRate: data.kdvRate ?? 10,
+            bankCommissionRate: data.bankCommissionRate ?? 2.5,
         });
         setIsLoading(false);
       })
