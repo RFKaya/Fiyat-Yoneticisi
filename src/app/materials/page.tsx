@@ -93,7 +93,7 @@ function IngredientForm({
           <FormField control={form.control} name="unit" render={({ field }) => (
             <FormItem>
               <FormLabel>Birim (İsteğe Bağlı)</FormLabel>
-               <Select onValueChange={(value) => field.onChange(value === 'clear' ? undefined : value)} value={field.value}>
+               <Select onValueChange={(value) => field.onChange(value === 'clear' ? undefined : value)} value={field.value ?? 'clear'}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Birim seçin" />
