@@ -56,6 +56,7 @@ function SortableProductRow({
     isExpanded,
     onToggleExpand,
     updateIngredientPrice,
+    handleAddMargin,
   }: {
   product: Product,
   ingredients: Ingredient[],
@@ -67,6 +68,7 @@ function SortableProductRow({
   isExpanded: boolean,
   onToggleExpand: () => void,
   updateIngredientPrice: (ingredientId: string, newPrice: number) => void;
+  handleAddMargin: (type: 'store' | 'online', value: number) => void;
 }) {
   const {
     attributes,
@@ -131,9 +133,9 @@ function SortableProductRow({
           )}
         </div>
       </TableCell>
-      <TableCell className="text-left font-medium w-[120px] px-4 py-1">
+      <TableCell className="text-left w-[120px] px-4 py-1">
         <div className="flex items-center justify-start gap-0">
-            <span>{formatCurrency(cost)}</span>
+            <span className="font-medium">{formatCurrency(cost)}</span>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -169,11 +171,13 @@ function SortableProductRow({
           <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
-      <TableCell className="w-[30px] px-0 py-1" />
+      <TableCell className="text-left px-0 w-[30px]">
+         <MarginColumnPopover type="store" onAdd={handleAddMargin} />
+      </TableCell>
       
       <TableCell className="w-8 px-1" />
 
-      <TableCell className="w-[120px] px-2 py-1 align-top text-left">
+      <TableCell className="w-[120px] px-2 py-1 text-left">
          {editingField === 'onlinePrice' ? (
             <Input 
                 type="number" 
@@ -185,13 +189,13 @@ function SortableProductRow({
                 placeholder="0.00" 
             />
         ) : (
-            <div onClick={() => setEditingField('onlinePrice')} className="cursor-pointer p-2 h-10 flex items-center rounded-md hover:bg-muted/50">
-                {formatCurrency(product.onlinePrice)}
-            </div>
-        )}
-        {product.onlinePrice > 0 && commissionRate > 0 && editingField !== 'onlinePrice' && (
-            <div className="text-xs text-muted-foreground text-left pt-0.5 whitespace-nowrap">
-                {formatCurrency(priceAfterCommission)} hesaba geçer
+            <div onClick={() => setEditingField('onlinePrice')} className="cursor-pointer p-2 h-10 rounded-md hover:bg-muted/50 flex flex-col justify-center">
+                <div>{formatCurrency(product.onlinePrice)}</div>
+                {product.onlinePrice > 0 && commissionRate > 0 && (
+                    <div className="text-xs text-muted-foreground text-left whitespace-nowrap -mt-1 leading-tight">
+                        {formatCurrency(priceAfterCommission)} hesaba geçer
+                    </div>
+                )}
             </div>
         )}
       </TableCell>
@@ -202,7 +206,9 @@ function SortableProductRow({
           <TableCell key={margin.id} className="text-left w-[90px] px-1 py-1 text-muted-foreground">{formatCurrency(sellingPrice)}</TableCell>
         );
       })}
-      <TableCell className="w-[30px] px-0 py-1" />
+      <TableCell className="text-left px-0 w-[30px]">
+         <MarginColumnPopover type="online" onAdd={handleAddMargin} />
+      </TableCell>
 
       <TableCell className="text-right w-[60px] px-4 py-1">
         <DropdownMenu>
@@ -734,6 +740,7 @@ export default function Home() {
                                   isExpanded={expandedProductIds.includes(product.id)}
                                   onToggleExpand={() => toggleProductExpansion(product.id)}
                                   updateIngredientPrice={updateIngredientPrice}
+                                  handleAddMargin={handleAddMargin}
                                 />
                                 {expandedProductIds.includes(product.id) && (
                                   <TableRow className="bg-card hover:bg-card">
