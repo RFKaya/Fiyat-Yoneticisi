@@ -48,19 +48,3 @@ Projeyi yerel makinenizde çalıştırmak için aşağıdaki adımları izleyin.
     ```
 
     Uygulama varsayılan olarak `http://localhost:9002` adresinde çalışmaya başlayacaktır.
-
-## Önemli Not: Veri Dosyası
-
-Bu proje, tüm uygulama verilerini (`ürünler`, `malzemeler`, `ayarlar` vb.) `src/data/app-data.json` dosyasında saklar. Bu dosya kişisel verilerinizi içerdiğinden **kesinlikle public bir GitHub reposuna gönderilmemelidir.**
-
-`.gitignore` dosyası bu dosyanın takip edilmesini engelleyecek şekilde ayarlanmıştır. Eğer bu dosyayı yanlışlıkla daha önce commitlediyseniz, aşağıdaki komutu çalıştırarak Git geçmişinden kaldırabilirsiniz:
-
-```bash
-git rm --cached src/data/app-data.json
-```
-
-Ardından değişiklikleri yeni bir commit ile kaydedin.
-
-```bash
-git commit -m "chore: Remove app-data.json from tracking"
-```

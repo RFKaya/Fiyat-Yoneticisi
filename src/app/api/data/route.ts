@@ -2,22 +2,39 @@ import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-// Defines the path to the data file.
-const dataFilePath = path.join(process.cwd(), 'src/data/app-data.json');
+// Define paths and default data structure
+const dataDirPath = path.join(process.cwd(), 'src/data');
+const dataFilePath = path.join(dataDirPath, 'app-data.json');
+const defaultData = {
+  products: [],
+  ingredients: [],
+  categories: [],
+  margins: [],
+  platformCommissionRate: 15,
+  kdvRate: 10,
+  bankCommissionRate: 2.5,
+};
 
-// Helper function to read data from the JSON file.
+// Helper function to read data. If the file doesn't exist, it creates it.
 async function readData() {
   try {
     const fileContent = await fs.readFile(dataFilePath, 'utf8');
     return JSON.parse(fileContent);
   } catch (error) {
-    // If the file doesn't exist, it might be the first run.
-    // Let's check the error code.
+    // If the file or directory doesn't exist, create it.
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      // File not found, which is okay on first start. Return a default structure.
-      return { products: [], ingredients: [], categories: [], margins: [], platformCommissionRate: 15, kdvRate: 10, bankCommissionRate: 2.5 };
+      try {
+        console.log('Data file not found. Creating a new one...');
+        await fs.mkdir(dataDirPath, { recursive: true });
+        await fs.writeFile(dataFilePath, JSON.stringify(defaultData, null, 2), 'utf8');
+        return defaultData;
+      } catch (writeError) {
+        console.error('Failed to create default data file:', writeError);
+        // If we can't create the file, there's a bigger problem.
+        throw new Error('Failed to create and initialize data file.');
+      }
     }
-    // For other errors, we should throw them.
+    // For other errors, re-throw them.
     throw error;
   }
 }
@@ -46,6 +63,9 @@ export async function POST(request: Request) {
     if (typeof newData.products === 'undefined' || typeof newData.ingredients === 'undefined' || typeof newData.platformCommissionRate === 'undefined' || typeof newData.kdvRate === 'undefined' || typeof newData.bankCommissionRate === 'undefined') {
         throw new Error("Invalid data structure received.");
     }
+    
+    // Ensure the directory exists before writing. This is a safeguard.
+    await fs.mkdir(dataDirPath, { recursive: true });
 
     // Write the updated data back to the file, overwriting it.
     await fs.writeFile(dataFilePath, JSON.stringify(newData, null, 2));
