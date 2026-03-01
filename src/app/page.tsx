@@ -166,11 +166,11 @@ function SortableProductRow({
     }
   };
   
-  const netStoreAmount =  product.storePrice * (1 - (bankCommissionRate / 100) - ((kdvRate / 100) / (1 + (kdvRate / 100))));
-  const showNetStoreAmount = product.storePrice > 0;
+  const netStoreProfit =  product.storePrice * (1 - (bankCommissionRate / 100) - ((kdvRate / 100) / (1 + (kdvRate / 100)))) - cost;
+  const showNetStoreProfit = product.storePrice > 0;
 
-  const netOnlineAmount = product.onlinePrice * (1 - (platformCommissionRate / 100) - ((kdvRate / 100) / (1 + (kdvRate / 100))));
-  const showNetOnlineAmount = product.onlinePrice > 0;
+  const netOnlineProfit = product.onlinePrice * (1 - (platformCommissionRate / 100) - ((kdvRate / 100) / (1 + (kdvRate / 100)))) - cost;
+  const showNetOnlineProfit = product.onlinePrice > 0;
 
 
   return (
@@ -225,9 +225,9 @@ function SortableProductRow({
             <div onClick={() => setEditingField('storePrice')} className="text-left cursor-pointer px-2 h-8 flex items-center rounded-md hover:bg-muted/50">
                 <div className="flex flex-col justify-center text-left">
                     <div>{formatCurrency(product.storePrice)}</div>
-                    {showNetStoreAmount && (
+                    {showNetStoreProfit && (
                         <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                           {formatCurrency(netStoreAmount)}
+                           {formatCurrency(netStoreProfit)}
                         </div>
                     )}
                 </div>
@@ -264,9 +264,9 @@ function SortableProductRow({
              <div onClick={() => setEditingField('onlinePrice')} className="h-8 cursor-pointer rounded-md hover:bg-muted/50 flex items-center justify-start px-2">
                 <div className="flex flex-col justify-center text-left">
                     <div>{formatCurrency(product.onlinePrice)}</div>
-                    {showNetOnlineAmount && (
+                    {showNetOnlineProfit && (
                         <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                            {formatCurrency(netOnlineAmount)}
+                            {formatCurrency(netOnlineProfit)}
                         </div>
                     )}
                 </div>
