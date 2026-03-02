@@ -235,8 +235,8 @@ function SortableProductRow({
         )}
       </TableCell>
       {storeMargins.map((margin) => {
-         const basePrice = cost * (1 + margin.value / 100);
-         const sellingPrice = (basePrice / ((1 / (1 + kdvRate / 100)) - (bankCommissionRate / 100)));
+         const denominator = 1 - (kdvRate / (100 + kdvRate)) - (bankCommissionRate / 100) - (margin.value / 100);
+         const sellingPrice = denominator > 0 ? cost / denominator : Infinity;
          
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
@@ -275,8 +275,8 @@ function SortableProductRow({
       </TableCell>
 
       {onlineMargins.map((margin) => {
-        const basePrice = cost * (1 + margin.value / 100);
-        const sellingPrice = (basePrice / ((1 / (1 + kdvRate / 100)) - (platformCommissionRate / 100)));
+        const denominator = 1 - (kdvRate / (100 + kdvRate)) - (platformCommissionRate / 100) - (margin.value / 100);
+        const sellingPrice = denominator > 0 ? cost / denominator : Infinity;
         
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
