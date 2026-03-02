@@ -86,7 +86,7 @@ function MarginColumnPopover({
           </div>
           <Input
             type="number"
-            placeholder="150"
+            placeholder="30"
             value={newMargin}
             onChange={(e) => setNewMargin(e.target.value)}
             onKeyDown={(e) => {
@@ -735,6 +735,7 @@ export default function Home() {
                         <div className="text-xs font-normal text-muted-foreground">
                             <div>%{kdvRate} KDV</div>
                             <div>%{bankCommissionRate} Banka Kom.</div>
+                            <div>Ürün Maliyeti</div>
                         </div>
                       </TableHead>
                       {storeMargins.map((margin) => (
@@ -742,10 +743,11 @@ export default function Home() {
                            <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
                              <X className="h-4 w-4" />
                            </Button>
-                           <div>%{margin.value} Kar</div>
+                           <div>Satıştan %{margin.value} Kar</div>
                            <div className="text-xs font-normal text-muted-foreground">
                                 <div>%{kdvRate} KDV</div>
                                 <div>%{bankCommissionRate} Banka Kom.</div>
+                                <div>Ürün Maliyeti</div>
                            </div>
                         </TableHead>
                       ))}
@@ -760,6 +762,7 @@ export default function Home() {
                         <div className="text-xs font-normal text-muted-foreground">
                            <div>%{kdvRate} KDV</div>
                            <div>%{platformCommissionRate} Platform Kom.</div>
+                           <div>Ürün Maliyeti</div>
                         </div>
                       </TableHead>
                       {onlineMargins.map((margin) => (
@@ -767,10 +770,11 @@ export default function Home() {
                             <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
                               <X className="h-4 w-4" />
                             </Button>
-                            <div>%{margin.value} Kar</div>
+                            <div>Satıştan %{margin.value} Kar</div>
                             <div className="text-xs font-normal text-muted-foreground">
                                <div>%{kdvRate} KDV</div>
                                <div>%{platformCommissionRate} Platform Kom.</div>
+                               <div>Ürün Maliyeti</div>
                            </div>
                         </TableHead>
                       ))}
