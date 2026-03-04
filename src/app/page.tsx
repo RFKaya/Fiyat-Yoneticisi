@@ -166,10 +166,10 @@ function SortableProductRow({
     }
   };
   
-  const netStoreProfit =  product.storePrice * (1 - (bankCommissionRate / 100) - ((kdvRate / 100) / (1 + (kdvRate / 100)))) - cost;
+  const netStoreProfit =  (product.storePrice / (1 + kdvRate/100)) * (1 - (bankCommissionRate / 100)) - cost;
   const showNetStoreProfit = product.storePrice > 0;
 
-  const netOnlineProfit = product.onlinePrice * (1 - (platformCommissionRate / 100) - ((kdvRate / 100) / (1 + (kdvRate / 100)))) - cost;
+  const netOnlineProfit = (product.onlinePrice / (1 + kdvRate/100)) * (1 - (platformCommissionRate / 100)) - cost;
   const showNetOnlineProfit = product.onlinePrice > 0;
 
 
@@ -235,12 +235,11 @@ function SortableProductRow({
         )}
       </TableCell>
       {storeMargins.map((margin) => {
-         const denominator = 1 - (kdvRate / (100 + kdvRate)) - (bankCommissionRate / 100) - (margin.value / 100);
-         const sellingPrice = denominator > 0 ? cost / denominator : Infinity;
+         const sellingPrice = (cost / (1 - (margin.value / 100) - (bankCommissionRate / 100))) * (1 + (kdvRate / 100));
          
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
-             {formatCurrency(sellingPrice)}
+             {isFinite(sellingPrice) ? formatCurrency(sellingPrice) : 'Hesaplanamaz'}
           </TableCell>
         );
       })}
@@ -275,12 +274,11 @@ function SortableProductRow({
       </TableCell>
 
       {onlineMargins.map((margin) => {
-        const denominator = 1 - (kdvRate / (100 + kdvRate)) - (platformCommissionRate / 100) - (margin.value / 100);
-        const sellingPrice = denominator > 0 ? cost / denominator : Infinity;
+        const sellingPrice = (cost / (1 - (margin.value / 100) - (platformCommissionRate / 100))) * (1 + (kdvRate / 100));
         
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
-              {formatCurrency(sellingPrice)}
+              {isFinite(sellingPrice) ? formatCurrency(sellingPrice) : 'Hesaplanamaz'}
           </TableCell>
         );
       })}
@@ -318,6 +316,39 @@ function SortableProductRow({
         </DropdownMenu>
       </TableCell>
     </TableRow>
+  );
+}
+
+function SortableCategoryItem({ category, onDelete }: { category: Category; onDelete: (id: string) => void }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.8 : 1,
+    zIndex: isDragging ? 10 : 'auto',
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center justify-between p-2 rounded-md border bg-background">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="h-7 w-7 cursor-grab" {...attributes} {...listeners}>
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </Button>
+        <div className="h-4 w-4 rounded-full shrink-0" style={{ backgroundColor: category.color }} />
+        <span>{category.name}</span>
+      </div>
+      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => onDelete(category.id)}>
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
   );
 }
 
@@ -362,11 +393,14 @@ export default function Home() {
       .then((data) => {
         const sortedProducts = (data.products || []).sort((a: Product, b: Product) => (a.order ?? 0) - (b.order ?? 0));
         const sortedIngredients = (data.ingredients || []).sort((a: Ingredient, b: Ingredient) => (a.order ?? 0) - (b.order ?? 0));
+        
+        const categoriesWithOrder = (data.categories || []).map((cat: Category, index: number) => ({ ...cat, order: cat.order ?? index }));
+        const sortedCategories = categoriesWithOrder.sort((a: Category, b: Category) => a.order - b.order);
 
         setProducts(sortedProducts);
         setIngredients(sortedIngredients);
         setMargins(data.margins || []);
-        setCategories(data.categories || []);
+        setCategories(sortedCategories);
         
         setPlatformCommissionRate(data.platformCommissionRate ?? 15);
         setPlatformCommissionInput(String(data.platformCommissionRate ?? 15));
@@ -487,7 +521,10 @@ export default function Home() {
 
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) return;
-    setCategories(prev => [...prev, { id: nanoid(), name: newCategoryName, color: newCategoryColor }]);
+    setCategories(prev => {
+        const newOrder = prev.length > 0 ? Math.max(...prev.map(c => c.order ?? -1)) + 1 : 0;
+        return [...prev, { id: nanoid(), name: newCategoryName, color: newCategoryColor, order: newOrder }];
+    });
     setNewCategoryName('');
     setNewCategoryColor(categoryColors[0]);
   }
@@ -539,7 +576,9 @@ export default function Home() {
       }
     }
     
-    categories.forEach(cat => {
+    const sortedCategories = [...categories].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    sortedCategories.forEach(cat => {
         if(productsByCatId[cat.id] && productsByCatId[cat.id].length > 0) {
             grouped.push({ category: cat, products: productsByCatId[cat.id] });
         }
@@ -553,6 +592,7 @@ export default function Home() {
   }, [products, categories]);
 
   const productIds = useMemo(() => products.map(p => p.id), [products]);
+  const categoryIds = useMemo(() => categories.map(c => c.id), [categories]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -572,6 +612,20 @@ export default function Home() {
     const { active, over } = event;
     if (over && active.id !== over.id) {
       setProducts((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        
+        const reordered = arrayMove(items, oldIndex, newIndex);
+        
+        return reordered.map((item, index) => ({...item, order: index}));
+      });
+    }
+  }
+
+  function handleCategoryDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setCategories((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
         
@@ -705,19 +759,15 @@ export default function Home() {
                     </div>
                     <div className="space-y-2">
                       <h4 className="font-medium">Mevcut Kategoriler</h4>
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {categories.length > 0 ? categories.map(cat => (
-                          <div key={cat.id} className="flex items-center justify-between p-2 rounded-md border">
-                            <div className="flex items-center gap-2">
-                              <div className="h-4 w-4 rounded-full" style={{ backgroundColor: cat.color }} />
-                              <span>{cat.name}</span>
+                      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+                        <SortableContext items={categoryIds} strategy={verticalListSortingStrategy}>
+                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                              {categories.length > 0 ? categories.map(cat => (
+                                <SortableCategoryItem key={cat.id} category={cat} onDelete={handleDeleteCategory} />
+                              )) : <p className="text-sm text-muted-foreground text-center py-4">Henüz kategori yok.</p>}
                             </div>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteCategory(cat.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )) : <p className="text-sm text-muted-foreground text-center py-4">Henüz kategori yok.</p>}
-                      </div>
+                        </SortableContext>
+                      </DndContext>
                     </div>
                   </div>
                 </DialogContent>
@@ -743,7 +793,7 @@ export default function Home() {
                            <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
                              <X className="h-4 w-4" />
                            </Button>
-                           <div>Satıştan %{margin.value} Kar</div>
+                           <div>Cirodan %{margin.value} Kar</div>
                            <div className="text-xs font-normal text-muted-foreground">
                                 <div>%{kdvRate} KDV</div>
                                 <div>%{bankCommissionRate} Banka Kom.</div>
@@ -770,7 +820,7 @@ export default function Home() {
                             <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
                               <X className="h-4 w-4" />
                             </Button>
-                            <div>Satıştan %{margin.value} Kar</div>
+                            <div>Cirodan %{margin.value} Kar</div>
                             <div className="text-xs font-normal text-muted-foreground">
                                <div>%{kdvRate} KDV</div>
                                <div>%{platformCommissionRate} Platform Kom.</div>

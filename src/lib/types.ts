@@ -10,6 +10,7 @@ export type Category = {
   id: string;
   name: string;
   color: string;
+  order: number;
 };
 
 export type Ingredient = {
