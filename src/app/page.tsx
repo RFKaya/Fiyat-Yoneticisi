@@ -36,6 +36,7 @@ import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, Chevron
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 
 
 const formatCurrency = (amount: number) => {
@@ -236,11 +237,57 @@ function SortableProductRow({
       </TableCell>
       {storeMargins.map((margin) => {
          const commission = margin.commissionRate !== undefined ? margin.commissionRate : bankCommissionRate;
-         const sellingPrice = (cost / (1 - (margin.value / 100) - (commission / 100))) * (1 + (kdvRate / 100));
+         const divisor = ((1 - commission / 100) / (1 + kdvRate / 100)) - (margin.value / 100);
+         const sellingPrice = divisor > 0 ? cost / divisor : Infinity;
+
+         const isCalculable = isFinite(sellingPrice) && sellingPrice > 0;
+         
+         const revenueExVat = isCalculable ? sellingPrice / (1 + kdvRate / 100) : 0;
+         const vatAmount = isCalculable ? sellingPrice - revenueExVat : 0;
+         const commissionAmount = isCalculable ? revenueExVat * (commission / 100) : 0;
+         const netProfit = isCalculable ? revenueExVat - commissionAmount - cost : 0;
          
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
-             {isFinite(sellingPrice) ? formatCurrency(sellingPrice) : 'Hesaplanamaz'}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-full h-full flex items-center">
+                    {isCalculable ? formatCurrency(sellingPrice) : 'Hesaplanamaz'}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isCalculable ? (
+                    <div className="p-1 space-y-1 text-xs w-48">
+                      <div className="flex justify-between">
+                        <span>Ana Fiyat</span>
+                        <span className="font-medium">{formatCurrency(sellingPrice)}</span>
+                      </div>
+                      <Separator className="my-1 bg-border/50" />
+                      <div className="flex justify-between text-muted-foreground">
+                          <span>KDV (%{kdvRate})</span>
+                          <span>- {formatCurrency(vatAmount)}</span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                          <span>Komisyon (%{commission.toFixed(2)})</span>
+                          <span>- {formatCurrency(commissionAmount)}</span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                          <span>Ürün Maliyeti</span>
+                          <span>- {formatCurrency(cost)}</span>
+                      </div>
+                      <Separator className="my-1" />
+                      <div className="flex justify-between font-semibold">
+                          <span>Net Kâr</span>
+                          <span>{formatCurrency(netProfit)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs">Marj, maliyet için çok yüksek.</p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </TableCell>
         );
       })}
@@ -276,11 +323,57 @@ function SortableProductRow({
 
       {onlineMargins.map((margin) => {
         const commission = margin.commissionRate !== undefined ? margin.commissionRate : platformCommissionRate;
-        const sellingPrice = (cost / (1 - (margin.value / 100) - (commission / 100))) * (1 + (kdvRate / 100));
+        const divisor = ((1 - commission / 100) / (1 + kdvRate / 100)) - (margin.value / 100);
+        const sellingPrice = divisor > 0 ? cost / divisor : Infinity;
+
+        const isCalculable = isFinite(sellingPrice) && sellingPrice > 0;
+        
+        const revenueExVat = isCalculable ? sellingPrice / (1 + kdvRate / 100) : 0;
+        const vatAmount = isCalculable ? sellingPrice - revenueExVat : 0;
+        const commissionAmount = isCalculable ? revenueExVat * (commission / 100) : 0;
+        const netProfit = isCalculable ? revenueExVat - commissionAmount - cost : 0;
         
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
-              {isFinite(sellingPrice) ? formatCurrency(sellingPrice) : 'Hesaplanamaz'}
+             <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-full h-full flex items-center">
+                    {isCalculable ? formatCurrency(sellingPrice) : 'Hesaplanamaz'}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isCalculable ? (
+                    <div className="p-1 space-y-1 text-xs w-48">
+                      <div className="flex justify-between">
+                        <span>Ana Fiyat</span>
+                        <span className="font-medium">{formatCurrency(sellingPrice)}</span>
+                      </div>
+                      <Separator className="my-1 bg-border/50" />
+                      <div className="flex justify-between text-muted-foreground">
+                          <span>KDV (%{kdvRate})</span>
+                          <span>- {formatCurrency(vatAmount)}</span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                          <span>Komisyon (%{commission.toFixed(2)})</span>
+                          <span>- {formatCurrency(commissionAmount)}</span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                          <span>Ürün Maliyeti</span>
+                          <span>- {formatCurrency(cost)}</span>
+                      </div>
+                      <Separator className="my-1" />
+                      <div className="flex justify-between font-semibold">
+                          <span>Net Kâr</span>
+                          <span>{formatCurrency(netProfit)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs">Marj, maliyet için çok yüksek.</p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </TableCell>
         );
       })}
@@ -827,7 +920,6 @@ export default function Home() {
                                 </Button>
                                 {isEditingMargin ? (
                                     <div className="flex items-center gap-1">
-                                        <span>Cirodan %</span>
                                         <Input
                                             type="number"
                                             value={editingMargin.value}
@@ -840,11 +932,11 @@ export default function Home() {
                                             autoFocus
                                             className="h-6 font-semibold p-1 w-14 text-center"
                                         />
-                                        <span>Kar</span>
+                                        <span>Kar (Ciro)</span>
                                     </div>
                                 ) : (
                                     <div onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })} className="cursor-pointer rounded-sm px-1 -mx-1 hover:bg-muted/50">
-                                        Cirodan %{margin.value} Kar
+                                        %{margin.value} Kar (Ciro)
                                     </div>
                                 )}
                                 <div className="text-xs font-normal text-muted-foreground space-y-0.5">
@@ -902,7 +994,6 @@ export default function Home() {
                               </Button>
                                 {isEditingMargin ? (
                                     <div className="flex items-center gap-1">
-                                        <span>Cirodan %</span>
                                         <Input
                                             type="number"
                                             value={editingMargin.value}
@@ -915,11 +1006,11 @@ export default function Home() {
                                             autoFocus
                                             className="h-6 font-semibold p-1 w-14 text-center"
                                         />
-                                        <span>Kar</span>
+                                        <span>Kar (Ciro)</span>
                                     </div>
                                 ) : (
                                     <div onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })} className="cursor-pointer rounded-sm px-1 -mx-1 hover:bg-muted/50">
-                                        Cirodan %{margin.value} Kar
+                                        %{margin.value} Kar (Ciro)
                                     </div>
                                 )}
                               <div className="text-xs font-normal text-muted-foreground space-y-0.5">
