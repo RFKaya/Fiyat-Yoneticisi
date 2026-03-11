@@ -235,7 +235,8 @@ function SortableProductRow({
         )}
       </TableCell>
       {storeMargins.map((margin) => {
-         const sellingPrice = (cost / (1 - (margin.value / 100) - (bankCommissionRate / 100))) * (1 + (kdvRate / 100));
+         const commission = margin.commissionRate !== undefined ? margin.commissionRate : bankCommissionRate;
+         const sellingPrice = (cost / (1 - (margin.value / 100) - (commission / 100))) * (1 + (kdvRate / 100));
          
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
@@ -274,7 +275,8 @@ function SortableProductRow({
       </TableCell>
 
       {onlineMargins.map((margin) => {
-        const sellingPrice = (cost / (1 - (margin.value / 100) - (platformCommissionRate / 100))) * (1 + (kdvRate / 100));
+        const commission = margin.commissionRate !== undefined ? margin.commissionRate : platformCommissionRate;
+        const sellingPrice = (cost / (1 - (margin.value / 100) - (commission / 100))) * (1 + (kdvRate / 100));
         
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
@@ -360,6 +362,7 @@ export default function Home() {
 
   const [isAddProductDialogOpen, setAddProductDialogOpen] = useState(false);
   const [editingMargin, setEditingMargin] = useState<{ id: string; value: string } | null>(null);
+  const [editingCommission, setEditingCommission] = useState<{ id: string; value: string } | null>(null);
   
   const [expandedProductIds, setExpandedProductIds] = useState<string[]>([]);
 
@@ -516,6 +519,30 @@ export default function Home() {
         
         return prev.map(m => m.id === id ? {...m, value: newValue} : m);
       });
+    }
+  };
+
+  const handleUpdateMarginCommission = (id: string) => {
+    if (!editingCommission) return;
+    const { value } = editingCommission;
+    setEditingCommission(null);
+
+    if (value.trim() === '') {
+        // Revert to global by removing the specific commissionRate property
+        setMargins(prev => prev.map(m => {
+            if (m.id === id) {
+                const { commissionRate, ...rest } = m;
+                return rest;
+            }
+            return m;
+        }));
+    } else {
+        const newValue = parseFloat(value);
+        if (!isNaN(newValue) && newValue >= 0 && newValue < 100) {
+            setMargins(prev => prev.map(m => 
+                m.id === id ? { ...m, commissionRate: newValue } : m
+            ));
+        }
     }
   };
 
@@ -788,19 +815,45 @@ export default function Home() {
                             <div>Ürün Maliyeti</div>
                         </div>
                       </TableHead>
-                      {storeMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-2 align-top relative group">
-                           <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
-                             <X className="h-4 w-4" />
-                           </Button>
-                           <div>Cirodan %{margin.value} Kar</div>
-                           <div className="text-xs font-normal text-muted-foreground">
-                                <div>%{kdvRate} KDV</div>
-                                <div>%{bankCommissionRate} Banka Kom.</div>
-                                <div>Ürün Maliyeti</div>
-                           </div>
-                        </TableHead>
-                      ))}
+                      {storeMargins.map((margin) => {
+                        const commission = margin.commissionRate !== undefined ? margin.commissionRate : bankCommissionRate;
+                        const isEditingCommission = editingCommission?.id === margin.id;
+
+                        return (
+                            <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-2 align-top relative group">
+                                <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                                <div>Cirodan %{margin.value} Kar</div>
+                                <div className="text-xs font-normal text-muted-foreground space-y-0.5">
+                                    <div>%{kdvRate} KDV</div>
+                                     {isEditingCommission ? (
+                                        <div className="flex items-center gap-1 -ml-1">
+                                            <span className="font-semibold">%</span>
+                                            <Input
+                                                type="number"
+                                                value={editingCommission.value}
+                                                placeholder={String(bankCommissionRate)}
+                                                onChange={(e) => setEditingCommission({ ...editingCommission, value: e.target.value })}
+                                                onBlur={() => handleUpdateMarginCommission(margin.id)}
+                                                onKeyDown={(e) => { 
+                                                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                                    if (e.key === 'Escape') setEditingCommission(null);
+                                                }}
+                                                autoFocus
+                                                className="h-5 text-xs p-1 w-14"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div onClick={() => setEditingCommission({ id: margin.id, value: margin.commissionRate?.toString() ?? '' })} className="cursor-pointer rounded-sm px-1 -mx-1 hover:bg-muted/50">
+                                            %{commission} Banka Kom.
+                                        </div>
+                                    )}
+                                    <div>Ürün Maliyeti</div>
+                                </div>
+                            </TableHead>
+                        );
+                      })}
                       <TableHead className="text-left px-0 w-[30px] py-1">
                           <MarginColumnPopover type="store" onAdd={handleAddMargin} />
                       </TableHead>
@@ -815,19 +868,45 @@ export default function Home() {
                            <div>Ürün Maliyeti</div>
                         </div>
                       </TableHead>
-                      {onlineMargins.map((margin) => (
-                        <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-2 align-top relative group">
-                            <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
-                              <X className="h-4 w-4" />
-                            </Button>
-                            <div>Cirodan %{margin.value} Kar</div>
-                            <div className="text-xs font-normal text-muted-foreground">
-                               <div>%{kdvRate} KDV</div>
-                               <div>%{platformCommissionRate} Platform Kom.</div>
-                               <div>Ürün Maliyeti</div>
-                           </div>
-                        </TableHead>
-                      ))}
+                      {onlineMargins.map((margin) => {
+                        const commission = margin.commissionRate !== undefined ? margin.commissionRate : platformCommissionRate;
+                        const isEditingCommission = editingCommission?.id === margin.id;
+                        
+                        return (
+                          <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-2 align-top relative group">
+                              <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                              <div>Cirodan %{margin.value} Kar</div>
+                              <div className="text-xs font-normal text-muted-foreground space-y-0.5">
+                                 <div>%{kdvRate} KDV</div>
+                                 {isEditingCommission ? (
+                                      <div className="flex items-center gap-1 -ml-1">
+                                          <span className="font-semibold">%</span>
+                                          <Input
+                                              type="number"
+                                              value={editingCommission.value}
+                                              placeholder={String(platformCommissionRate)}
+                                              onChange={(e) => setEditingCommission({ ...editingCommission, value: e.target.value })}
+                                              onBlur={() => handleUpdateMarginCommission(margin.id)}
+                                              onKeyDown={(e) => { 
+                                                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                                  if (e.key === 'Escape') setEditingCommission(null);
+                                              }}
+                                              autoFocus
+                                              className="h-5 text-xs p-1 w-14"
+                                          />
+                                      </div>
+                                  ) : (
+                                      <div onClick={() => setEditingCommission({ id: margin.id, value: margin.commissionRate?.toString() ?? '' })} className="cursor-pointer rounded-sm px-1 -mx-1 hover:bg-muted/50">
+                                          %{commission} Platform Kom.
+                                      </div>
+                                  )}
+                                 <div>Ürün Maliyeti</div>
+                             </div>
+                          </TableHead>
+                        );
+                      })}
                       <TableHead className="text-left px-0 w-[30px] py-1">
                           <MarginColumnPopover type="online" onAdd={handleAddMargin} />
                       </TableHead>
