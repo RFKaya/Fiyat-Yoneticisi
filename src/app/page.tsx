@@ -818,13 +818,35 @@ export default function Home() {
                       {storeMargins.map((margin) => {
                         const commission = margin.commissionRate !== undefined ? margin.commissionRate : bankCommissionRate;
                         const isEditingCommission = editingCommission?.id === margin.id;
+                        const isEditingMargin = editingMargin?.id === margin.id;
 
                         return (
                             <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-2 align-top relative group">
                                 <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
                                     <X className="h-4 w-4" />
                                 </Button>
-                                <div>Cirodan %{margin.value} Kar</div>
+                                {isEditingMargin ? (
+                                    <div className="flex items-center gap-1">
+                                        <span>Cirodan %</span>
+                                        <Input
+                                            type="number"
+                                            value={editingMargin.value}
+                                            onChange={(e) => setEditingMargin({ id: margin.id, value: e.target.value })}
+                                            onBlur={() => handleUpdateMargin(margin.id)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                                if (e.key === 'Escape') setEditingMargin(null);
+                                            }}
+                                            autoFocus
+                                            className="h-6 font-semibold p-1 w-14 text-center"
+                                        />
+                                        <span>Kar</span>
+                                    </div>
+                                ) : (
+                                    <div onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })} className="cursor-pointer rounded-sm px-1 -mx-1 hover:bg-muted/50">
+                                        Cirodan %{margin.value} Kar
+                                    </div>
+                                )}
                                 <div className="text-xs font-normal text-muted-foreground space-y-0.5">
                                     <div>%{kdvRate} KDV</div>
                                      {isEditingCommission ? (
@@ -871,13 +893,35 @@ export default function Home() {
                       {onlineMargins.map((margin) => {
                         const commission = margin.commissionRate !== undefined ? margin.commissionRate : platformCommissionRate;
                         const isEditingCommission = editingCommission?.id === margin.id;
+                        const isEditingMargin = editingMargin?.id === margin.id;
                         
                         return (
                           <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-2 align-top relative group">
                               <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
                                 <X className="h-4 w-4" />
                               </Button>
-                              <div>Cirodan %{margin.value} Kar</div>
+                                {isEditingMargin ? (
+                                    <div className="flex items-center gap-1">
+                                        <span>Cirodan %</span>
+                                        <Input
+                                            type="number"
+                                            value={editingMargin.value}
+                                            onChange={(e) => setEditingMargin({ id: margin.id, value: e.target.value })}
+                                            onBlur={() => handleUpdateMargin(margin.id)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                                if (e.key === 'Escape') setEditingMargin(null);
+                                            }}
+                                            autoFocus
+                                            className="h-6 font-semibold p-1 w-14 text-center"
+                                        />
+                                        <span>Kar</span>
+                                    </div>
+                                ) : (
+                                    <div onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })} className="cursor-pointer rounded-sm px-1 -mx-1 hover:bg-muted/50">
+                                        Cirodan %{margin.value} Kar
+                                    </div>
+                                )}
                               <div className="text-xs font-normal text-muted-foreground space-y-0.5">
                                  <div>%{kdvRate} KDV</div>
                                  {isEditingCommission ? (
