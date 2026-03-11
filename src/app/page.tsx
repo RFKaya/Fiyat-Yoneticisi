@@ -167,10 +167,17 @@ function SortableProductRow({
     }
   };
   
-  const netStoreProfit =  (product.storePrice / (1 + kdvRate/100)) * (1 - (bankCommissionRate / 100)) - cost;
+    // New Calculations
+  const storePriceExVat = product.storePrice > 0 ? product.storePrice / (1 + kdvRate / 100) : 0;
+  const vatAmountStore = product.storePrice > 0 ? product.storePrice - storePriceExVat : 0;
+  const commissionAmountStore = product.storePrice > 0 ? product.storePrice * (bankCommissionRate / 100) : 0;
+  const netStoreProfit = product.storePrice > 0 ? storePriceExVat - commissionAmountStore - cost : -cost;
   const showNetStoreProfit = product.storePrice > 0;
 
-  const netOnlineProfit = (product.onlinePrice / (1 + kdvRate/100)) * (1 - (platformCommissionRate / 100)) - cost;
+  const onlinePriceExVat = product.onlinePrice > 0 ? product.onlinePrice / (1 + kdvRate / 100) : 0;
+  const vatAmountOnline = product.onlinePrice > 0 ? product.onlinePrice - onlinePriceExVat : 0;
+  const commissionAmountOnline = product.onlinePrice > 0 ? product.onlinePrice * (platformCommissionRate / 100) : 0;
+  const netOnlineProfit = product.onlinePrice > 0 ? onlinePriceExVat - commissionAmountOnline - cost : -cost;
   const showNetOnlineProfit = product.onlinePrice > 0;
 
 
@@ -213,38 +220,72 @@ function SortableProductRow({
       </TableCell>
       <TableCell className="w-[140px] px-4 py-1 text-left">
         {editingField === 'storePrice' ? (
-            <Input 
-                type="number" 
-                defaultValue={product.storePrice || ''}
-                onBlur={(e) => handleUpdate('storePrice', e.target.value)}
-                onKeyDown={handleKeyDown}
-                autoFocus
-                className="text-left h-8 border-dashed" 
-                placeholder="0.00" 
-            />
+          <Input 
+            type="number" 
+            defaultValue={product.storePrice || ''}
+            onBlur={(e) => handleUpdate('storePrice', e.target.value)}
+            onKeyDown={handleKeyDown}
+            autoFocus
+            className="text-left h-8 border-dashed" 
+            placeholder="0.00" 
+          />
         ) : (
-            <div onClick={() => setEditingField('storePrice')} className="text-left cursor-pointer px-2 h-8 flex items-center rounded-md hover:bg-muted/50">
-                <div className="flex flex-col justify-center text-left">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div onClick={() => setEditingField('storePrice')} className="text-left cursor-pointer px-2 h-8 flex items-center rounded-md hover:bg-muted/50">
+                  <div className="flex flex-col justify-center text-left">
                     <div>{formatCurrency(product.storePrice)}</div>
                     {showNetStoreProfit && (
-                        <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                           {formatCurrency(netStoreProfit)}
-                        </div>
+                      <div className="text-xs text-muted-foreground -mt-1 leading-tight">
+                        {formatCurrency(netStoreProfit)}
+                      </div>
                     )}
+                  </div>
                 </div>
-            </div>
+              </TooltipTrigger>
+              {showNetStoreProfit && (
+                <TooltipContent>
+                  <div className="p-1 space-y-1 text-xs w-48">
+                    <div className="flex justify-between">
+                      <span>Ana Fiyat</span>
+                      <span className="font-medium">{formatCurrency(product.storePrice)}</span>
+                    </div>
+                    <Separator className="my-1 bg-border/50" />
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>KDV (%{kdvRate})</span>
+                      <span>- {formatCurrency(vatAmountStore)}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Komisyon (%{bankCommissionRate.toFixed(2)})</span>
+                      <span>- {formatCurrency(commissionAmountStore)}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Ürün Maliyeti</span>
+                      <span>- {formatCurrency(cost)}</span>
+                    </div>
+                    <Separator className="my-1" />
+                    <div className="flex justify-between font-semibold">
+                      <span>Net Kâr</span>
+                      <span>{formatCurrency(netStoreProfit)}</span>
+                    </div>
+                  </div>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         )}
       </TableCell>
       {storeMargins.map((margin) => {
          const commission = margin.commissionRate !== undefined ? margin.commissionRate : bankCommissionRate;
-         const divisor = ((1 - commission / 100) / (1 + kdvRate / 100)) - (margin.value / 100);
+         const divisor = (1 / (1 + kdvRate / 100)) - (commission / 100) - (margin.value / 100);
          const sellingPrice = divisor > 0 ? cost / divisor : Infinity;
 
          const isCalculable = isFinite(sellingPrice) && sellingPrice > 0;
          
          const revenueExVat = isCalculable ? sellingPrice / (1 + kdvRate / 100) : 0;
          const vatAmount = isCalculable ? sellingPrice - revenueExVat : 0;
-         const commissionAmount = isCalculable ? revenueExVat * (commission / 100) : 0;
+         const commissionAmount = isCalculable ? sellingPrice * (commission / 100) : 0;
          const netProfit = isCalculable ? revenueExVat - commissionAmount - cost : 0;
          
         return (
@@ -308,29 +349,63 @@ function SortableProductRow({
                 placeholder="0.00" 
             />
         ) : (
-             <div onClick={() => setEditingField('onlinePrice')} className="h-8 cursor-pointer rounded-md hover:bg-muted/50 flex items-center justify-start px-2">
-                <div className="flex flex-col justify-center text-left">
-                    <div>{formatCurrency(product.onlinePrice)}</div>
-                    {showNetOnlineProfit && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div onClick={() => setEditingField('onlinePrice')} className="h-8 cursor-pointer rounded-md hover:bg-muted/50 flex items-center justify-start px-2">
+                    <div className="flex flex-col justify-center text-left">
+                      <div>{formatCurrency(product.onlinePrice)}</div>
+                      {showNetOnlineProfit && (
                         <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                            {formatCurrency(netOnlineProfit)}
+                          {formatCurrency(netOnlineProfit)}
                         </div>
-                    )}
-                </div>
-            </div>
+                      )}
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                {showNetOnlineProfit && (
+                  <TooltipContent>
+                    <div className="p-1 space-y-1 text-xs w-48">
+                      <div className="flex justify-between">
+                        <span>Ana Fiyat</span>
+                        <span className="font-medium">{formatCurrency(product.onlinePrice)}</span>
+                      </div>
+                      <Separator className="my-1 bg-border/50" />
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>KDV (%{kdvRate})</span>
+                        <span>- {formatCurrency(vatAmountOnline)}</span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Komisyon (%{platformCommissionRate.toFixed(2)})</span>
+                        <span>- {formatCurrency(commissionAmountOnline)}</span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Ürün Maliyeti</span>
+                        <span>- {formatCurrency(cost)}</span>
+                      </div>
+                      <Separator className="my-1" />
+                      <div className="flex justify-between font-semibold">
+                        <span>Net Kâr</span>
+                        <span>{formatCurrency(netOnlineProfit)}</span>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
         )}
       </TableCell>
 
       {onlineMargins.map((margin) => {
         const commission = margin.commissionRate !== undefined ? margin.commissionRate : platformCommissionRate;
-        const divisor = ((1 - commission / 100) / (1 + kdvRate / 100)) - (margin.value / 100);
+        const divisor = (1 / (1 + kdvRate / 100)) - (commission / 100) - (margin.value / 100);
         const sellingPrice = divisor > 0 ? cost / divisor : Infinity;
 
         const isCalculable = isFinite(sellingPrice) && sellingPrice > 0;
         
         const revenueExVat = isCalculable ? sellingPrice / (1 + kdvRate / 100) : 0;
         const vatAmount = isCalculable ? sellingPrice - revenueExVat : 0;
-        const commissionAmount = isCalculable ? revenueExVat * (commission / 100) : 0;
+        const commissionAmount = isCalculable ? sellingPrice * (commission / 100) : 0;
         const netProfit = isCalculable ? revenueExVat - commissionAmount - cost : 0;
         
         return (
