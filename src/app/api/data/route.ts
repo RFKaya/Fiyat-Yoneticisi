@@ -13,6 +13,7 @@ const defaultData = {
   platformCommissionRate: 15,
   kdvRate: 10,
   bankCommissionRate: 2.5,
+  stopajRate: 1,
 };
 
 // Helper function to read data. If the file doesn't exist, it creates it.
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
     const newData = await request.json();
     
     // Basic validation to ensure we're not writing junk
-    if (typeof newData.products === 'undefined' || typeof newData.ingredients === 'undefined' || typeof newData.platformCommissionRate === 'undefined' || typeof newData.kdvRate === 'undefined' || typeof newData.bankCommissionRate === 'undefined') {
+    if (typeof newData.products === 'undefined' || typeof newData.ingredients === 'undefined' || typeof newData.platformCommissionRate === 'undefined' || typeof newData.kdvRate === 'undefined' || typeof newData.bankCommissionRate === 'undefined' || typeof newData.stopajRate === 'undefined') {
         throw new Error("Invalid data structure received.");
     }
     

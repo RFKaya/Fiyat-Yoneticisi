@@ -109,6 +109,7 @@ function SortableProductRow({
     platformCommissionRate,
     bankCommissionRate,
     kdvRate,
+    stopajRate,
     updateProduct, 
     deleteProduct,
     isExpanded,
@@ -122,6 +123,7 @@ function SortableProductRow({
   platformCommissionRate: number,
   bankCommissionRate: number,
   kdvRate: number,
+  stopajRate: number,
   updateProduct: (id: string, field: keyof Product, value: any) => void,
   deleteProduct: (id: string) => void,
   isExpanded: boolean,
@@ -177,7 +179,8 @@ function SortableProductRow({
   const onlinePriceExVat = product.onlinePrice > 0 ? product.onlinePrice / (1 + kdvRate / 100) : 0;
   const vatAmountOnline = product.onlinePrice > 0 ? product.onlinePrice - onlinePriceExVat : 0;
   const commissionAmountOnline = product.onlinePrice > 0 ? product.onlinePrice * (platformCommissionRate / 100) : 0;
-  const netOnlineProfit = product.onlinePrice > 0 ? onlinePriceExVat - commissionAmountOnline - cost : -cost;
+  const stopajAmountOnline = product.onlinePrice > 0 ? onlinePriceExVat * (stopajRate / 100) : 0;
+  const netOnlineProfit = product.onlinePrice > 0 ? onlinePriceExVat - commissionAmountOnline - stopajAmountOnline - cost : -cost;
   const showNetOnlineProfit = product.onlinePrice > 0;
 
 
@@ -379,6 +382,10 @@ function SortableProductRow({
                         <span>Komisyon (%{platformCommissionRate.toFixed(2)})</span>
                         <span>- {formatCurrency(commissionAmountOnline)}</span>
                       </div>
+                       <div className="flex justify-between text-muted-foreground">
+                        <span>Stopaj (%{stopajRate})</span>
+                        <span>- {formatCurrency(stopajAmountOnline)}</span>
+                      </div>
                       <div className="flex justify-between text-muted-foreground">
                         <span>Ürün Maliyeti</span>
                         <span>- {formatCurrency(cost)}</span>
@@ -398,7 +405,7 @@ function SortableProductRow({
 
       {onlineMargins.map((margin) => {
         const commission = margin.commissionRate !== undefined ? margin.commissionRate : platformCommissionRate;
-        const divisor = (1 / (1 + kdvRate / 100)) - (commission / 100) - (margin.value / 100);
+        const divisor = (1 / (1 + kdvRate / 100)) * (1 - stopajRate / 100) - (commission / 100) - (margin.value / 100);
         const sellingPrice = divisor > 0 ? cost / divisor : Infinity;
 
         const isCalculable = isFinite(sellingPrice) && sellingPrice > 0;
@@ -406,7 +413,8 @@ function SortableProductRow({
         const revenueExVat = isCalculable ? sellingPrice / (1 + kdvRate / 100) : 0;
         const vatAmount = isCalculable ? sellingPrice - revenueExVat : 0;
         const commissionAmount = isCalculable ? sellingPrice * (commission / 100) : 0;
-        const netProfit = isCalculable ? revenueExVat - commissionAmount - cost : 0;
+        const stopajAmount = isCalculable ? revenueExVat * (stopajRate / 100) : 0;
+        const netProfit = isCalculable ? revenueExVat - commissionAmount - stopajAmount - cost : 0;
         
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
@@ -432,6 +440,10 @@ function SortableProductRow({
                       <div className="flex justify-between text-muted-foreground">
                           <span>Komisyon (%{commission.toFixed(2)})</span>
                           <span>- {formatCurrency(commissionAmount)}</span>
+                      </div>
+                       <div className="flex justify-between text-muted-foreground">
+                          <span>Stopaj (%{stopajRate})</span>
+                          <span>- {formatCurrency(stopajAmount)}</span>
                       </div>
                       <div className="flex justify-between text-muted-foreground">
                           <span>Ürün Maliyeti</span>
@@ -553,6 +565,10 @@ export default function Home() {
   const [kdvRate, setKdvRate] = useState(10);
   const [kdvInput, setKdvInput] = useState('10');
   const [isKdvPopoverOpen, setKdvPopoverOpen] = useState(false);
+
+  const [stopajRate, setStopajRate] = useState(1);
+  const [stopajInput, setStopajInput] = useState('1');
+  const [isStopajPopoverOpen, setStopajPopoverOpen] = useState(false);
   
   const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a,b) => a.value - b.value), [margins]);
   const onlineMargins = useMemo(() => margins.filter(m => m.type === 'online').sort((a,b) => a.value - b.value), [margins]);
@@ -582,6 +598,9 @@ export default function Home() {
         setKdvRate(data.kdvRate ?? 10);
         setKdvInput(String(data.kdvRate ?? 10));
 
+        setStopajRate(data.stopajRate ?? 1);
+        setStopajInput(String(data.stopajRate ?? 1));
+
         setIsLoading(false);
       })
       .catch((error) => {
@@ -602,10 +621,10 @@ export default function Home() {
       fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products, ingredients, margins, categories, platformCommissionRate, kdvRate, bankCommissionRate }),
+        body: JSON.stringify({ products, ingredients, margins, categories, platformCommissionRate, kdvRate, bankCommissionRate, stopajRate }),
       }).catch(error => console.error('Failed to save data:', error));
     }
-  }, [products, ingredients, margins, categories, platformCommissionRate, kdvRate, bankCommissionRate, isLoading]);
+  }, [products, ingredients, margins, categories, platformCommissionRate, kdvRate, bankCommissionRate, stopajRate, isLoading]);
 
   const toggleProductExpansion = (productId: string) => {
     setExpandedProductIds(prev => 
@@ -753,6 +772,13 @@ export default function Home() {
     }
   };
 
+    const handleSetStopaj = () => {
+    const rate = parseFloat(stopajInput);
+    if (!isNaN(rate) && rate >= 0 && rate < 100) {
+        setStopajRate(rate);
+        setStopajPopoverOpen(false);
+    }
+  };
     
   const productsByCategory = useMemo(() => {
     const sorted = [...products].sort((a, b) => a.order - b.order);
@@ -925,6 +951,29 @@ export default function Home() {
                         </Popover>
                         <p className="text-sm text-muted-foreground mt-1">Mevcut: %{platformCommissionRate}</p>
                     </div>
+                    <div className="text-right">
+                        <Popover open={isStopajPopoverOpen} onOpenChange={(open) => {if(open) setStopajInput(String(stopajRate)); setStopajPopoverOpen(open)}}>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline">
+                                    <Percent className="mr-2 h-4 w-4" /> Stopaj Ayarla
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-4">
+                                <div className="grid gap-3">
+                                    <div className="space-y-1">
+                                        <h4 className="font-medium leading-none">Stopaj Oranı</h4>
+                                        <p className="text-sm text-muted-foreground">Online satış stopaj oranını (%) girin.</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Input type="number" placeholder="Örn: 1" value={stopajInput} onChange={(e) => setStopajInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSetStopaj(); }}/>
+                                        <span className="font-semibold">%</span>
+                                    </div>
+                                    <Button onClick={handleSetStopaj}>Ayarla</Button>
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                        <p className="text-sm text-muted-foreground mt-1">Mevcut: %{stopajRate}</p>
+                    </div>
                  </div>
             </div>
           </CardHeader>
@@ -1054,6 +1103,7 @@ export default function Home() {
                         <div className="text-xs font-normal text-muted-foreground">
                            <div>%{kdvRate} KDV</div>
                            <div>%{platformCommissionRate} Platform Kom.</div>
+                           <div>%{stopajRate} Stopaj</div>
                            <div>Ürün Maliyeti</div>
                         </div>
                       </TableHead>
@@ -1112,6 +1162,7 @@ export default function Home() {
                                           %{commission} Platform Kom.
                                       </div>
                                   )}
+                                  <div>%{stopajRate} Stopaj</div>
                                  <div>Ürün Maliyeti</div>
                              </div>
                           </TableHead>
@@ -1147,6 +1198,7 @@ export default function Home() {
                                   platformCommissionRate={platformCommissionRate}
                                   bankCommissionRate={bankCommissionRate}
                                   kdvRate={kdvRate}
+                                  stopajRate={stopajRate}
                                   updateProduct={updateProduct}
                                   deleteProduct={deleteProduct}
                                   isExpanded={expandedProductIds.includes(product.id)}
