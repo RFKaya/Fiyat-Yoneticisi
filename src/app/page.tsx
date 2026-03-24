@@ -281,8 +281,9 @@ function SortableProductRow({
       </TableCell>
       {storeMargins.map((margin) => {
          const commission = margin.commissionRate !== undefined ? margin.commissionRate : bankCommissionRate;
-         const divisor = (1 / (1 + kdvRate / 100)) - (commission / 100) - (margin.value / 100);
-         const sellingPrice = divisor > 0 ? cost / divisor : Infinity;
+         const divisor = 1 - (commission / 100) - (margin.value / 100);
+         const costWithVat = cost / (1 - (kdvRate / (100+kdvRate)));
+         const sellingPrice = divisor > 0 ? costWithVat / divisor : Infinity;
 
          const isCalculable = isFinite(sellingPrice) && sellingPrice > 0;
          
@@ -405,8 +406,11 @@ function SortableProductRow({
 
       {onlineMargins.map((margin) => {
         const commission = margin.commissionRate !== undefined ? margin.commissionRate : platformCommissionRate;
-        const divisor = (1 / (1 + kdvRate / 100)) * (1 - stopajRate / 100) - (commission / 100) - (margin.value / 100);
-        const sellingPrice = divisor > 0 ? cost / divisor : Infinity;
+        
+        const costWithVatAndStopaj = cost / ((1-stopajRate/100) * (1 - (kdvRate / (100+kdvRate))));
+
+        const divisor = 1 - (commission / 100) - (margin.value / 100);
+        const sellingPrice = divisor > 0 ? costWithVatAndStopaj / divisor : Infinity;
 
         const isCalculable = isFinite(sellingPrice) && sellingPrice > 0;
         
@@ -683,11 +687,7 @@ export default function Home() {
 
   const handleAddMargin = (type: 'store' | 'online', value: number) => {
     const newMarginObject: Margin = { id: nanoid(), value, type };
-    
-    const exists = margins.some(m => m.value === value && m.type === type);
-    if(!exists) {
-      setMargins((prev) => [...prev, newMarginObject]);
-    }
+    setMargins((prev) => [...prev, newMarginObject]);
   };
   
 
