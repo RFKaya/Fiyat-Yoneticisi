@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
   title: 'FiyatVizyon',
@@ -21,8 +22,17 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="font-body antialiased">
-        {children}
+      <body className="font-body antialiased relative min-h-screen overflow-x-hidden">
+        <ThemeProvider>
+          {/* Animated Background Blobs */}
+          <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden">
+            <div className="blob blob-indigo top-[-10%] left-[-10%] w-[500px] h-[500px] animate-[pulse_10s_infinite_alternate]" />
+            <div className="blob blob-pink bottom-[-10%] right-[-10%] w-[600px] h-[600px] animate-[pulse_15s_infinite_alternate_reverse]" />
+          </div>
+          <div className="relative z-10 flex flex-col min-h-screen">
+            {children}
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );

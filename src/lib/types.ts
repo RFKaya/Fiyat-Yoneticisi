@@ -28,6 +28,7 @@ export type Margin = {
   value: number;
   type: 'store' | 'online';
   commissionRate?: number;
+  name?: string;
 };
 
 export type Product = {

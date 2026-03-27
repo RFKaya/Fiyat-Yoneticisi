@@ -326,9 +326,6 @@ export default function MaterialsPage() {
             ingredients: (data.ingredients || []).sort((a: Ingredient, b: Ingredient) => (a.order ?? 0) - (b.order ?? 0)),
             categories: data.categories || [],
             margins: data.margins || [],
-            platformCommissionRate: data.platformCommissionRate ?? 15,
-            kdvRate: data.kdvRate ?? 10,
-            bankCommissionRate: data.bankCommissionRate ?? 2.5,
         });
         setIsLoading(false);
       })
@@ -426,59 +423,62 @@ export default function MaterialsPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-grow container mx-auto p-4 md:p-8">
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-                <div>
-                    <CardTitle>Malzeme Yönetimi</CardTitle>
-                    <CardDescription>
-                    Malzemeleri sürükleyip bırakarak sıralayın, detaylarını açarak ürün reçetelerini yönetin.
-                    </CardDescription>
-                </div>
-                <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-                    <DialogTrigger asChild>
-                    <Button variant="outline" onClick={() => handleOpenForm()}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Yeni Malzeme Ekle
-                    </Button>
-                    </DialogTrigger>
-                    <DialogContent onInteractOutside={handleCloseForm} className="max-w-2xl">
-                    <DialogHeader><DialogTitle>{editingIngredient ? 'Malzemeyi Düzenle' : 'Yeni Malzeme Ekle'}</DialogTitle></DialogHeader>
-                    <IngredientForm 
-                        onSave={handleSaveIngredient} 
-                        closeDialog={handleCloseForm} 
-                        initialData={editingIngredient}
-                    />
-                    </DialogContent>
-                </Dialog>
-            </div>
-          </CardHeader>
-          <CardContent>
+      <main className="flex-1 w-full max-w-[1950px] mx-auto p-4 md:p-6 lg:p-8 space-y-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground">Malzeme Yönetimi</h2>
+            <p className="text-muted-foreground mt-1">Malzemeleri sürükleyip bırakarak sıralayın, detaylarını açarak ürün reçetelerini yönetin.</p>
+          </div>
+          <Button onClick={() => handleOpenForm()} className="h-10 px-6 font-semibold shadow-indigo-500/20">
+            <PlusCircle className="mr-2 h-5 w-5" /> Yeni Malzeme Ekle
+          </Button>
+        </div>
+
+        <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
+          <DialogContent onInteractOutside={handleCloseForm} className="max-w-2xl glass-panel border-none shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">{editingIngredient ? 'Malzemeyi Düzenle' : 'Yeni Malzeme Ekle'}</DialogTitle>
+              <DialogDescription>Malzeme bilgilerini güncelleyin veya yeni bir tane ekleyin.</DialogDescription>
+            </DialogHeader>
+            <IngredientForm 
+              onSave={handleSaveIngredient} 
+              closeDialog={handleCloseForm} 
+              initialData={editingIngredient}
+            />
+          </DialogContent>
+        </Dialog>
+
+        <div className="glass-panel overflow-hidden">
+          <div className="p-6">
+            <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+              <span className="w-2 h-8 bg-primary rounded-full" />
+              Malzeme Listesi
+            </h3>
             {ingredients.length > 0 ? (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={ingredientIds} strategy={verticalListSortingStrategy}>
-                        <div className="space-y-2">
-                        {sortedIngredients.map((ingredient) => (
-                            <SortableIngredientRow
-                                key={ingredient.id}
-                                ingredient={ingredient}
-                                products={products}
-                                onRecipeChange={handleRecipeChange}
-                                deleteIngredient={deleteIngredient}
-                                handleOpenForm={handleOpenForm}
-                            />
-                        ))}
-                        </div>
-                    </SortableContext>
-                </DndContext>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={ingredientIds} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-3">
+                    {sortedIngredients.map((ingredient) => (
+                      <SortableIngredientRow
+                        key={ingredient.id}
+                        ingredient={ingredient}
+                        products={products}
+                        onRecipeChange={handleRecipeChange}
+                        deleteIngredient={deleteIngredient}
+                        handleOpenForm={handleOpenForm}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             ) : (
-                <div className="h-24 flex items-center justify-center text-center text-muted-foreground">
-                    Henüz malzeme eklenmemiş.
-                </div>
+              <div className="h-40 flex flex-col items-center justify-center text-center text-muted-foreground space-y-2">
+                <p className="text-lg">Henüz malzeme eklenmemiş.</p>
+                <Button variant="link" onClick={() => handleOpenForm()}>İlk malzemeyi hemen ekleyin</Button>
+              </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </main>
     </div>
   );

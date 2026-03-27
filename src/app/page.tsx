@@ -28,7 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, ChevronDown, ChevronUp, Percent } from 'lucide-react';
@@ -48,21 +48,45 @@ const formatCurrency = (amount: number) => {
 
 const categoryColors = ['#F87171', '#FBBF24', '#34D399', '#60A5FA', '#A78BFA'];
 
-function MarginColumnPopover({
+function MarginEditPopover({
   type,
-  onAdd,
+  margin,
+  onSave,
+  trigger,
 }: {
   type: 'store' | 'online';
-  onAdd: (type: 'store' | 'online', value: number) => void;
+  margin?: Margin;
+  onSave: (marginData: Partial<Margin>) => void;
+  trigger: React.ReactNode;
 }) {
-  const [newMargin, setNewMargin] = useState('');
+  const [value, setValue] = useState(margin?.value.toString() || '');
+  const [name, setName] = useState(margin?.name || '');
+  const [commission, setCommission] = useState(margin?.commissionRate?.toString() || '');
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleAdd = () => {
-    const marginValue = parseFloat(newMargin);
-    if (!isNaN(marginValue) && marginValue > 0) {
-      onAdd(type, marginValue);
-      setNewMargin('');
+  useEffect(() => {
+    if (isOpen && margin) {
+      setValue(margin.value.toString());
+      setName(margin.name || '');
+      setCommission(margin.commissionRate?.toString() || '');
+    }
+  }, [isOpen, margin]);
+
+  const handleSave = () => {
+    const numericValue = parseFloat(value);
+    const numericCommission = parseFloat(commission);
+    
+    if (!isNaN(numericValue) && numericValue > 0) {
+      onSave({
+        value: numericValue,
+        name: name.trim() || undefined,
+        commissionRate: !isNaN(numericCommission) ? numericCommission : undefined,
+      });
+      if (!margin) {
+          setValue('');
+          setName('');
+          setCommission('');
+      }
       setIsOpen(false);
     }
   };
@@ -70,30 +94,57 @@ function MarginColumnPopover({
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <PlusCircle className="h-5 w-5" />
-        </Button>
+        {trigger}
       </PopoverTrigger>
-      <PopoverContent className="w-60 p-4" onOpenAutoFocus={(e) => e.preventDefault()}>
-        <div className="grid gap-3">
+      <PopoverContent className="w-72 p-4 glass-panel border-none shadow-xl" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <div className="grid gap-4">
           <div className="space-y-1">
-            <h4 className="font-medium leading-none">
-              Yeni Kâr Marjı ({type === 'store' ? 'Mağaza' : 'Online'})
+            <h4 className="font-bold leading-none">
+              {margin ? 'Marjı Düzenle' : `Yeni Kâr Marjı (${type === 'store' ? 'Mağaza' : 'Online'})`}
             </h4>
-            <p className="text-sm text-muted-foreground">
-              Analiz için yeni bir yüzde ekle.
+            <p className="text-xs text-muted-foreground">
+              Analiz için detayları belirleyin.
             </p>
           </div>
-          <Input
-            type="number"
-            placeholder="30"
-            value={newMargin}
-            onChange={(e) => setNewMargin(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleAdd();
-            }}
-          />
-          <Button onClick={handleAdd}>Marj Ekle</Button>
+          <div className="grid gap-3">
+             <div className="space-y-1">
+                <Label htmlFor="margin-name" className="text-xs font-semibold">İsim (Opsiyonel)</Label>
+                <Input
+                    id="margin-name"
+                    placeholder="Örn: Trendyol, Getir..."
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="h-8 text-sm"
+                />
+             </div>
+             <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                    <Label htmlFor="margin-value" className="text-xs font-semibold">Marj (%)</Label>
+                    <Input
+                        id="margin-value"
+                        type="number"
+                        placeholder="30"
+                        value={value}
+                        onChange={(e) => setValue(e.target.value)}
+                        className="h-8 text-sm"
+                    />
+                </div>
+                <div className="space-y-1">
+                    <Label htmlFor="margin-comm" className="text-xs font-semibold">Komisyon (%)</Label>
+                    <Input
+                        id="margin-comm"
+                        type="number"
+                        placeholder="Örn: 15"
+                        value={commission}
+                        onChange={(e) => setCommission(e.target.value)}
+                        className="h-8 text-sm"
+                    />
+                </div>
+             </div>
+          </div>
+          <Button onClick={handleSave} size="sm" className="w-full font-bold">
+            {margin ? 'Güncelle' : 'Marj Ekle'}
+          </Button>
         </div>
       </PopoverContent>
     </Popover>
@@ -544,8 +595,6 @@ export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
 
   const [isAddProductDialogOpen, setAddProductDialogOpen] = useState(false);
-  const [editingMargin, setEditingMargin] = useState<{ id: string; value: string } | null>(null);
-  const [editingCommission, setEditingCommission] = useState<{ id: string; value: string } | null>(null);
   
   const [expandedProductIds, setExpandedProductIds] = useState<string[]>([]);
 
@@ -684,8 +733,14 @@ export default function Home() {
     );
   };
 
-  const handleAddMargin = (type: 'store' | 'online', value: number) => {
-    const newMarginObject: Margin = { id: crypto.randomUUID(), value, type };
+  const handleAddMargin = (type: 'store' | 'online', marginData: Partial<Margin>) => {
+    const newMarginObject: Margin = { 
+      id: crypto.randomUUID(), 
+      type, 
+      value: marginData.value || 0,
+      name: marginData.name,
+      commissionRate: marginData.commissionRate 
+    };
     setMargins((prev) => [...prev, newMarginObject]);
   };
   
@@ -694,43 +749,10 @@ export default function Home() {
     setMargins(margins.filter((m) => m.id !== id));
   };
 
-  const handleUpdateMargin = (id: string) => {
-    if (!editingMargin) return;
-    const newValue = parseFloat(editingMargin.value);
-    setEditingMargin(null);
-    if (!isNaN(newValue) && newValue > 0) {
-      setMargins(prev => {
-        const exists = prev.some(m => m.id !== id && m.value === newValue && m.type === prev.find(i => i.id === id)?.type);
-        if (exists) return prev;
-        
-        return prev.map(m => m.id === id ? {...m, value: newValue} : m);
-      });
-    }
+  const handleUpdateMarginDetails = (id: string, marginData: Partial<Margin>) => {
+    setMargins(prev => prev.map(m => m.id === id ? { ...m, ...marginData } : m));
   };
 
-  const handleUpdateMarginCommission = (id: string) => {
-    if (!editingCommission) return;
-    const { value } = editingCommission;
-    setEditingCommission(null);
-
-    if (value.trim() === '') {
-        // Revert to global by removing the specific commissionRate property
-        setMargins(prev => prev.map(m => {
-            if (m.id === id) {
-                const { commissionRate, ...rest } = m;
-                return rest;
-            }
-            return m;
-        }));
-    } else {
-        const newValue = parseFloat(value);
-        if (!isNaN(newValue) && newValue >= 0 && newValue < 100) {
-            setMargins(prev => prev.map(m => 
-                m.id === id ? { ...m, commissionRate: newValue } : m
-            ));
-        }
-    }
-  };
 
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) return;
@@ -811,8 +833,6 @@ export default function Home() {
     return grouped;
   }, [products, categories]);
 
-  const productIds = useMemo(() => products.map(p => p.id), [products]);
-  const categoryIds = useMemo(() => categories.map(c => c.id), [categories]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -821,12 +841,6 @@ export default function Home() {
     })
   );
   
-  const totalColumns = 8 + storeMargins.length + onlineMargins.length;
-  
-  const pricedIngredients = useMemo(() => 
-    ingredients.filter(ing => ing.price !== undefined && ing.unit)
-               .sort((a,b) => (a.order ?? 0) - (b.order ?? 0)), 
-  [ingredients]);
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -856,6 +870,11 @@ export default function Home() {
     }
   }
 
+  const totalColumns = 8 + storeMargins.length + onlineMargins.length;
+  const productIds = useMemo(() => products.map(p => p.id), [products]);
+  const categoryIds = useMemo(() => categories.map(c => c.id), [categories]);
+  const pricedIngredients = useMemo(() => ingredients.filter(ing => ing.price !== undefined && ing.unit !== undefined), [ingredients]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -866,347 +885,287 @@ export default function Home() {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-grow container mx-auto p-4 md:p-8">
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-start">
-                <div>
-                    <CardTitle>Ürün ve Kâr Analizi</CardTitle>
-                    <CardDescription>
-                    Ürünlerinizi sürükleyip bırakarak sıralayın, maliyetleri ve kâr marjlarını anında analiz edin.
-                    </CardDescription>
-                </div>
-                 <div className="flex items-start gap-2">
-                    <div className="text-right">
-                        <Popover open={isKdvPopoverOpen} onOpenChange={(open) => {if(open) setKdvInput(String(kdvRate)); setKdvPopoverOpen(open)}}>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline">
-                                    <Percent className="mr-2 h-4 w-4" /> KDV Ayarla
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-64 p-4">
-                                <div className="grid gap-3">
-                                    <div className="space-y-1">
-                                        <h4 className="font-medium leading-none">KDV Oranı</h4>
-                                        <p className="text-sm text-muted-foreground">Satış KDV oranını (%) girin.</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Input type="number" placeholder="Örn: 10" value={kdvInput} onChange={(e) => setKdvInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSetKdv(); }}/>
-                                        <span className="font-semibold">%</span>
-                                    </div>
-                                    <Button onClick={handleSetKdv}>Ayarla</Button>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                        <p className="text-sm text-muted-foreground mt-1">Mevcut: %{kdvRate}</p>
+      <main className="flex-1 w-full max-w-[1950px] mx-auto p-4 md:p-6 lg:p-8 space-y-8">
+        {/* Page Header */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <div>
+            <h2 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-primary to-indigo-500">
+              Ürün ve Kâr Analizi
+            </h2>
+            <p className="text-muted-foreground mt-2 text-lg">
+              Maliyetlerinizi ve kâr marjlarınızı modern bir arayüzle takip edin.
+            </p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Rates Summary Popovers */}
+            <div className="flex items-center gap-2 glass-panel p-1.5 px-3">
+              <Popover open={isKdvPopoverOpen} onOpenChange={(open) => {if(open) setKdvInput(String(kdvRate)); setKdvPopoverOpen(open)}}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-primary/10">
+                    <Percent className="h-3.5 w-3.5" /> KDV: %{kdvRate}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-4 glass-panel border-none shadow-xl">
+                  <div className="grid gap-3">
+                    <h4 className="font-bold">KDV Oranı</h4>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" value={kdvInput} onChange={(e) => setKdvInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSetKdv()} />
+                      <span className="font-bold">%</span>
                     </div>
-                    <div className="text-right">
-                        <Popover open={isBankCommissionPopoverOpen} onOpenChange={(open) => {if(open) setBankCommissionInput(String(bankCommissionRate)); setBankCommissionPopoverOpen(open)}}>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline">
-                                    <Percent className="mr-2 h-4 w-4" /> Banka Kom.
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-64 p-4">
-                                <div className="grid gap-3">
-                                    <div className="space-y-1">
-                                        <h4 className="font-medium leading-none">Banka Komisyonu</h4>
-                                        <p className="text-sm text-muted-foreground">Banka komisyon oranını (%) girin.</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Input type="number" placeholder="Örn: 2.5" value={bankCommissionInput} onChange={(e) => setBankCommissionInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSetBankCommission(); }}/>
-                                        <span className="font-semibold">%</span>
-                                    </div>
-                                    <Button onClick={handleSetBankCommission}>Ayarla</Button>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                        <p className="text-sm text-muted-foreground mt-1">Mevcut: %{bankCommissionRate}</p>
-                    </div>
-                    <div className="text-right">
-                        <Popover open={isPlatformCommissionPopoverOpen} onOpenChange={(open) => {if(open) setPlatformCommissionInput(String(platformCommissionRate)); setPlatformCommissionPopoverOpen(open)}}>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline">
-                                    <Percent className="mr-2 h-4 w-4" /> Platform Kom.
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-64 p-4">
-                                <div className="grid gap-3">
-                                    <div className="space-y-1">
-                                        <h4 className="font-medium leading-none">Platform Komisyonu</h4>
-                                        <p className="text-sm text-muted-foreground">Online satış platformu komisyonunu (%) girin.</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Input type="number" placeholder="Örn: 15" value={platformCommissionInput} onChange={(e) => setPlatformCommissionInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSetPlatformCommission(); }} />
-                                        <span className="font-semibold">%</span>
-                                    </div>
-                                    <Button onClick={handleSetPlatformCommission}>Ayarla</Button>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                        <p className="text-sm text-muted-foreground mt-1">Mevcut: %{platformCommissionRate}</p>
-                    </div>
-                    <div className="text-right">
-                        <Popover open={isStopajPopoverOpen} onOpenChange={(open) => {if(open) setStopajInput(String(stopajRate)); setStopajPopoverOpen(open)}}>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline">
-                                    <Percent className="mr-2 h-4 w-4" /> Stopaj Ayarla
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-64 p-4">
-                                <div className="grid gap-3">
-                                    <div className="space-y-1">
-                                        <h4 className="font-medium leading-none">Stopaj Oranı</h4>
-                                        <p className="text-sm text-muted-foreground">Online satış stopaj oranını (%) girin.</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Input type="number" placeholder="Örn: 1" value={stopajInput} onChange={(e) => setStopajInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSetStopaj(); }}/>
-                                        <span className="font-semibold">%</span>
-                                    </div>
-                                    <Button onClick={handleSetStopaj}>Ayarla</Button>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                        <p className="text-sm text-muted-foreground mt-1">Mevcut: %{stopajRate}</p>
-                    </div>
-                 </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-end items-center mb-4">
-              <Dialog open={isCategoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline"><Tags className="mr-2 h-4 w-4" /> Kategorileri Yönet</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Kategorileri Yönet</DialogTitle></DialogHeader>
-                  <div className="space-y-4 pt-4">
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Yeni Kategori Ekle</h4>
-                      <div className="flex items-center gap-2">
-                        <Input placeholder="Kategori Adı" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} />
-                        <Button onClick={handleAddCategory}>Ekle</Button>
-                      </div>
-                      <div className="flex items-center gap-2 pt-2">
-                        <span className="text-sm font-medium">Renk:</span>
-                        {categoryColors.map(color => (
-                          <button key={color} onClick={() => setNewCategoryColor(color)} className="h-6 w-6 rounded-full" style={{ backgroundColor: color }}>
-                            {newCategoryColor === color && <Check className="h-4 w-4 text-white m-auto" />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Mevcut Kategoriler</h4>
-                      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
-                        <SortableContext items={categoryIds} strategy={verticalListSortingStrategy}>
-                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                              {categories.length > 0 ? categories.map(cat => (
-                                <SortableCategoryItem key={cat.id} category={cat} onDelete={handleDeleteCategory} />
-                              )) : <p className="text-sm text-muted-foreground text-center py-4">Henüz kategori yok.</p>}
-                            </div>
-                        </SortableContext>
-                      </DndContext>
-                    </div>
+                    <Button onClick={handleSetKdv} size="sm">Güncelle</Button>
                   </div>
-                </DialogContent>
-              </Dialog>
+                </PopoverContent>
+              </Popover>
+
+              <Separator orientation="vertical" className="h-4" />
+
+              <Popover open={isBankCommissionPopoverOpen} onOpenChange={(open) => {if(open) setBankCommissionInput(String(bankCommissionRate)); setBankCommissionPopoverOpen(open)}}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-primary/10">
+                    <Percent className="h-3.5 w-3.5" /> Banka: %{bankCommissionRate}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-4 glass-panel border-none shadow-xl">
+                  <div className="grid gap-3">
+                    <h4 className="font-bold">Banka Komisyonu</h4>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" value={bankCommissionInput} onChange={(e) => setBankCommissionInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSetBankCommission()} />
+                      <span className="font-bold">%</span>
+                    </div>
+                    <Button onClick={handleSetBankCommission} size="sm">Güncelle</Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Separator orientation="vertical" className="h-4" />
+
+              <Popover open={isPlatformCommissionPopoverOpen} onOpenChange={(open) => {if(open) setPlatformCommissionInput(String(platformCommissionRate)); setPlatformCommissionPopoverOpen(open)}}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-primary/10">
+                    <Percent className="h-3.5 w-3.5" /> Platform: %{platformCommissionRate}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-4 glass-panel border-none shadow-xl">
+                  <div className="grid gap-3">
+                    <h4 className="font-bold">Platform Komisyonu</h4>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" value={platformCommissionInput} onChange={(e) => setPlatformCommissionInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSetPlatformCommission()} />
+                      <span className="font-bold">%</span>
+                    </div>
+                    <Button onClick={handleSetPlatformCommission} size="sm">Güncelle</Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Separator orientation="vertical" className="h-4" />
+
+              <Popover open={isStopajPopoverOpen} onOpenChange={(open) => {if(open) setStopajInput(String(stopajRate)); setStopajPopoverOpen(open)}}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-primary/10">
+                    <Percent className="h-3.5 w-3.5" /> Stopaj: %{stopajRate}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-4 glass-panel border-none shadow-xl">
+                  <div className="grid gap-3">
+                    <h4 className="font-bold">Stopaj Oranı</h4>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" value={stopajInput} onChange={(e) => setStopajInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSetStopaj()} />
+                      <span className="font-bold">%</span>
+                    </div>
+                    <Button onClick={handleSetStopaj} size="sm">Güncelle</Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
-            <div className="overflow-x-auto">
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <Table className="table-fixed min-w-[1200px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="font-semibold w-[340px] px-4 py-1">Ürün</TableHead>
-                      <TableHead className="text-left font-semibold w-[120px] px-4 py-1">Maliyet</TableHead>
-                      <TableHead className="text-left font-semibold w-[140px] px-4 py-2 align-top">
-                        <div>Mağaza Fiyatı</div>
-                        <div className="text-xs font-normal text-muted-foreground">
-                            <div>%{kdvRate} KDV</div>
-                            <div>%{bankCommissionRate} Banka Kom.</div>
-                            <div>Ürün Maliyeti</div>
-                        </div>
-                      </TableHead>
-                      {storeMargins.map((margin) => {
-                        const commission = margin.commissionRate !== undefined ? margin.commissionRate : bankCommissionRate;
-                        const isEditingCommission = editingCommission?.id === margin.id;
-                        const isEditingMargin = editingMargin?.id === margin.id;
 
-                        return (
-                            <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-2 align-top relative group">
-                                <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
-                                    <X className="h-4 w-4" />
-                                </Button>
-                                {isEditingMargin ? (
-                                    <div className="flex items-center gap-1">
-                                        <Input
-                                            type="number"
-                                            value={editingMargin.value}
-                                            onChange={(e) => setEditingMargin({ id: margin.id, value: e.target.value })}
-                                            onBlur={() => handleUpdateMargin(margin.id)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                                if (e.key === 'Escape') setEditingMargin(null);
-                                            }}
-                                            autoFocus
-                                            className="h-6 font-semibold p-1 w-14 text-center"
-                                        />
-                                        <span>Kar (Ciro)</span>
-                                    </div>
-                                ) : (
-                                    <div onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })} className="cursor-pointer rounded-sm px-1 -mx-1 hover:bg-muted/50">
-                                        %{margin.value} Kar (Ciro)
-                                    </div>
-                                )}
-                                <div className="text-xs font-normal text-muted-foreground space-y-0.5">
-                                    <div>%{kdvRate} KDV</div>
-                                     {isEditingCommission ? (
-                                        <div className="flex items-center gap-1 -ml-1">
-                                            <span className="font-semibold">%</span>
-                                            <Input
-                                                type="number"
-                                                value={editingCommission.value}
-                                                placeholder={String(bankCommissionRate)}
-                                                onChange={(e) => setEditingCommission({ ...editingCommission, value: e.target.value })}
-                                                onBlur={() => handleUpdateMarginCommission(margin.id)}
-                                                onKeyDown={(e) => { 
-                                                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                                    if (e.key === 'Escape') setEditingCommission(null);
-                                                }}
-                                                autoFocus
-                                                className="h-5 text-xs p-1 w-14"
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div onClick={() => setEditingCommission({ id: margin.id, value: margin.commissionRate?.toString() ?? '' })} className="cursor-pointer rounded-sm px-1 -mx-1 hover:bg-muted/50">
-                                            %{commission} Banka Kom.
-                                        </div>
-                                    )}
-                                    <div>Ürün Maliyeti</div>
-                                </div>
-                            </TableHead>
-                        );
-                      })}
-                      <TableHead className="text-left px-0 w-[30px] py-1">
-                          <MarginColumnPopover type="store" onAdd={handleAddMargin} />
-                      </TableHead>
-                      
-                      <TableHead className="w-8 px-1 py-1" />
+            <Button onClick={() => setCategoryDialogOpen(true)} variant="outline" className="glass-panel border-dashed h-11 px-5">
+              <Tags className="mr-2 h-4 w-4" /> Kategoriler
+            </Button>
+            
+            <Button onClick={() => setAddProductDialogOpen(true)} className="h-11 px-8 font-bold shadow-lg shadow-primary/20">
+              <PlusCircle className="mr-2 h-5 w-5" /> Yeni Ürün
+            </Button>
+          </div>
+        </div>
 
-                      <TableHead className="text-left font-semibold w-[140px] px-2 py-2 align-top">
-                        <div>Online Fiyat</div>
-                        <div className="text-xs font-normal text-muted-foreground">
-                           <div>%{kdvRate} KDV</div>
-                           <div>%{platformCommissionRate} Platform Kom.</div>
-                           <div>%{stopajRate} Stopaj</div>
-                           <div>Ürün Maliyeti</div>
-                        </div>
-                      </TableHead>
-                      {onlineMargins.map((margin) => {
-                        const commission = margin.commissionRate !== undefined ? margin.commissionRate : platformCommissionRate;
-                        const isEditingCommission = editingCommission?.id === margin.id;
-                        const isEditingMargin = editingMargin?.id === margin.id;
-                        
-                        return (
-                          <TableHead key={margin.id} className="text-left font-semibold w-[140px] px-2 py-2 align-top relative group">
-                              <Button variant="ghost" size="icon" className="absolute top-1 right-0 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteMargin(margin.id)}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                                {isEditingMargin ? (
-                                    <div className="flex items-center gap-1">
-                                        <Input
-                                            type="number"
-                                            value={editingMargin.value}
-                                            onChange={(e) => setEditingMargin({ id: margin.id, value: e.target.value })}
-                                            onBlur={() => handleUpdateMargin(margin.id)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                                if (e.key === 'Escape') setEditingMargin(null);
-                                            }}
-                                            autoFocus
-                                            className="h-6 font-semibold p-1 w-14 text-center"
-                                        />
-                                        <span>Kar (Ciro)</span>
-                                    </div>
-                                ) : (
-                                    <div onClick={() => setEditingMargin({ id: margin.id, value: String(margin.value) })} className="cursor-pointer rounded-sm px-1 -mx-1 hover:bg-muted/50">
-                                        %{margin.value} Kar (Ciro)
-                                    </div>
-                                )}
-                              <div className="text-xs font-normal text-muted-foreground space-y-0.5">
-                                 <div>%{kdvRate} KDV</div>
-                                 {isEditingCommission ? (
-                                      <div className="flex items-center gap-1 -ml-1">
-                                          <span className="font-semibold">%</span>
-                                          <Input
-                                              type="number"
-                                              value={editingCommission.value}
-                                              placeholder={String(platformCommissionRate)}
-                                              onChange={(e) => setEditingCommission({ ...editingCommission, value: e.target.value })}
-                                              onBlur={() => handleUpdateMarginCommission(margin.id)}
-                                              onKeyDown={(e) => { 
-                                                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                                  if (e.key === 'Escape') setEditingCommission(null);
-                                              }}
-                                              autoFocus
-                                              className="h-5 text-xs p-1 w-14"
-                                          />
-                                      </div>
-                                  ) : (
-                                      <div onClick={() => setEditingCommission({ id: margin.id, value: margin.commissionRate?.toString() ?? '' })} className="cursor-pointer rounded-sm px-1 -mx-1 hover:bg-muted/50">
-                                          %{commission} Platform Kom.
-                                      </div>
-                                  )}
-                                  <div>%{stopajRate} Stopaj</div>
-                                 <div>Ürün Maliyeti</div>
-                             </div>
-                          </TableHead>
-                        );
-                      })}
-                      <TableHead className="text-left px-0 w-[30px] py-1">
-                          <MarginColumnPopover type="online" onAdd={handleAddMargin} />
-                      </TableHead>
-                      
-                      <TableHead className="text-right font-semibold w-[60px] px-4 py-1">İşlemler</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <SortableContext items={productIds} strategy={verticalListSortingStrategy}>
-                     <TableBody>
-                      {products.length > 0 ? (
-                        productsByCategory.map(({ category, products: productGroup }) => (
-                          <React.Fragment key={category?.id || 'uncategorized'}>
-                            <TableRow className="bg-muted/50 hover:bg-muted/50">
-                              <TableCell colSpan={totalColumns} className="py-1 px-4">
-                                <div className="flex items-center gap-2">
-                                  {category && <div className="h-3 w-3 rounded-full shrink-0" style={{backgroundColor: category.color}} />}
-                                  <span className="font-semibold text-sm">{category?.name || 'Kategorisiz'}</span>
+        {/* Categories Dialog */}
+        <Dialog open={isCategoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+          <DialogContent className="max-w-md glass-panel border-none shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">Kategorileri Yönet</DialogTitle>
+              <DialogDescription>Ürünlerinizi gruplandırmak için kategoriler oluşturun ve yönetin.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 pt-4">
+              <div className="space-y-4">
+                <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Yeni Kategori</h4>
+                <div className="flex items-center gap-2">
+                  <Input placeholder="Kategori Adı" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} />
+                  <Button onClick={handleAddCategory}>Ekle</Button>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">Renk:</span>
+                  <div className="flex gap-2">
+                    {categoryColors.map(color => (
+                      <button key={color} onClick={() => setNewCategoryColor(color)} className="h-7 w-7 rounded-full transition-transform active:scale-90" style={{ backgroundColor: color }}>
+                        {newCategoryColor === color && <Check className="h-4 w-4 text-white m-auto" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <Separator />
+              <div className="space-y-4">
+                <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Mevcut Kategoriler</h4>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+                  <SortableContext items={categoryIds} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+                        {categories.length > 0 ? categories.map(cat => (
+                          <SortableCategoryItem key={cat.id} category={cat} onDelete={handleDeleteCategory} />
+                        )) : <p className="text-sm text-muted-foreground text-center py-8 italic">Henüz kategori eklenmemiş.</p>}
+                      </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Main Table Panel */}
+        <div className="glass-panel overflow-hidden border-none shadow-2xl">
+          <div className="p-1 overflow-x-auto">
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <Table className="table-fixed min-w-[1400px]">
+                <TableHeader className="bg-muted/30 backdrop-blur-sm sticky top-0 z-20">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="font-bold w-[340px] px-6 py-4">Ürün Adı</TableHead>
+                    <TableHead className="text-left font-bold w-[120px] px-4 py-4">Maliyet</TableHead>
+                    <TableHead className="text-left font-bold w-[160px] px-4 py-4">Mağaza Fiyatı</TableHead>
+                    {storeMargins.map((margin) => (
+                      <TableHead key={margin.id} className="text-left font-bold w-[140px] px-2 py-4 relative group">
+                        <Button variant="ghost" size="icon" className="absolute top-2 right-1 h-5 w-5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => handleDeleteMargin(margin.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                        <MarginEditPopover 
+                            type="store" 
+                            margin={margin} 
+                            onSave={(data) => handleUpdateMarginDetails(margin.id, data)}
+                            trigger={
+                                <div className="cursor-pointer hover:text-primary transition-colors flex flex-col pr-6">
+                                  <span className="truncate">{margin.name || `%${margin.value} Marj`}</span>
+                                  <span className="text-[10px] font-medium text-muted-foreground mt-0.5 uppercase tracking-tighter">
+                                    {margin.name && `%${margin.value} Marj • `}
+                                    %{margin.commissionRate ?? bankCommissionRate} Kom.
+                                  </span>
                                 </div>
-                              </TableCell>
-                            </TableRow>
-                            {productGroup.map(product => (
-                              <React.Fragment key={product.id}>
-                                <SortableProductRow
-                                  product={product}
-                                  ingredients={ingredients}
-                                  margins={margins}
-                                  categories={categories}
-                                  platformCommissionRate={platformCommissionRate}
-                                  bankCommissionRate={bankCommissionRate}
-                                  kdvRate={kdvRate}
-                                  stopajRate={stopajRate}
-                                  updateProduct={updateProduct}
-                                  deleteProduct={deleteProduct}
-                                  isExpanded={expandedProductIds.includes(product.id)}
-                                  onToggleExpand={() => toggleProductExpansion(product.id)}
-                                  updateIngredientPrice={updateIngredientPrice}
-                                />
-                                {expandedProductIds.includes(product.id) && (
-                                  <TableRow className="bg-card hover:bg-card">
-                                      <TableCell colSpan={totalColumns} className="p-0">
+                            }
+                        />
+                      </TableHead>
+                    ))}
+                    <TableHead className="w-[40px] p-0 flex items-center justify-center">
+                      <MarginEditPopover 
+                        type="store" 
+                        onSave={(data) => handleAddMargin('store', data)} 
+                        trigger={
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <PlusCircle className="h-5 w-5" />
+                            </Button>
+                        }
+                      />
+                    </TableHead>
+                    <TableHead className="w-8 px-0 border-x border-border/20" />
+                    <TableHead className="text-left font-bold w-[160px] px-4 py-4">Online Fiyat</TableHead>
+                    {onlineMargins.map((margin) => (
+                      <TableHead key={margin.id} className="text-left font-bold w-[140px] px-2 py-4 relative group">
+                        <Button variant="ghost" size="icon" className="absolute top-2 right-1 h-5 w-5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => handleDeleteMargin(margin.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                         <MarginEditPopover 
+                            type="online" 
+                            margin={margin} 
+                            onSave={(data) => handleUpdateMarginDetails(margin.id, data)}
+                            trigger={
+                                <div className="cursor-pointer hover:text-primary transition-colors flex flex-col pr-6">
+                                  <span className="truncate">{margin.name || `%${margin.value} Marj`}</span>
+                                  <span className="text-[10px] font-medium text-muted-foreground mt-0.5 uppercase tracking-tighter">
+                                    {margin.name && `%${margin.value} Marj • `}
+                                    %{margin.commissionRate ?? platformCommissionRate} Kom.
+                                  </span>
+                                </div>
+                            }
+                        />
+                      </TableHead>
+                    ))}
+                    <TableHead className="w-[40px] p-0 flex items-center justify-center">
+                      <MarginEditPopover 
+                        type="online" 
+                        onSave={(data) => handleAddMargin('online', data)} 
+                        trigger={
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <PlusCircle className="h-5 w-5" />
+                            </Button>
+                        }
+                      />
+                    </TableHead>
+                    <TableHead className="text-center font-bold w-[80px] px-4 py-4">İşlem</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <SortableContext items={productIds} strategy={verticalListSortingStrategy}>
+                  <TableBody>
+                    {products.length > 0 ? (
+                      productsByCategory.map(({ category, products: productGroup }) => (
+                        <React.Fragment key={category?.id || 'uncategorized'}>
+                           <TableRow 
+                              className={`border-y border-border/10 ${!category ? 'bg-muted/10' : ''}`}
+                              style={{ 
+                                backgroundColor: category ? `${category.color}15` : undefined,
+                                borderLeft: category ? `4px solid ${category.color}` : 'none'
+                              }}
+                            >
+                             <TableCell colSpan={totalColumns} className="py-2.5 px-6">
+                               <div className="flex items-center justify-between w-full h-8">
+                                 <div className="flex items-center gap-3">
+                                   <span 
+                                    className="font-bold text-sm tracking-wide uppercase"
+                                    style={{ color: category ? category.color : 'inherit', filter: 'brightness(0.8)' }}
+                                  >
+                                     {category?.name || 'Kategorisiz Ürünler'}
+                                   </span>
+                                 </div>
+                                <div className="flex items-center gap-3">
+
+                                  <span className="text-[11px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
+                                    {productGroup.length} ÜRÜN
+                                  </span>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          {productGroup.map(product => (
+                            <React.Fragment key={product.id}>
+                              <SortableProductRow
+                                product={product}
+                                ingredients={ingredients}
+                                margins={margins}
+                                categories={categories}
+                                platformCommissionRate={platformCommissionRate}
+                                bankCommissionRate={bankCommissionRate}
+                                kdvRate={kdvRate}
+                                stopajRate={stopajRate}
+                                updateProduct={updateProduct}
+                                deleteProduct={deleteProduct}
+                                isExpanded={expandedProductIds.includes(product.id)}
+                                onToggleExpand={() => toggleProductExpansion(product.id)}
+                                updateIngredientPrice={updateIngredientPrice}
+                              />
+                              {expandedProductIds.includes(product.id) && (
+                                <TableRow className="bg-primary/5 hover:bg-primary/5">
+                                    <TableCell colSpan={totalColumns} className="p-0 border-b border-primary/10">
+                                        <div className="p-4 md:p-6">
                                           <InlineRecipeEditor
                                               product={product}
                                               ingredients={ingredients}
@@ -1215,86 +1174,107 @@ export default function Home() {
                                               updateProduct={updateProduct}
                                               updateIngredientPrice={updateIngredientPrice}
                                           />
-                                      </TableCell>
-                                  </TableRow>
-                                )}
-                              </React.Fragment>
-                            ))}
-                          </React.Fragment>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={totalColumns} className="h-20 text-center text-muted-foreground">
-                            Başlamak için bir ürün ekleyin.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </SortableContext>
-                </Table>
-              </DndContext>
-            </div>
-            <div className="mt-6 flex justify-center">
-              <Dialog open={isAddProductDialogOpen} onOpenChange={setAddProductDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Yeni Ürün Ekle
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Yeni Ürün Ekle</DialogTitle></DialogHeader>
-                  <ProductForm addProduct={addProduct} categories={categories} />
-                </DialogContent>
-              </Dialog>
-            </div>
-          </CardContent>
-        </Card>
-      </main>
-
-      {pricedIngredients.length > 0 && (
-        <div className="container mx-auto px-4 md:px-8 pb-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Hızlı Malzeme Fiyat Güncelleme</CardTitle>
-                    <CardDescription>Birim fiyatı tanımlı malzemelerin fiyatlarını buradan hızlıca güncelleyebilirsiniz.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
-                        {pricedIngredients.map(ing => (
-                           <div key={ing.id} className="space-y-1">
-                            <Label htmlFor={`price-${ing.id}`}>{ing.name}</Label>
-                            <div className="flex items-center gap-2">
-                                <Input
-                                    id={`price-${ing.id}`}
-                                    type="number" 
-                                    className="w-24 text-right"
-                                    key={ing.id + ing.price} 
-                                    defaultValue={ing.price}
-                                    onBlur={(e) => {
-                                        const newPrice = parseFloat(e.target.value.replace(',', '.'));
-                                        if (!isNaN(newPrice) && newPrice >= 0 && newPrice !== ing.price) {
-                                            updateIngredientPrice(ing.id, newPrice);
-                                        } else {
-                                            e.target.value = String(ing.price || '');
-                                        }
-                                    }}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            (e.target as HTMLInputElement).blur();
-                                        }
-                                    }}
-                                />
-                                <span className="text-sm text-muted-foreground">{`₺ / ${ing.unit}`}</span>
-                            </div>
-                        </div>
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </React.Fragment>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={totalColumns} className="h-40 text-center">
+                          <div className="flex flex-col items-center justify-center space-y-3">
+                            <p className="text-muted-foreground text-lg italic">Henüz ürün eklenmemiş.</p>
+                            <Button onClick={() => setAddProductDialogOpen(true)} variant="outline" size="sm">Hemen Bir Ürün Ekleyin</Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </SortableContext>
+              </Table>
+            </DndContext>
+          </div>
         </div>
-      )}
 
+        {/* Add Product Dialog */}
+        <Dialog open={isAddProductDialogOpen} onOpenChange={setAddProductDialogOpen}>
+          <DialogContent className="glass-panel border-none shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">Yeni Ürün Ekle</DialogTitle>
+              <DialogDescription>Yeni bir ürün oluşturun ve fiyatlandırma analizine başlayın.</DialogDescription>
+            </DialogHeader>
+            <ProductForm addProduct={addProduct} categories={categories} />
+          </DialogContent>
+        </Dialog>
+
+        {/* Dynamic Ingredient Price Update Section */}
+        {pricedIngredients.length > 0 && (
+          <div className="glass-panel p-8 mt-12 overflow-hidden relative border-none shadow-2xl">
+            <div className="absolute top-0 right-0 p-8 opacity-[0.03]">
+              <Tags size={180} />
+            </div>
+            
+            <div className="relative z-10">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+                <div>
+                  <h3 className="text-3xl font-black tracking-tight text-foreground">Hızlı Malzeme Güncelleme</h3>
+                  <p className="text-muted-foreground text-lg mt-1">Birim fiyatı tanımlı malzemeleri anında güncelleyin.</p>
+                </div>
+                <div className="bg-primary/10 border border-primary/20 px-4 py-2 rounded-xl">
+                  <span className="text-xs font-bold text-primary uppercase tracking-widest">Anlık Otomatik Hesaplama</span>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+                {pricedIngredients.map((ing) => (
+                    <div key={ing.id} className="group relative bg-muted/40 dark:bg-muted/20 hover:bg-card transition-all duration-300 p-5 rounded-2xl border border-border/50 hover:border-primary/50 hover:shadow-xl hover:-translate-y-1 overflow-hidden">
+                      <div className="absolute inset-y-0 left-0 w-1 bg-primary/30 group-hover:bg-primary transition-colors" />
+                      <div className="flex flex-col space-y-3 relative z-10 pl-2">
+                        <Label 
+                          htmlFor={`price-${ing.id}`} 
+                          className="text-xs font-bold uppercase tracking-wider text-muted-foreground group-hover:text-primary transition-colors truncate"
+                          title={ing.name}
+                        >
+                          {ing.name}
+                        </Label>
+                        
+                        <div className="flex items-end gap-2">
+                          <div className="relative flex-grow">
+                            <Input
+                                id={`price-${ing.id}`}
+                                type="number" 
+                                className="w-full text-2xl font-black pr-8 bg-transparent border-none p-0 h-auto focus-visible:ring-0 text-foreground"
+                                key={ing.id + (ing.price || 0)} 
+                                defaultValue={ing.price}
+                                onBlur={(e) => {
+                                    const newPrice = parseFloat(e.target.value.replace(',', '.'));
+                                    if (!isNaN(newPrice) && newPrice >= 0 && newPrice !== ing.price) {
+                                        updateIngredientPrice(ing.id, newPrice);
+                                    } else {
+                                        e.target.value = String(ing.price || '');
+                                    }
+                                }}
+                                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                            />
+                            <span className="absolute right-0 bottom-1 font-black text-xl text-primary/30 group-hover:text-primary transition-opacity">₺</span>
+                          </div>
+                          <div className="pb-1">
+                            <span className="text-[10px] font-black bg-muted px-2 py-0.5 rounded text-muted-foreground uppercase tracking-tighter border border-border/50">
+                              / {ing.unit}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
