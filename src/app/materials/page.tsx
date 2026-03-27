@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { nanoid } from 'nanoid';
 import type { Ingredient, Product, Category, RecipeItem, Margin } from '@/lib/types';
 import Header from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -369,7 +368,7 @@ export default function MaterialsPage() {
             const newOrder = prev.ingredients.length > 0 ? Math.max(...prev.ingredients.map(i => i.order ?? -1)) + 1 : 0;
             return {
                 ...prev,
-                ingredients: [...prev.ingredients, { ...data, id: nanoid(), order: newOrder }],
+                ingredients: [...prev.ingredients, { ...data, id: crypto.randomUUID(), order: newOrder }],
             }
         }
     });

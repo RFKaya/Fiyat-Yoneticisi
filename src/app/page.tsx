@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Product, RecipeItem, Ingredient, Category, Margin } from '@/lib/types';
-import { nanoid } from 'nanoid';
 import { calculateCost } from '@/lib/utils';
 import {
   DndContext,
@@ -641,7 +640,7 @@ export default function Home() {
   const addProduct = (productData: Omit<Product, 'id' | 'recipe' | 'order' | 'manualCost'>) => {
     setProducts((prev) => {
       const newOrder = prev.length > 0 ? Math.max(...prev.map(p => p.order)) + 1 : 0;
-      return [...prev, { ...productData, id: nanoid(), recipe: [], order: newOrder, manualCost: 0 }];
+      return [...prev, { ...productData, id: crypto.randomUUID(), recipe: [], order: newOrder, manualCost: 0 }];
     });
     setAddProductDialogOpen(false);
   };
@@ -686,7 +685,7 @@ export default function Home() {
   };
 
   const handleAddMargin = (type: 'store' | 'online', value: number) => {
-    const newMarginObject: Margin = { id: nanoid(), value, type };
+    const newMarginObject: Margin = { id: crypto.randomUUID(), value, type };
     setMargins((prev) => [...prev, newMarginObject]);
   };
   
@@ -737,7 +736,7 @@ export default function Home() {
     if (!newCategoryName.trim()) return;
     setCategories(prev => {
         const newOrder = prev.length > 0 ? Math.max(...prev.map(c => c.order ?? -1)) + 1 : 0;
-        return [...prev, { id: nanoid(), name: newCategoryName, color: newCategoryColor, order: newOrder }];
+        return [...prev, { id: crypto.randomUUID(), name: newCategoryName, color: newCategoryColor, order: newOrder }];
     });
     setNewCategoryName('');
     setNewCategoryColor(categoryColors[0]);
