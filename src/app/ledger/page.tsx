@@ -86,8 +86,6 @@ export default function LedgerPage() {
   const [currentMonth, setCurrentMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'));
   const [shopData, setShopData] = useState<ShopData>({ months: {} });
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [shopTitleInput, setShopTitleInput] = useState('');
   const [isEditingShopMargin, setIsEditingShopMargin] = useState(false);
   const [isEditingOnlineMargin, setIsEditingOnlineMargin] = useState(false);
 
@@ -108,10 +106,10 @@ export default function LedgerPage() {
         return res.json();
       })
       .then(data => {
-      setShops(data);
-    }).catch(error => {
-      window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Dükkan listesi alınamadı. Lütfen sayfayı yenileyin.' }));
-    });
+        setShops(data);
+      }).catch(error => {
+        window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Dükkan listesi alınamadı. Lütfen sayfayı yenileyin.' }));
+      });
   }, []);
 
   useEffect(() => {
@@ -157,19 +155,19 @@ export default function LedgerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(shopData)
       })
-      .then((res) => {
-         if (!res.ok) throw new Error('Kayıt başarısız');
-      })
-      .catch(error => {
-         window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Değişiklikler kaydedilemedi! Lütfen sistemin kilitli olup olmadığını kontrol edin.' }));
-      });
+        .then((res) => {
+          if (!res.ok) throw new Error('Kayıt başarısız');
+        })
+        .catch(error => {
+          window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Değişiklikler kaydedilemedi! Lütfen sistemin kilitli olup olmadığını kontrol edin.' }));
+        });
     }, 1000);
   }, [shopData, currentShopId, isLoading]);
 
   const updateDay = (id: string, field: string, value: string, platform?: keyof DayData['platforms'], pField?: keyof PlatformData) => {
     // Only allow numbers, comma, and dot
     const filteredValue = value.replace(/[^0-9,.]/g, '');
-    
+
     setShopData(prev => {
       const currentMonths = prev.months || {};
       const currentMonthData = currentMonths[currentMonthKey] || monthData;
@@ -269,14 +267,7 @@ export default function LedgerPage() {
     });
   };
 
-  const saveShopTitle = () => {
-    setShopData(prev => {
-      const newData = { ...prev, shopName: shopTitleInput };
-      return newData;
-    });
-    setShops(prev => prev.map(s => s.id === currentShopId ? { ...s, name: shopTitleInput } : s));
-    setIsEditingTitle(false);
-  };
+
 
   const totals = useMemo(() => {
     const res = { shop: 0, online: 0, onlineCount: 0, kg: 0, grand: 0, costs: 0, commissions: 0 };
@@ -317,9 +308,9 @@ export default function LedgerPage() {
 
   const fmt = (v: any, decimals = 0) => {
     const val = typeof v === 'number' ? v : parseNumber(v);
-    return new Intl.NumberFormat('tr-TR', { 
-      minimumFractionDigits: decimals, 
-      maximumFractionDigits: decimals 
+    return new Intl.NumberFormat('tr-TR', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
     }).format(val);
   };
 
@@ -364,16 +355,9 @@ export default function LedgerPage() {
           <div className="ledger-main-layout">
             <div className="ledger-glass-panel ledger-table-panel">
               <div className="ledger-panel-header">
-                {isEditingTitle ? (
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input className="ledger-premium-input" value={shopTitleInput} onChange={(e) => setShopTitleInput(e.target.value)} />
-                    <button className="primary-btn" onClick={saveShopTitle} style={{ padding: '0.4rem 1rem' }}>Kaydet</button>
-                  </div>
-                ) : (
-                  <h2 onClick={() => { setIsEditingTitle(true); setShopTitleInput(shopData.shopName || shops.find(s => s.id === currentShopId)?.name || ''); }}>
-                    {shopData.shopName || shops.find(s => s.id === currentShopId)?.name || 'İşyeri'} <span style={{ cursor: 'pointer', fontSize: '1rem' }}>✎</span>
-                  </h2>
-                )}
+                <h2 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.025em' }}>
+                  {shopData.shopName || shops.find(s => s.id === currentShopId)?.name || 'İşyeri'}
+                </h2>
               </div>
               <div className="ledger-table-responsive">
                 <table className="ledger-modern-table">
