@@ -31,7 +31,15 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Separator } from '@/components/ui/separator';
+const Separator = ({ className }: { className?: string }) => <div className={`h-[1px] w-full bg-border ${className}`} />;
+
+// Safely generate a unique ID, falling back if crypto.randomUUID is not available
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+};
 
 const formSchema = z.object({
   name: z.string().min(1, { message: 'Malzeme adı zorunludur.' }),
@@ -326,6 +334,9 @@ export default function MaterialsPage() {
             ingredients: (data.ingredients || []).sort((a: Ingredient, b: Ingredient) => (a.order ?? 0) - (b.order ?? 0)),
             categories: data.categories || [],
             margins: data.margins || [],
+            platformCommissionRate: data.platformCommissionRate ?? 15,
+            kdvRate: data.kdvRate ?? 10,
+            bankCommissionRate: data.bankCommissionRate ?? 2.5,
         });
         setIsLoading(false);
       })
@@ -365,7 +376,7 @@ export default function MaterialsPage() {
             const newOrder = prev.ingredients.length > 0 ? Math.max(...prev.ingredients.map(i => i.order ?? -1)) + 1 : 0;
             return {
                 ...prev,
-                ingredients: [...prev.ingredients, { ...data, id: crypto.randomUUID(), order: newOrder }],
+                ingredients: [...prev.ingredients, { ...data, id: generateId(), order: newOrder }],
             }
         }
     });

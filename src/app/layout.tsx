@@ -1,17 +1,21 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
+import { verifyAuthCookie } from '@/lib/auth';
+import AuthWrapper from '@/components/AuthWrapper';
 
 export const metadata: Metadata = {
   title: 'FiyatVizyon',
   description: 'Ürün fiyatlandırma ve kar analizi aracı',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isAuthenticated = await verifyAuthCookie();
+
   return (
     <html lang="tr">
       <head>
@@ -30,7 +34,9 @@ export default function RootLayout({
             <div className="blob blob-pink bottom-[-10%] right-[-10%] w-[600px] h-[600px] animate-[pulse_15s_infinite_alternate_reverse]" />
           </div>
           <div className="relative z-10 flex flex-col min-h-screen">
-            {children}
+            <AuthWrapper isAuthenticated={isAuthenticated}>
+              {children}
+            </AuthWrapper>
           </div>
         </ThemeProvider>
       </body>

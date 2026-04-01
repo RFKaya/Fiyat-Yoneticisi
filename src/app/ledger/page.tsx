@@ -59,6 +59,14 @@ const months = [
   { id: '10', name: 'Eki' }, { id: '11', name: 'Kas' }, { id: '12', name: 'Ara' }
 ];
 
+// Safely generate a unique ID, falling back if crypto.randomUUID is not available
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+};
+
 export default function LedgerPage() {
   const [shops, setShops] = useState<ShopInfo[]>([]);
   const [currentShopId, setCurrentShopId] = useState('1');
@@ -150,7 +158,7 @@ export default function LedgerPage() {
     setShopData(prev => {
       const currentMonths = prev.months || {};
       const currentMonthData = currentMonths[currentMonthKey] || monthData;
-      const costs = [...currentMonthData.costs, { id: crypto.randomUUID(), name: '', amount: 0 }];
+      const costs = [...currentMonthData.costs, { id: generateId(), name: '', amount: 0 }];
       return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, costs } } };
     });
   };

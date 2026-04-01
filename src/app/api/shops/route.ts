@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { verifyAuthCookie } from '@/lib/auth';
 
 const LEDGER_DATA_DIR = path.join(process.cwd(), 'src/data/ledger');
 
 export async function GET() {
+  if (!(await verifyAuthCookie())) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   try {
     if (!await fs.stat(LEDGER_DATA_DIR).catch(() => false)) {
       await fs.mkdir(LEDGER_DATA_DIR, { recursive: true });

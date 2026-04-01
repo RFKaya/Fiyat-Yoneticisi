@@ -48,6 +48,14 @@ const formatCurrency = (amount: number) => {
 
 const categoryColors = ['#F87171', '#FBBF24', '#34D399', '#60A5FA', '#A78BFA'];
 
+// Safely generate a unique ID, falling back if crypto.randomUUID is not available
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+};
+
 function MarginEditPopover({
   type,
   margin,
@@ -689,7 +697,7 @@ export default function Home() {
   const addProduct = (productData: Omit<Product, 'id' | 'recipe' | 'order' | 'manualCost'>) => {
     setProducts((prev) => {
       const newOrder = prev.length > 0 ? Math.max(...prev.map(p => p.order)) + 1 : 0;
-      return [...prev, { ...productData, id: crypto.randomUUID(), recipe: [], order: newOrder, manualCost: 0 }];
+      return [...prev, { ...productData, id: generateId(), recipe: [], order: newOrder, manualCost: 0 }];
     });
     setAddProductDialogOpen(false);
   };
@@ -735,7 +743,7 @@ export default function Home() {
 
   const handleAddMargin = (type: 'store' | 'online', marginData: Partial<Margin>) => {
     const newMarginObject: Margin = { 
-      id: crypto.randomUUID(), 
+      id: generateId(), 
       type, 
       value: marginData.value || 0,
       name: marginData.name,
@@ -758,7 +766,7 @@ export default function Home() {
     if (!newCategoryName.trim()) return;
     setCategories(prev => {
         const newOrder = prev.length > 0 ? Math.max(...prev.map(c => c.order ?? -1)) + 1 : 0;
-        return [...prev, { id: crypto.randomUUID(), name: newCategoryName, color: newCategoryColor, order: newOrder }];
+        return [...prev, { id: generateId(), name: newCategoryName, color: newCategoryColor, order: newOrder }];
     });
     setNewCategoryName('');
     setNewCategoryColor(categoryColors[0]);

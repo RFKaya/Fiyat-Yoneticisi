@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { verifyAuthCookie } from '@/lib/auth';
 
 // Define paths and default data structure
 const dataDirPath = path.join(process.cwd(), 'src/data');
@@ -44,6 +45,9 @@ async function readData() {
  * Handles GET requests to fetch all application data.
  */
 export async function GET() {
+  if (!(await verifyAuthCookie())) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const data = await readData();
     return NextResponse.json(data);
@@ -57,6 +61,9 @@ export async function GET() {
  * It completely overwrites the data file with the new data from the request body.
  */
 export async function POST(request: Request) {
+  if (!(await verifyAuthCookie())) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const newData = await request.json();
     

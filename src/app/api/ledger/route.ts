@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { verifyAuthCookie } from '@/lib/auth';
 
 const LEDGER_DATA_DIR = path.join(process.cwd(), 'src/data/ledger');
 
 const getDbPath = (shopId: string) => path.join(LEDGER_DATA_DIR, `db_shop_${shopId}.json`);
 
 export async function GET(request: Request) {
+  if (!(await verifyAuthCookie())) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const { searchParams } = new URL(request.url);
     const shopId = searchParams.get('shop') || '1';
@@ -24,6 +28,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!(await verifyAuthCookie())) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const { searchParams } = new URL(request.url);
     const shopId = searchParams.get('shop') || '1';
