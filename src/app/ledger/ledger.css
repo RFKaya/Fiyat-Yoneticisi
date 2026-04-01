@@ -320,6 +320,7 @@
 .ledger-text-danger {
   color: var(--ledger-danger);
 }
+
 .ledger-right-panel {
   display: flex;
   flex-direction: column;
@@ -345,8 +346,9 @@
   font-size: 0.85rem !important;
 }
 
-@media (max-width: 1300px) {
+@media (max-width: 1400px) {
   .ledger-main-layout {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
 }
