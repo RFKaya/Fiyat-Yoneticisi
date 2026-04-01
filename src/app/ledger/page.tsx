@@ -83,16 +83,26 @@ export default function LedgerPage() {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    fetch('/api/shops').then(res => res.json()).then(data => {
+    fetch('/api/shops')
+      .then((res) => {
+        if (!res.ok) throw new Error('Dükkanlar yüklenemedi');
+        return res.json();
+      })
+      .then(data => {
       setShops(data);
       if (data.length > 0) setCurrentShopId(data[0].id);
+    }).catch(error => {
+      window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Dükkan listesi alınamadı. Lütfen sayfayı yenileyin.' }));
     });
   }, []);
 
   useEffect(() => {
     setIsLoading(true);
     fetch(`/api/ledger?shop=${currentShopId}`)
-      .then(res => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Veriler yüklenemedi');
+        return res.json();
+      })
       .then(data => {
         setShopData(data);
         setIsLoading(false);
@@ -128,6 +138,12 @@ export default function LedgerPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(shopData)
+      })
+      .then((res) => {
+         if (!res.ok) throw new Error('Kayıt başarısız');
+      })
+      .catch(error => {
+         window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Değişiklikler kaydedilemedi! Lütfen sistemin kilitli olup olmadığını kontrol edin.' }));
       });
     }, 1000);
   }, [shopData, currentShopId, isLoading]);

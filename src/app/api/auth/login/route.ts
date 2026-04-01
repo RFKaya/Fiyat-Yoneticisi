@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerPassword } from '@/lib/auth';
+import { getServerPassword, getPasswordHash } from '@/lib/auth';
 import { cookies } from 'next/headers';
 
 export async function POST(request: Request) {
@@ -15,7 +15,9 @@ export async function POST(request: Request) {
     
     if (password === actualPassword) {
       const cookieStore = await cookies();
-      cookieStore.set('app_auth_token', password, {
+      const hashToken = await getPasswordHash(); // Generate the secure token
+      
+      cookieStore.set('app_auth_token', hashToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',

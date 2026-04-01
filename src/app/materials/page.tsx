@@ -327,7 +327,10 @@ export default function MaterialsPage() {
 
   useEffect(() => {
     fetch('/api/data')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Veri çekilemedi');
+        return res.json();
+      })
       .then((data) => {
         setAppData({
             products: data.products || [],
@@ -342,6 +345,7 @@ export default function MaterialsPage() {
       })
       .catch((error) => {
         console.error('Failed to load data:', error);
+        window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Veriler yüklenemedi. Lütfen sayfayı yenileyin veya tekrar giriş yapın.' }));
         setIsLoading(false);
       });
   }, []);
@@ -359,7 +363,14 @@ export default function MaterialsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(appData),
-      }).catch(error => console.error('Failed to save data:', error));
+      })
+      .then((res) => {
+        if (!res.ok) throw new Error('Kayıt başarısız');
+      })
+      .catch(error => {
+        console.error('Failed to save data:', error);
+        window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Değişiklikler kaydedilemedi! Lütfen sistemin kilitli olup olmadığını kontrol edin.' }));
+      });
     }
   }, [appData, isLoading]);
 

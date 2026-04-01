@@ -636,7 +636,10 @@ export default function Home() {
   // Data Fetching and Saving
   useEffect(() => {
     fetch('/api/data')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Veri çekilemedi');
+        return res.json();
+      })
       .then((data) => {
         const sortedProducts = (data.products || []).sort((a: Product, b: Product) => (a.order ?? 0) - (b.order ?? 0));
         const sortedIngredients = (data.ingredients || []).sort((a: Ingredient, b: Ingredient) => (a.order ?? 0) - (b.order ?? 0));
@@ -665,6 +668,7 @@ export default function Home() {
       })
       .catch((error) => {
         console.error('Failed to load data:', error);
+        window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Veriler yüklenemedi. Lütfen sayfayı yenileyin veya tekrar giriş yapın.' }));
         setIsLoading(false);
       });
   }, []);
@@ -682,7 +686,14 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ products, ingredients, margins, categories, platformCommissionRate, kdvRate, bankCommissionRate, stopajRate }),
-      }).catch(error => console.error('Failed to save data:', error));
+      })
+      .then((res) => {
+        if (!res.ok) throw new Error('Kayıt başarısız');
+      })
+      .catch(error => {
+        console.error('Failed to save data:', error);
+        window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Yaptığınız değişiklikler kaydedilemedi! Lütfen sayfayı yenileyin veya sistemin kilitli olup olmadığını kontrol edin.' }));
+      });
     }
   }, [products, ingredients, margins, categories, platformCommissionRate, kdvRate, bankCommissionRate, stopajRate, isLoading]);
 

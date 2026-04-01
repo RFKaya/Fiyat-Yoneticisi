@@ -3,6 +3,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { verifyAuthCookie } from '@/lib/auth';
 import AuthWrapper from '@/components/AuthWrapper';
+import GlobalErrorToast from '@/components/GlobalErrorToast';
 
 export const metadata: Metadata = {
   title: 'FiyatVizyon',
@@ -37,6 +38,7 @@ export default async function RootLayout({
             <AuthWrapper isAuthenticated={isAuthenticated}>
               {children}
             </AuthWrapper>
+            <GlobalErrorToast />
           </div>
         </ThemeProvider>
       </body>
