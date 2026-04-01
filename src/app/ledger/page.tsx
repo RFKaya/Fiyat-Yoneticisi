@@ -295,7 +295,7 @@ export default function LedgerPage() {
     return { ...res, shopProfit, onlineProfit, netProfit, margins, rent, ads, electricity, water, accounting };
   }, [monthData]);
 
-  const fmt = (v: number) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+  const fmt = (v: number) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
 
   return (
     <div className="ledger-container">
@@ -345,7 +345,7 @@ export default function LedgerPage() {
               </div>
               <div className="ledger-table-responsive">
                 <table className="ledger-modern-table">
-                  <colgroup><col style={{ width: '90px' }} /><col style={{ width: '85px' }} /><col style={{ width: '85px' }} /><col style={{ width: '85px' }} /><col style={{ width: '55px' }} /><col style={{ width: '40px' }} /><col style={{ width: '85px' }} /><col style={{ width: '40px' }} /><col style={{ width: '85px' }} /><col style={{ width: '40px' }} /><col style={{ width: '85px' }} /><col style={{ width: '40px' }} /><col style={{ width: '85px' }} /><col style={{ width: '95px' }} /><col style={{ width: '70px' }} /><col style={{ width: '95px' }} /><col style={{ width: '90px' }} /><col style={{ width: '100px' }} /></colgroup>
+                  <colgroup><col style={{ width: '90px' }} /><col style={{ width: '85px' }} /><col style={{ width: '85px' }} /><col style={{ width: '85px' }} /><col style={{ width: '55px' }} /><col style={{ width: '40px' }} /><col style={{ width: '85px' }} /><col style={{ width: '40px' }} /><col style={{ width: '85px' }} /><col style={{ width: '40px' }} /><col style={{ width: '85px' }} /><col style={{ width: '40px' }} /><col style={{ width: '85px' }} /><col style={{ width: '75px' }} /><col style={{ width: '60px' }} /><col style={{ width: '75px' }} /><col style={{ width: '65px' }} /><col style={{ width: '85px' }} /></colgroup>
                   <thead>
                     <tr>
                       <th rowSpan={2}>Tarih</th><th rowSpan={2}>Nakit</th><th rowSpan={2}>POS</th><th rowSpan={2}>Yemek Kartı</th><th rowSpan={2}>Kg</th>
