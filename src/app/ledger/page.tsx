@@ -4,14 +4,14 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Header from '@/components/layout/Header';
 import './ledger.css';
 
-type PlatformData = { count: number; rev: number };
+type PlatformData = { count: number | string; rev: number | string };
 type DayData = {
   id: string;
   date: string;
-  cash: number;
-  pos: number;
-  mealCard: number;
-  kg: number;
+  cash: number | string;
+  pos: number | string;
+  mealCard: number | string;
+  kg: number | string;
   platforms: {
     migros: PlatformData;
     getir: PlatformData;
@@ -20,7 +20,7 @@ type DayData = {
   };
 };
 
-type MonthlyCost = { id: string; name: string; amount: number };
+type MonthlyCost = { id: string; name: string; amount: number | string };
 type MonthData = {
   days: DayData[];
   costs: MonthlyCost[];
@@ -59,12 +59,19 @@ const months = [
   { id: '10', name: 'Eki' }, { id: '11', name: 'Kas' }, { id: '12', name: 'Ara' }
 ];
 
-// Safely generate a unique ID, falling back if crypto.randomUUID is not available
+// Safely generate a unique ID
 const generateId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
   return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+};
+
+// Robust number parsing with Turkish comma support
+const parseNumber = (v: any): number => {
+  if (v === undefined || v === null || v === '' || v === '-') return 0;
+  if (typeof v === 'number') return v;
+  return parseFloat(String(v).replace(',', '.')) || 0;
 };
 
 export default function LedgerPage() {
@@ -149,6 +156,9 @@ export default function LedgerPage() {
   }, [shopData, currentShopId, isLoading]);
 
   const updateDay = (id: string, field: string, value: string, platform?: keyof DayData['platforms'], pField?: keyof PlatformData) => {
+    // Only allow numbers, comma, and dot
+    const filteredValue = value.replace(/[^0-9,.]/g, '');
+    
     setShopData(prev => {
       const currentMonths = prev.months || {};
       const currentMonthData = currentMonths[currentMonthKey] || monthData;
@@ -157,12 +167,11 @@ export default function LedgerPage() {
       if (dayIndex === -1) return prev;
 
       const day = { ...days[dayIndex] };
-      const numericValue = parseFloat(value) || 0;
 
       if (platform && pField) {
-        day.platforms = { ...day.platforms, [platform]: { ...day.platforms[platform], [pField]: numericValue } };
+        day.platforms = { ...day.platforms, [platform]: { ...day.platforms[platform], [pField]: filteredValue } };
       } else {
-        (day as any)[field] = numericValue;
+        (day as any)[field] = filteredValue;
       }
 
       days[dayIndex] = day;
@@ -184,7 +193,7 @@ export default function LedgerPage() {
       const currentMonths = prev.months || {};
       const currentMonthData = currentMonths[currentMonthKey] || monthData;
       const costs = currentMonthData.costs.map(c =>
-        c.id === id ? { ...c, [field]: field === 'amount' ? (parseFloat(value) || 0) : value } : c
+        c.id === id ? { ...c, [field]: field === 'amount' ? value.replace(/[^0-9,.]/g, '') : value } : c
       );
       return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, costs } } };
     });
@@ -263,23 +272,23 @@ export default function LedgerPage() {
     const comms = monthData.commissions || { migros: 0, getir: 0, yemeksepeti: 0, trendyol: 0 };
 
     monthData.days.forEach(d => {
-      const shopRow = (d.cash || 0) + (d.pos || 0) + (d.mealCard || 0);
-      const onlineRow = (d.platforms.migros.rev || 0) + (d.platforms.getir.rev || 0) + (d.platforms.yemeksepeti.rev || 0) + (d.platforms.trendyol.rev || 0);
-      const onlineCountRow = (d.platforms.migros.count || 0) + (d.platforms.getir.count || 0) + (d.platforms.yemeksepeti.count || 0) + (d.platforms.trendyol.count || 0);
+      const shopRow = parseNumber(d.cash) + parseNumber(d.pos) + parseNumber(d.mealCard);
+      const onlineRow = parseNumber(d.platforms.migros.rev) + parseNumber(d.platforms.getir.rev) + parseNumber(d.platforms.yemeksepeti.rev) + parseNumber(d.platforms.trendyol.rev);
+      const onlineCountRow = parseNumber(d.platforms.migros.count) + parseNumber(d.platforms.getir.count) + parseNumber(d.platforms.yemeksepeti.count) + parseNumber(d.platforms.trendyol.count);
 
-      const dayComm = ((d.platforms.migros.rev || 0) * (comms.migros || 0) / 100) +
-        ((d.platforms.getir.rev || 0) * (comms.getir || 0) / 100) +
-        ((d.platforms.yemeksepeti.rev || 0) * (comms.yemeksepeti || 0) / 100) +
-        ((d.platforms.trendyol.rev || 0) * (comms.trendyol || 0) / 100);
+      const dayComm = (parseNumber(d.platforms.migros.rev) * (comms.migros || 0) / 100) +
+        (parseNumber(d.platforms.getir.rev) * (comms.getir || 0) / 100) +
+        (parseNumber(d.platforms.yemeksepeti.rev) * (comms.yemeksepeti || 0) / 100) +
+        (parseNumber(d.platforms.trendyol.rev) * (comms.trendyol || 0) / 100);
 
       res.shop += shopRow;
       res.online += onlineRow;
       res.onlineCount += onlineCountRow;
-      res.kg += (d.kg || 0);
+      res.kg += parseNumber(d.kg);
       res.grand += (shopRow + onlineRow);
       res.commissions += dayComm;
     });
-    res.costs = monthData.costs.reduce((acc, c) => acc + (c.amount || 0), 0);
+    res.costs = monthData.costs.reduce((acc, c) => acc + parseNumber(c.amount), 0);
 
     const margins = monthData.margins || { shop: 0, online: 0 };
     const shopProfit = res.shop * (margins.shop / 100);
@@ -295,7 +304,13 @@ export default function LedgerPage() {
     return { ...res, shopProfit, onlineProfit, netProfit, margins, rent, ads, electricity, water, accounting };
   }, [monthData]);
 
-  const fmt = (v: number) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
+  const fmt = (v: any, decimals = 0) => {
+    const val = typeof v === 'number' ? v : parseNumber(v);
+    return new Intl.NumberFormat('tr-TR', { 
+      minimumFractionDigits: decimals, 
+      maximumFractionDigits: decimals 
+    }).format(val);
+  };
 
   return (
     <div className="ledger-container">
@@ -364,11 +379,11 @@ export default function LedgerPage() {
                       const isToday = day.date === todayStr;
                       const isPast = day.date < todayStr;
 
-                      const shopRow = (day.cash || 0) + (day.pos || 0) + (day.mealCard || 0);
-                      const onlineRow = (day.platforms.migros.rev || 0) + (day.platforms.getir.rev || 0) + (day.platforms.yemeksepeti.rev || 0) + (day.platforms.trendyol.rev || 0);
-                      const onlineCountRow = (day.platforms.migros.count || 0) + (day.platforms.getir.count || 0) + (day.platforms.yemeksepeti.count || 0) + (day.platforms.trendyol.count || 0);
+                      const shopRow = parseNumber(day.cash) + parseNumber(day.pos) + parseNumber(day.mealCard);
+                      const onlineRow = parseNumber(day.platforms.migros.rev) + parseNumber(day.platforms.getir.rev) + parseNumber(day.platforms.yemeksepeti.rev) + parseNumber(day.platforms.trendyol.rev);
+                      const onlineCountRow = parseNumber(day.platforms.migros.count) + parseNumber(day.platforms.getir.count) + parseNumber(day.platforms.yemeksepeti.count) + parseNumber(day.platforms.trendyol.count);
                       const totalRow = shopRow + onlineRow;
-                      const avgKgPrice = day.kg > 0 ? totalRow / day.kg : 0;
+                      const avgKgPrice = parseNumber(day.kg) > 0 ? totalRow / parseNumber(day.kg) : 0;
                       return (
                         <tr key={day.id} className={`${isToday ? 'ledger-row-today' : ''} ${isPast ? 'ledger-row-past' : ''}`}>
                           <td style={{ textAlign: 'center' }}>{day.date.split('-').reverse().join('.')}</td>
@@ -394,18 +409,18 @@ export default function LedgerPage() {
                   <tfoot>
                     <tr className="ledger-tfoot-row">
                       <td style={{ textAlign: 'center' }}>TOPLAM</td>
-                      <td>{fmt(monthData.days.reduce((a, b) => a + (b.cash || 0), 0))}</td>
-                      <td>{fmt(monthData.days.reduce((a, b) => a + (b.pos || 0), 0))}</td>
-                      <td>{fmt(monthData.days.reduce((a, b) => a + (b.mealCard || 0), 0))}</td>
-                      <td>{fmt(totals.kg)}</td>
-                      <td>{monthData.days.reduce((a, b) => a + (b.platforms.migros.count || 0), 0)}</td>
-                      <td>{fmt(monthData.days.reduce((a, b) => a + (b.platforms.migros.rev || 0), 0))}</td>
-                      <td>{monthData.days.reduce((a, b) => a + (b.platforms.getir.count || 0), 0)}</td>
-                      <td>{fmt(monthData.days.reduce((a, b) => a + (b.platforms.getir.rev || 0), 0))}</td>
-                      <td>{monthData.days.reduce((a, b) => a + (b.platforms.yemeksepeti.count || 0), 0)}</td>
-                      <td>{fmt(monthData.days.reduce((a, b) => a + (b.platforms.yemeksepeti.rev || 0), 0))}</td>
-                      <td>{monthData.days.reduce((a, b) => a + (b.platforms.trendyol.count || 0), 0)}</td>
-                      <td>{fmt(monthData.days.reduce((a, b) => a + (b.platforms.trendyol.rev || 0), 0))}</td>
+                      <td>{fmt(monthData.days.reduce((a, b) => a + parseNumber(b.cash), 0))}</td>
+                      <td>{fmt(monthData.days.reduce((a, b) => a + parseNumber(b.pos), 0))}</td>
+                      <td>{fmt(monthData.days.reduce((a, b) => a + parseNumber(b.mealCard), 0))}</td>
+                      <td>{fmt(totals.kg, 1)}</td>
+                      <td>{monthData.days.reduce((a, b) => a + parseNumber(b.platforms.migros.count), 0)}</td>
+                      <td>{fmt(monthData.days.reduce((a, b) => a + parseNumber(b.platforms.migros.rev), 0))}</td>
+                      <td>{monthData.days.reduce((a, b) => a + parseNumber(b.platforms.getir.count), 0)}</td>
+                      <td>{fmt(monthData.days.reduce((a, b) => a + parseNumber(b.platforms.getir.rev), 0))}</td>
+                      <td>{monthData.days.reduce((a, b) => a + parseNumber(b.platforms.yemeksepeti.count), 0)}</td>
+                      <td>{fmt(monthData.days.reduce((a, b) => a + parseNumber(b.platforms.yemeksepeti.rev), 0))}</td>
+                      <td>{monthData.days.reduce((a, b) => a + parseNumber(b.platforms.trendyol.count), 0)}</td>
+                      <td>{fmt(monthData.days.reduce((a, b) => a + parseNumber(b.platforms.trendyol.rev), 0))}</td>
                       <td>{fmt(totals.shop)}</td><td>{totals.onlineCount}</td><td>{fmt(totals.online)}</td>
                       <td>{totals.kg > 0 ? fmt(totals.grand / totals.kg) : '-'}</td>
                       <td>{fmt(totals.grand)}</td>
