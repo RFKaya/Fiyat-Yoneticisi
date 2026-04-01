@@ -76,7 +76,12 @@ const parseNumber = (v: any): number => {
 
 export default function LedgerPage() {
   const [shops, setShops] = useState<ShopInfo[]>([]);
-  const [currentShopId, setCurrentShopId] = useState('1');
+  const [currentShopId, setCurrentShopId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('lastSelectedShopId') || '1';
+    }
+    return '1';
+  });
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear().toString());
   const [currentMonth, setCurrentMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'));
   const [shopData, setShopData] = useState<ShopData>({ months: {} });
@@ -89,6 +94,13 @@ export default function LedgerPage() {
   const currentMonthKey = `${currentYear}-${currentMonth}`;
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Persist currentShopId to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lastSelectedShopId', currentShopId);
+    }
+  }, [currentShopId]);
+
   useEffect(() => {
     fetch('/api/shops')
       .then((res) => {
@@ -97,7 +109,6 @@ export default function LedgerPage() {
       })
       .then(data => {
       setShops(data);
-      if (data.length > 0) setCurrentShopId(data[0].id);
     }).catch(error => {
       window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Dükkan listesi alınamadı. Lütfen sayfayı yenileyin.' }));
     });
@@ -314,6 +325,12 @@ export default function LedgerPage() {
 
   return (
     <div className="ledger-container">
+      {isLoading && (
+        <div className="ledger-loading-overlay">
+          <div className="ledger-spinner"></div>
+          <p style={{ fontSize: '1.1rem', fontWeight: 500, letterSpacing: '0.05em' }}>Veriler Yükleniyor...</p>
+        </div>
+      )}
       <Header />
       <div className="ledger-wrapper">
         <div className="ledger-content-container">
