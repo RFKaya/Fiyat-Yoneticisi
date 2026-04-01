@@ -47,3 +47,43 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Error saving ledger data.', error: error.message }, { status: 500 });
   }
 }
+
+export async function PATCH(request: Request) {
+  if (!(await verifyAuthCookie())) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+  try {
+    const { searchParams } = new URL(request.url);
+    const shopId = searchParams.get('shop') || '1';
+    const dbPath = getDbPath(shopId);
+    const payload = await request.json(); // Beklenen: { monthKey: '2026-04', monthData: {...} }
+
+    if (!await fs.stat(LEDGER_DATA_DIR).catch(() => false)) {
+      await fs.mkdir(LEDGER_DATA_DIR, { recursive: true });
+    }
+
+    let existingData: any = { months: {} };
+    if (await fs.stat(dbPath).catch(() => false)) {
+      const content = await fs.readFile(dbPath, 'utf8');
+      try {
+        existingData = JSON.parse(content);
+      } catch (e) {
+        // Dosya bozuksa veya boşsa sıfırdan başla
+      }
+    }
+
+    if (!existingData.months) {
+      existingData.months = {};
+    }
+
+    // Sadece belirtilen ayı güncelle
+    if (payload.monthKey && payload.monthData) {
+      existingData.months[payload.monthKey] = payload.monthData;
+    }
+
+    await fs.writeFile(dbPath, JSON.stringify(existingData, null, 2));
+    return NextResponse.json({ success: true, updatedMonth: payload.monthKey });
+  } catch (error: any) {
+    return NextResponse.json({ message: 'Error patching ledger data.', error: error.message }, { status: 500 });
+  }
+}

@@ -147,22 +147,37 @@ export default function LedgerPage() {
   }, [shopData, currentMonthKey, currentYear, currentMonth]);
 
   useEffect(() => {
-    if (isLoading) return;
+    // İlk olarak timeout'u temizleyelim
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+    // Eğer veriler yükleniyorsa veya shopData henüz tam yüklenmediyse kaydetme işlemini başlatma
+    if (isLoading || !shopData || !shopData.months || Object.keys(shopData.months).length === 0) return;
+
+    // Sadece şu anda aktif olan ayın verilerini kaydedeceğiz (Kısmi Güncelleme / PATCH)
+    const activeMonthData = shopData.months[currentMonthKey] || monthData;
+
     saveTimeoutRef.current = setTimeout(() => {
       fetch(`/api/ledger?shop=${currentShopId}`, {
-        method: 'POST',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(shopData)
+        body: JSON.stringify({
+          monthKey: currentMonthKey,
+          monthData: activeMonthData
+        })
       })
         .then((res) => {
-          if (!res.ok) throw new Error('Kayıt başarısız');
+          if (!res.ok) throw new Error('Kısmi kayıt başarısız');
         })
         .catch(error => {
           window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Değişiklikler kaydedilemedi! Lütfen sistemin kilitli olup olmadığını kontrol edin.' }));
         });
     }, 1000);
-  }, [shopData, currentShopId, isLoading]);
+
+    // Cleanup function: component unmount olduğunda veya bağımlılıklar değiştiğinde timer'ı iptal et
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [shopData, currentShopId, currentMonthKey, monthData, isLoading]);
 
   const updateDay = (id: string, field: string, value: string, platform?: keyof DayData['platforms'], pField?: keyof PlatformData) => {
     // Only allow numbers, comma, and dot
