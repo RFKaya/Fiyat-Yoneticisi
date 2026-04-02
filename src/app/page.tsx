@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Product, RecipeItem, Ingredient, Category, Margin } from '@/lib/types';
-import { calculateCost } from '@/lib/utils';
+import { calculateCost, calculateEconomicsFromPrice, calculateEconomicsFromMargin } from '@/lib/utils';
 import {
   DndContext,
   closestCenter,
@@ -159,6 +159,102 @@ function MarginEditPopover({
   );
 }
 
+function EconomicsTooltipContent({
+  title,
+  revenue,
+  vat,
+  commission,
+  commissionRate,
+  stopaj,
+  stopajRate,
+  cost,
+  netProfit,
+  percentage,
+  kdvRate,
+  isCalculable = true,
+  headerLabel
+}: {
+  title: string;
+  revenue: number;
+  vat: number;
+  commission: number;
+  commissionRate?: number;
+  stopaj: number;
+  stopajRate?: number;
+  cost: number;
+  netProfit: number;
+  percentage: number;
+  kdvRate?: number;
+  isCalculable?: boolean;
+  headerLabel?: string;
+}) {
+  return (
+    <TooltipContent align="start" side="bottom" sideOffset={5} className="z-[100] max-w-xs">
+      {isCalculable ? (
+        <div className="p-2 space-y-1 text-xs w-64">
+          {headerLabel && <div className="font-bold border-b border-border/50 pb-1 mb-2 text-primary">{headerLabel}</div>}
+          <div className="flex justify-between">
+            <span className={headerLabel ? "text-muted-foreground" : ""}>{title}</span>
+            <span className="font-medium">{formatCurrency(revenue)}</span>
+          </div>
+          <Separator className="my-1 bg-border/50" />
+          <div className="flex justify-between text-muted-foreground">
+            <span>{kdvRate !== undefined ? `KDV Tutarı (%${kdvRate})` : 'KDV Tutarı'}</span>
+            <span className="text-destructive">- {formatCurrency(vat)}</span>
+          </div>
+          <div className="flex justify-between text-muted-foreground">
+            <span>Komisyon {commissionRate !== undefined ? `(%${commissionRate.toFixed(2)})` : ''}</span>
+            <span className="text-destructive">- {formatCurrency(commission)}</span>
+          </div>
+          {stopaj > 0 && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>Stopaj {stopajRate !== undefined ? `(%${stopajRate})` : ''}</span>
+              <span className="text-destructive">- {formatCurrency(stopaj)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-muted-foreground">
+            <span>Ürün Maliyeti</span>
+            <span className="text-destructive">- {formatCurrency(cost)}</span>
+          </div>
+          <div className="border-t border-border/50 pt-1 mt-1 flex justify-between font-bold">
+            <span>Net Kâr</span>
+            <span className="text-green-500">{formatCurrency(netProfit)} ({percentage.toFixed(1)}%)</span>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs">Marj, maliyet için çok yüksek.</p>
+      )}
+    </TooltipContent>
+  );
+}
+
+function MarginDisplay({ marginData, colorStyle }: { marginData: { percentage: number, totalRevenue: number, totalProfit: number, totalCost: number, totalVat: number, totalCommission: number, totalStopaj: number } | null, colorStyle?: any }) {
+  if (!marginData) return null;
+
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-tighter cursor-default hover:text-primary transition-colors">
+            Ort. Kâr: <span className="font-bold text-foreground" style={colorStyle}>%{marginData.percentage.toFixed(1)}</span>
+          </span>
+        </TooltipTrigger>
+        <EconomicsTooltipContent
+          title="Toplam Beklenen Ciro"
+          revenue={marginData.totalRevenue}
+          vat={marginData.totalVat}
+          commission={marginData.totalCommission}
+          stopaj={marginData.totalStopaj}
+          cost={marginData.totalCost}
+          netProfit={marginData.totalProfit}
+          percentage={marginData.percentage}
+          headerLabel="Ciroya Göre Hesaplanmıştır"
+        />
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function SortableProductRow({
   product,
   ingredients,
@@ -227,22 +323,12 @@ function SortableProductRow({
     }
   };
 
-  // New Calculations
-  const storePriceExVat = product.storePrice > 0 ? product.storePrice / (1 + kdvRate / 100) : 0;
-  const vatAmountStore = product.storePrice > 0 ? product.storePrice - storePriceExVat : 0;
-  const commissionAmountStore = product.storePrice > 0 ? product.storePrice * (bankCommissionRate / 100) : 0;
-  const netStoreProfit = product.storePrice > 0 ? storePriceExVat - commissionAmountStore - cost : -cost;
-  const storeProfitPercentage = product.storePrice > 0 ? (netStoreProfit / product.storePrice) * 100 : 0;
+  // Unified Economics Calculations
+  const storeEconomics = calculateEconomicsFromPrice(product.storePrice, cost, kdvRate, bankCommissionRate, 0);
   const showNetStoreProfit = product.storePrice > 0;
 
-  const onlinePriceExVat = product.onlinePrice > 0 ? product.onlinePrice / (1 + kdvRate / 100) : 0;
-  const vatAmountOnline = product.onlinePrice > 0 ? product.onlinePrice - onlinePriceExVat : 0;
-  const commissionAmountOnline = product.onlinePrice > 0 ? product.onlinePrice * (platformCommissionRate / 100) : 0;
-  const stopajAmountOnline = product.onlinePrice > 0 ? onlinePriceExVat * (stopajRate / 100) : 0;
-  const netOnlineProfit = product.onlinePrice > 0 ? onlinePriceExVat - commissionAmountOnline - stopajAmountOnline - cost : -cost;
-  const onlineProfitPercentage = product.onlinePrice > 0 ? (netOnlineProfit / product.onlinePrice) * 100 : 0;
+  const onlineEconomics = calculateEconomicsFromPrice(product.onlinePrice, cost, kdvRate, platformCommissionRate, stopajRate);
   const showNetOnlineProfit = product.onlinePrice > 0;
-
 
   return (
     <TableRow ref={setNodeRef} style={style} key={product.id} className={isExpanded ? 'border-b-0' : ''}>
@@ -301,39 +387,25 @@ function SortableProductRow({
                     <div>{formatCurrency(product.storePrice)}</div>
                     {showNetStoreProfit && (
                       <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                        {formatCurrency(netStoreProfit)} ({storeProfitPercentage.toFixed(1)}%)
+                        {formatCurrency(storeEconomics.netProfit)} ({storeEconomics.profitPercentage.toFixed(1)}%)
                       </div>
                     )}
                   </div>
                 </div>
               </TooltipTrigger>
               {showNetStoreProfit && (
-                <TooltipContent>
-                  <div className="p-1 space-y-1 text-xs w-48">
-                    <div className="flex justify-between">
-                      <span>Ana Fiyat</span>
-                      <span className="font-medium">{formatCurrency(product.storePrice)}</span>
-                    </div>
-                    <Separator className="my-1 bg-border/50" />
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>KDV (%{kdvRate})</span>
-                      <span>- {formatCurrency(vatAmountStore)}</span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Komisyon (%{bankCommissionRate.toFixed(2)})</span>
-                      <span>- {formatCurrency(commissionAmountStore)}</span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Ürün Maliyeti</span>
-                      <span>- {formatCurrency(cost)}</span>
-                    </div>
-                    <Separator className="my-1" />
-                    <div className="flex justify-between font-semibold">
-                      <span>Net Kâr</span>
-                      <span>{formatCurrency(netStoreProfit)} ({storeProfitPercentage.toFixed(1)}%)</span>
-                    </div>
-                  </div>
-                </TooltipContent>
+                <EconomicsTooltipContent
+                  title="Ana Fiyat"
+                  revenue={product.storePrice}
+                  vat={storeEconomics.vatAmount}
+                  kdvRate={kdvRate}
+                  commission={storeEconomics.commissionAmount}
+                  commissionRate={bankCommissionRate}
+                  stopaj={storeEconomics.stopajAmount}
+                  cost={cost}
+                  netProfit={storeEconomics.netProfit}
+                  percentage={storeEconomics.profitPercentage}
+                />
               )}
             </Tooltip>
           </TooltipProvider>
@@ -341,16 +413,7 @@ function SortableProductRow({
       </TableCell>
       {storeMargins.map((margin) => {
         const commission = margin.commissionRate !== undefined ? margin.commissionRate : bankCommissionRate;
-        const revenueFactor = 1 / (1 + kdvRate / 100);
-        const divisor = revenueFactor - (commission / 100) - (margin.value / 100);
-        const sellingPrice = divisor > 0 ? cost / divisor : Infinity;
-
-        const isCalculable = isFinite(sellingPrice) && sellingPrice > 0;
-
-        const revenueExVat = isCalculable ? sellingPrice / (1 + kdvRate / 100) : 0;
-        const vatAmount = isCalculable ? sellingPrice - revenueExVat : 0;
-        const commissionAmount = isCalculable ? sellingPrice * (commission / 100) : 0;
-        const netProfit = isCalculable ? revenueExVat - commissionAmount - cost : 0;
+        const mEcon = calculateEconomicsFromMargin(margin.value, cost, kdvRate, commission, 0);
 
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
@@ -358,39 +421,22 @@ function SortableProductRow({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="w-full h-full flex items-center">
-                    {isCalculable ? formatCurrency(sellingPrice) : 'Hesaplanamaz'}
+                    {mEcon.isCalculable ? formatCurrency(mEcon.sellingPrice) : 'Hesaplanamaz'}
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  {isCalculable ? (
-                    <div className="p-1 space-y-1 text-xs w-48">
-                      <div className="flex justify-between">
-                        <span>Ana Fiyat</span>
-                        <span className="font-medium">{formatCurrency(sellingPrice)}</span>
-                      </div>
-                      <Separator className="my-1 bg-border/50" />
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>KDV (%{kdvRate})</span>
-                        <span>- {formatCurrency(vatAmount)}</span>
-                      </div>
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Komisyon (%{commission.toFixed(2)})</span>
-                        <span>- {formatCurrency(commissionAmount)}</span>
-                      </div>
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Ürün Maliyeti</span>
-                        <span>- {formatCurrency(cost)}</span>
-                      </div>
-                      <Separator className="my-1" />
-                      <div className="flex justify-between font-semibold">
-                        <span>Net Kâr</span>
-                        <span>{formatCurrency(netProfit)} ({(isCalculable ? (netProfit / sellingPrice * 100) : 0).toFixed(1)}%)</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs">Marj, maliyet için çok yüksek.</p>
-                  )}
-                </TooltipContent>
+                <EconomicsTooltipContent
+                  isCalculable={mEcon.isCalculable}
+                  title="Ana Fiyat"
+                  revenue={mEcon.sellingPrice}
+                  vat={mEcon.vatAmount}
+                  kdvRate={kdvRate}
+                  commission={mEcon.commissionAmount}
+                  commissionRate={commission}
+                  stopaj={mEcon.stopajAmount}
+                  cost={cost}
+                  netProfit={mEcon.netProfit}
+                  percentage={mEcon.profitPercentage}
+                />
               </Tooltip>
             </TooltipProvider>
           </TableCell>
@@ -421,43 +467,26 @@ function SortableProductRow({
                     <div>{formatCurrency(product.onlinePrice)}</div>
                     {showNetOnlineProfit && (
                       <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                        {formatCurrency(netOnlineProfit)} ({onlineProfitPercentage.toFixed(1)}%)
+                        {formatCurrency(onlineEconomics.netProfit)} ({onlineEconomics.profitPercentage.toFixed(1)}%)
                       </div>
                     )}
                   </div>
                 </div>
               </TooltipTrigger>
               {showNetOnlineProfit && (
-                <TooltipContent>
-                  <div className="p-1 space-y-1 text-xs w-48">
-                    <div className="flex justify-between">
-                      <span>Ana Fiyat</span>
-                      <span className="font-medium">{formatCurrency(product.onlinePrice)}</span>
-                    </div>
-                    <Separator className="my-1 bg-border/50" />
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>KDV (%{kdvRate})</span>
-                      <span>- {formatCurrency(vatAmountOnline)}</span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Komisyon (%{platformCommissionRate.toFixed(2)})</span>
-                      <span>- {formatCurrency(commissionAmountOnline)}</span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Stopaj (%{stopajRate})</span>
-                      <span>- {formatCurrency(stopajAmountOnline)}</span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Ürün Maliyeti</span>
-                      <span>- {formatCurrency(cost)}</span>
-                    </div>
-                    <Separator className="my-1" />
-                    <div className="flex justify-between font-semibold">
-                      <span>Net Kâr</span>
-                      <span>{formatCurrency(netOnlineProfit)} ({onlineProfitPercentage.toFixed(1)}%)</span>
-                    </div>
-                  </div>
-                </TooltipContent>
+                <EconomicsTooltipContent
+                  title="Ana Fiyat"
+                  revenue={product.onlinePrice}
+                  vat={onlineEconomics.vatAmount}
+                  kdvRate={kdvRate}
+                  commission={onlineEconomics.commissionAmount}
+                  commissionRate={platformCommissionRate}
+                  stopaj={onlineEconomics.stopajAmount}
+                  stopajRate={stopajRate}
+                  cost={cost}
+                  netProfit={onlineEconomics.netProfit}
+                  percentage={onlineEconomics.profitPercentage}
+                />
               )}
             </Tooltip>
           </TooltipProvider>
@@ -466,18 +495,7 @@ function SortableProductRow({
 
       {onlineMargins.map((margin) => {
         const commission = margin.commissionRate !== undefined ? margin.commissionRate : platformCommissionRate;
-
-        const revenueFactor = (1 - stopajRate / 100) / (1 + kdvRate / 100);
-        const divisor = revenueFactor - (commission / 100) - (margin.value / 100);
-        const sellingPrice = divisor > 0 ? cost / divisor : Infinity;
-
-        const isCalculable = isFinite(sellingPrice) && sellingPrice > 0;
-
-        const revenueExVat = isCalculable ? sellingPrice / (1 + kdvRate / 100) : 0;
-        const vatAmount = isCalculable ? sellingPrice - revenueExVat : 0;
-        const commissionAmount = isCalculable ? sellingPrice * (commission / 100) : 0;
-        const stopajAmount = isCalculable ? revenueExVat * (stopajRate / 100) : 0;
-        const netProfit = isCalculable ? revenueExVat - commissionAmount - stopajAmount - cost : 0;
+        const mEcon = calculateEconomicsFromMargin(margin.value, cost, kdvRate, commission, stopajRate);
 
         return (
           <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
@@ -485,43 +503,23 @@ function SortableProductRow({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="w-full h-full flex items-center">
-                    {isCalculable ? formatCurrency(sellingPrice) : 'Hesaplanamaz'}
+                    {mEcon.isCalculable ? formatCurrency(mEcon.sellingPrice) : 'Hesaplanamaz'}
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  {isCalculable ? (
-                    <div className="p-1 space-y-1 text-xs w-48">
-                      <div className="flex justify-between">
-                        <span>Ana Fiyat</span>
-                        <span className="font-medium">{formatCurrency(sellingPrice)}</span>
-                      </div>
-                      <Separator className="my-1 bg-border/50" />
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>KDV (%{kdvRate})</span>
-                        <span>- {formatCurrency(vatAmount)}</span>
-                      </div>
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Komisyon (%{commission.toFixed(2)})</span>
-                        <span>- {formatCurrency(commissionAmount)}</span>
-                      </div>
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Stopaj (%{stopajRate})</span>
-                        <span>- {formatCurrency(stopajAmount)}</span>
-                      </div>
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Ürün Maliyeti</span>
-                        <span>- {formatCurrency(cost)}</span>
-                      </div>
-                      <Separator className="my-1" />
-                      <div className="flex justify-between font-semibold">
-                        <span>Net Kâr</span>
-                        <span>{formatCurrency(netProfit)} ({(isCalculable ? (netProfit / sellingPrice * 100) : 0).toFixed(1)}%)</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs">Marj, maliyet için çok yüksek.</p>
-                  )}
-                </TooltipContent>
+                <EconomicsTooltipContent
+                  isCalculable={mEcon.isCalculable}
+                  title="Ana Fiyat"
+                  revenue={mEcon.sellingPrice}
+                  vat={mEcon.vatAmount}
+                  kdvRate={kdvRate}
+                  commission={mEcon.commissionAmount}
+                  commissionRate={commission}
+                  stopaj={mEcon.stopajAmount}
+                  stopajRate={stopajRate}
+                  cost={cost}
+                  netProfit={mEcon.netProfit}
+                  percentage={mEcon.profitPercentage}
+                />
               </Tooltip>
             </TooltipProvider>
           </TableCell>
@@ -825,42 +823,55 @@ export default function Home() {
     const calculateMargin = (prods: Product[], type: 'store' | 'online') => {
       let totalProfit = 0;
       let totalRevenue = 0;
+      let totalCost = 0;
+      let totalVat = 0;
+      let totalCommission = 0;
+      let totalStopaj = 0;
       
       prods.forEach(product => {
         const hasRecipe = product.recipe && product.recipe.length > 0;
         const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
         
         if (type === 'store' && product.storePrice > 0) {
-          const storePriceExVat = product.storePrice / (1 + kdvRate / 100);
-          const commissionAmountStore = product.storePrice * (bankCommissionRate / 100);
-          const netStoreProfit = storePriceExVat - commissionAmountStore - cost;
-          
-          totalProfit += netStoreProfit;
-          totalRevenue += product.storePrice;
+          const econ = calculateEconomicsFromPrice(product.storePrice, cost, kdvRate, bankCommissionRate, 0);
+          totalProfit += econ.netProfit;
+          totalRevenue += econ.sellingPrice;
+          totalCost += cost;
+          totalVat += econ.vatAmount;
+          totalCommission += econ.commissionAmount;
+          totalStopaj += econ.stopajAmount;
         } else if (type === 'online' && product.onlinePrice > 0) {
-          const onlinePriceExVat = product.onlinePrice / (1 + kdvRate / 100);
-          const commissionAmountOnline = product.onlinePrice * (platformCommissionRate / 100);
-          const stopajAmountOnline = onlinePriceExVat * (stopajRate / 100);
-          const netOnlineProfit = onlinePriceExVat - commissionAmountOnline - stopajAmountOnline - cost;
-          
-          totalProfit += netOnlineProfit;
-          totalRevenue += product.onlinePrice;
+          const econ = calculateEconomicsFromPrice(product.onlinePrice, cost, kdvRate, platformCommissionRate, stopajRate);
+          totalProfit += econ.netProfit;
+          totalRevenue += econ.sellingPrice;
+          totalCost += cost;
+          totalVat += econ.vatAmount;
+          totalCommission += econ.commissionAmount;
+          totalStopaj += econ.stopajAmount;
         }
       });
 
-      return totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : null;
+      return totalRevenue > 0 ? {
+        percentage: (totalProfit / totalRevenue) * 100,
+        totalRevenue,
+        totalProfit,
+        totalCost,
+        totalVat,
+        totalCommission,
+        totalStopaj
+      } : null;
     };
 
     return {
-      overallStore: calculateMargin(products, 'store'),
-      overallOnline: calculateMargin(products, 'online'),
+      overallStore: calculateMargin(products.filter(p => p.categoryId), 'store'),
+      overallOnline: calculateMargin(products.filter(p => p.categoryId), 'online'),
       calculateMargin
     };
   }, [products, ingredients, kdvRate, bankCommissionRate, platformCommissionRate, stopajRate]);
 
   const productsByCategory = useMemo(() => {
     const sorted = [...products].sort((a, b) => a.order - b.order);
-    const grouped: { category?: Category, products: Product[], avgStoreMargin: number | null, avgOnlineMargin: number | null }[] = [];
+    const grouped: { category?: Category, products: Product[], avgStoreMargin: { percentage: number, totalRevenue: number, totalProfit: number, totalCost: number, totalVat: number, totalCommission: number, totalStopaj: number } | null, avgOnlineMargin: { percentage: number, totalRevenue: number, totalProfit: number, totalCost: number, totalVat: number, totalCommission: number, totalStopaj: number } | null }[] = [];
     const uncategorized: Product[] = [];
     const productsByCatId: Record<string, Product[]> = {};
 
@@ -892,8 +903,8 @@ export default function Home() {
     if (uncategorized.length > 0) {
       grouped.push({
         products: uncategorized,
-        avgStoreMargin: productAverages.calculateMargin(uncategorized, 'store'),
-        avgOnlineMargin: productAverages.calculateMargin(uncategorized, 'online')
+        avgStoreMargin: null,
+        avgOnlineMargin: null
       });
     }
 
@@ -1114,11 +1125,7 @@ export default function Home() {
                     <TableHead className="text-left font-bold w-[160px] px-4 py-2">
                        <div className="flex flex-col justify-center">
                          <span>Mağaza Fiyatı</span>
-                         {productAverages.overallStore !== null && (
-                           <span className="text-[10px] font-normal text-muted-foreground mt-0.5 uppercase tracking-tighter">
-                             Ort. Kâr: %{productAverages.overallStore.toFixed(1)}
-                           </span>
-                         )}
+                         <MarginDisplay marginData={productAverages.overallStore} />
                        </div>
                     </TableHead>
                     {storeMargins.map((margin) => (
@@ -1157,11 +1164,7 @@ export default function Home() {
                     <TableHead className="text-left font-bold w-[160px] px-4 py-2">
                        <div className="flex flex-col justify-center">
                          <span>Online Fiyat</span>
-                         {productAverages.overallOnline !== null && (
-                           <span className="text-[10px] font-normal text-muted-foreground mt-0.5 uppercase tracking-tighter">
-                             Ort. Kâr: %{productAverages.overallOnline.toFixed(1)}
-                           </span>
-                         )}
+                         <MarginDisplay marginData={productAverages.overallOnline} />
                        </div>
                     </TableHead>
                     {onlineMargins.map((margin) => (
@@ -1225,21 +1228,13 @@ export default function Home() {
                             </TableCell>
                             
                             <TableCell className="text-left px-4 py-2">
-                              {avgStoreMargin !== null && (
-                                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-tighter">
-                                  Ort. Kâr: <span className="font-bold text-foreground" style={{ color: category ? category.color : 'inherit' }}>%{avgStoreMargin.toFixed(1)}</span>
-                                </span>
-                              )}
+                              <MarginDisplay marginData={avgStoreMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
                             </TableCell>
                             
                             <TableCell colSpan={storeMargins.length + 2} />
                             
                             <TableCell className="text-left px-4 py-2">
-                              {avgOnlineMargin !== null && (
-                                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-tighter">
-                                  Ort. Kâr: <span className="font-bold text-foreground" style={{ color: category ? category.color : 'inherit' }}>%{avgOnlineMargin.toFixed(1)}</span>
-                                </span>
-                              )}
+                              <MarginDisplay marginData={avgOnlineMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
                             </TableCell>
                             
                             <TableCell colSpan={onlineMargins.length + 2} className="text-right py-2.5 px-6">

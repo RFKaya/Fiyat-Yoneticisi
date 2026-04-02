@@ -39,3 +39,97 @@ export function calculateCost(recipe: RecipeItem[], ingredients: Ingredient[]): 
     return total + (itemCost || 0);
   }, 0);
 }
+
+export interface EconomicsResult {
+  sellingPrice: number;
+  revenueExVat: number;
+  vatAmount: number;
+  commissionAmount: number;
+  stopajAmount: number;
+  netProfit: number;
+  profitPercentage: number;
+  isCalculable: boolean;
+}
+
+export function calculateEconomicsFromPrice(
+  price: number,
+  cost: number,
+  kdvRate: number,
+  commissionRate: number,
+  stopajRate: number = 0
+): EconomicsResult {
+  if (!price || price <= 0) {
+    return {
+      sellingPrice: 0,
+      revenueExVat: 0,
+      vatAmount: 0,
+      commissionAmount: 0,
+      stopajAmount: 0,
+      netProfit: -cost,
+      profitPercentage: 0,
+      isCalculable: false
+    };
+  }
+
+  const revenueExVat = price / (1 + kdvRate / 100);
+  const vatAmount = price - revenueExVat;
+  const commissionAmount = price * (commissionRate / 100);
+  const stopajAmount = revenueExVat * (stopajRate / 100);
+  const netProfit = revenueExVat - commissionAmount - stopajAmount - cost;
+  const profitPercentage = (netProfit / price) * 100;
+
+  return {
+    sellingPrice: price,
+    revenueExVat,
+    vatAmount,
+    commissionAmount,
+    stopajAmount,
+    netProfit,
+    profitPercentage,
+    isCalculable: true
+  };
+}
+
+export function calculateEconomicsFromMargin(
+  targetMarginPercentage: number,
+  cost: number,
+  kdvRate: number,
+  commissionRate: number,
+  stopajRate: number = 0
+): EconomicsResult {
+  const revenueFactor = (1 - stopajRate / 100) / (1 + kdvRate / 100);
+  const divisor = revenueFactor - (commissionRate / 100) - (targetMarginPercentage / 100);
+  const sellingPrice = divisor > 0 ? cost / divisor : Infinity;
+  
+  if (!isFinite(sellingPrice) || sellingPrice <= 0) {
+    return {
+      sellingPrice: Infinity,
+      revenueExVat: 0,
+      vatAmount: 0,
+      commissionAmount: 0,
+      stopajAmount: 0,
+      netProfit: 0,
+      profitPercentage: 0,
+      isCalculable: false
+    };
+  }
+
+  const revenueExVat = sellingPrice / (1 + kdvRate / 100);
+  const vatAmount = sellingPrice - revenueExVat;
+  const commissionAmount = sellingPrice * (commissionRate / 100);
+  const stopajAmount = revenueExVat * (stopajRate / 100);
+  const netProfit = revenueExVat - commissionAmount - stopajAmount - cost;
+  // Account for floating point inaccuracies
+  const profitPercentage = (netProfit / sellingPrice) * 100;
+
+  return {
+    sellingPrice,
+    revenueExVat,
+    vatAmount,
+    commissionAmount,
+    stopajAmount,
+    netProfit,
+    profitPercentage,
+    isCalculable: true
+  };
+}
