@@ -232,6 +232,7 @@ function SortableProductRow({
   const vatAmountStore = product.storePrice > 0 ? product.storePrice - storePriceExVat : 0;
   const commissionAmountStore = product.storePrice > 0 ? product.storePrice * (bankCommissionRate / 100) : 0;
   const netStoreProfit = product.storePrice > 0 ? storePriceExVat - commissionAmountStore - cost : -cost;
+  const storeProfitPercentage = product.storePrice > 0 ? (netStoreProfit / product.storePrice) * 100 : 0;
   const showNetStoreProfit = product.storePrice > 0;
 
   const onlinePriceExVat = product.onlinePrice > 0 ? product.onlinePrice / (1 + kdvRate / 100) : 0;
@@ -239,6 +240,7 @@ function SortableProductRow({
   const commissionAmountOnline = product.onlinePrice > 0 ? product.onlinePrice * (platformCommissionRate / 100) : 0;
   const stopajAmountOnline = product.onlinePrice > 0 ? onlinePriceExVat * (stopajRate / 100) : 0;
   const netOnlineProfit = product.onlinePrice > 0 ? onlinePriceExVat - commissionAmountOnline - stopajAmountOnline - cost : -cost;
+  const onlineProfitPercentage = product.onlinePrice > 0 ? (netOnlineProfit / product.onlinePrice) * 100 : 0;
   const showNetOnlineProfit = product.onlinePrice > 0;
 
 
@@ -299,7 +301,7 @@ function SortableProductRow({
                     <div>{formatCurrency(product.storePrice)}</div>
                     {showNetStoreProfit && (
                       <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                        {formatCurrency(netStoreProfit)}
+                        {formatCurrency(netStoreProfit)} ({storeProfitPercentage.toFixed(1)}%)
                       </div>
                     )}
                   </div>
@@ -328,7 +330,7 @@ function SortableProductRow({
                     <Separator className="my-1" />
                     <div className="flex justify-between font-semibold">
                       <span>Net Kâr</span>
-                      <span>{formatCurrency(netStoreProfit)}</span>
+                      <span>{formatCurrency(netStoreProfit)} ({storeProfitPercentage.toFixed(1)}%)</span>
                     </div>
                   </div>
                 </TooltipContent>
@@ -382,7 +384,7 @@ function SortableProductRow({
                       <Separator className="my-1" />
                       <div className="flex justify-between font-semibold">
                           <span>Net Kâr</span>
-                          <span>{formatCurrency(netProfit)}</span>
+                          <span>{formatCurrency(netProfit)} ({(isCalculable ? (netProfit / sellingPrice * 100) : 0).toFixed(1)}%)</span>
                       </div>
                     </div>
                   ) : (
@@ -419,7 +421,7 @@ function SortableProductRow({
                       <div>{formatCurrency(product.onlinePrice)}</div>
                       {showNetOnlineProfit && (
                         <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                          {formatCurrency(netOnlineProfit)}
+                          {formatCurrency(netOnlineProfit)} ({onlineProfitPercentage.toFixed(1)}%)
                         </div>
                       )}
                     </div>
@@ -452,7 +454,7 @@ function SortableProductRow({
                       <Separator className="my-1" />
                       <div className="flex justify-between font-semibold">
                         <span>Net Kâr</span>
-                        <span>{formatCurrency(netOnlineProfit)}</span>
+                        <span>{formatCurrency(netOnlineProfit)} ({onlineProfitPercentage.toFixed(1)}%)</span>
                       </div>
                     </div>
                   </TooltipContent>
@@ -514,7 +516,7 @@ function SortableProductRow({
                       <Separator className="my-1" />
                       <div className="flex justify-between font-semibold">
                           <span>Net Kâr</span>
-                          <span>{formatCurrency(netProfit)}</span>
+                          <span>{formatCurrency(netProfit)} ({(isCalculable ? (netProfit / sellingPrice * 100) : 0).toFixed(1)}%)</span>
                       </div>
                     </div>
                   ) : (
