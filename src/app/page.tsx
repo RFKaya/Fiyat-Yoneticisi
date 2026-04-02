@@ -3,38 +3,22 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Product, RecipeItem, Ingredient, Category, Margin } from '@/lib/types';
 import { calculateCost, calculateEconomicsFromPrice, calculateEconomicsFromMargin } from '@/lib/utils';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-} from '@dnd-kit/sortable';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 import Header from '@/components/layout/Header';
 import ProductForm from '@/components/products/ProductForm';
 import InlineRecipeEditor from '@/components/products/InlineRecipeEditor';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, ChevronDown, ChevronUp, Percent } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 
 
@@ -258,7 +242,8 @@ function MarginDisplay({ marginData, colorStyle }: { marginData: { percentage: n
 function SortableProductRow({
   product,
   ingredients,
-  margins,
+  storeMargins,
+  onlineMargins,
   categories,
   platformCommissionRate,
   bankCommissionRate,
@@ -272,7 +257,8 @@ function SortableProductRow({
 }: {
   product: Product,
   ingredients: Ingredient[],
-  margins: Margin[],
+  storeMargins: Margin[],
+  onlineMargins: Margin[],
   categories: Category[],
   platformCommissionRate: number,
   bankCommissionRate: number,
@@ -284,23 +270,13 @@ function SortableProductRow({
   onToggleExpand: () => void,
   updateIngredientPrice: (ingredientId: string, newPrice: number) => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: product.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: product.id });
 
   const [editingField, setEditingField] = useState<'name' | 'storePrice' | 'onlinePrice' | null>(null);
 
   const hasRecipe = product.recipe && product.recipe.length > 0;
   const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
   const category = categories.find(c => c.id === product.categoryId);
-
-  const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a, b) => a.value - b.value), [margins]);
-  const onlineMargins = useMemo(() => margins.filter(m => m.type === 'online').sort((a, b) => a.value - b.value), [margins]);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -595,6 +571,39 @@ function SortableCategoryItem({ category, onDelete }: { category: Category; onDe
   );
 }
 
+function RatePopover({ title, label, rate, onSave, maxLimit = 100 }: { title: string, label: string, rate: number, onSave: (r: number) => void, maxLimit?: number }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [input, setInput] = useState(String(rate));
+
+  const handleSave = () => {
+    const newRate = parseFloat(input);
+    if (!isNaN(newRate) && newRate >= 0 && newRate <= maxLimit) {
+      onSave(newRate);
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={(open) => { if (open) setInput(String(rate)); setIsOpen(open) }}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-primary/10">
+          <Percent className="h-3.5 w-3.5" /> {label} %{rate}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-4 glass-panel border-none shadow-xl">
+        <div className="grid gap-3">
+          <h4 className="font-bold">{title}</h4>
+          <div className="flex items-center gap-2">
+            <Input type="number" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSave()} />
+            <span className="font-bold">%</span>
+          </div>
+          <Button onClick={handleSave} size="sm">Güncelle</Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
@@ -612,25 +621,55 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const isInitialMount = React.useRef(true);
 
-  // Rate states
+  // Rate states (only keep actual data states, UI states moved to RatePopover)
   const [platformCommissionRate, setPlatformCommissionRate] = useState(15);
-  const [platformCommissionInput, setPlatformCommissionInput] = useState('15');
-  const [isPlatformCommissionPopoverOpen, setPlatformCommissionPopoverOpen] = useState(false);
-
   const [bankCommissionRate, setBankCommissionRate] = useState(2.5);
-  const [bankCommissionInput, setBankCommissionInput] = useState('2.5');
-  const [isBankCommissionPopoverOpen, setBankCommissionPopoverOpen] = useState(false);
-
   const [kdvRate, setKdvRate] = useState(10);
-  const [kdvInput, setKdvInput] = useState('10');
-  const [isKdvPopoverOpen, setKdvPopoverOpen] = useState(false);
-
   const [stopajRate, setStopajRate] = useState(1);
-  const [stopajInput, setStopajInput] = useState('1');
-  const [isStopajPopoverOpen, setStopajPopoverOpen] = useState(false);
 
   const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a, b) => a.value - b.value), [margins]);
   const onlineMargins = useMemo(() => margins.filter(m => m.type === 'online').sort((a, b) => a.value - b.value), [margins]);
+
+  const renderMarginHeaders = (
+    type: 'store' | 'online',
+    marginsList: Margin[],
+    defaultCommissionRate: number
+  ) => (
+    <>
+      {marginsList.map((margin) => (
+        <TableHead key={margin.id} className="text-left font-bold w-[140px] px-2 py-4 relative group">
+          <Button variant="ghost" size="icon" className="absolute top-2 right-1 h-5 w-5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => handleDeleteMargin(margin.id)}>
+            <X className="h-3 w-3" />
+          </Button>
+          <MarginEditPopover
+            type={type}
+            margin={margin}
+            onSave={(data) => handleUpdateMarginDetails(margin.id, data)}
+            trigger={
+              <div className="cursor-pointer hover:text-primary transition-colors flex flex-col pr-6">
+                <span className="truncate">{margin.name || `%${margin.value} Marj`}</span>
+                <span className="text-[10px] font-medium text-muted-foreground mt-0.5 uppercase tracking-tighter">
+                  {margin.name && `%${margin.value} Marj • `}
+                  %{margin.commissionRate ?? defaultCommissionRate} Kom.
+                </span>
+              </div>
+            }
+          />
+        </TableHead>
+      ))}
+      <TableHead className="w-[40px] p-0 flex items-center justify-center">
+        <MarginEditPopover
+          type={type}
+          onSave={(data) => handleAddMargin(type, data)}
+          trigger={
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <PlusCircle className="h-5 w-5" />
+            </Button>
+          }
+        />
+      </TableHead>
+    </>
+  );
 
   // Data Fetching and Saving
   useEffect(() => {
@@ -652,16 +691,9 @@ export default function Home() {
         setCategories(sortedCategories);
 
         setPlatformCommissionRate(data.platformCommissionRate ?? 15);
-        setPlatformCommissionInput(String(data.platformCommissionRate ?? 15));
-
         setBankCommissionRate(data.bankCommissionRate ?? 2.5);
-        setBankCommissionInput(String(data.bankCommissionRate ?? 2.5));
-
         setKdvRate(data.kdvRate ?? 10);
-        setKdvInput(String(data.kdvRate ?? 10));
-
         setStopajRate(data.stopajRate ?? 1);
-        setStopajInput(String(data.stopajRate ?? 1));
 
         setIsLoading(false);
       })
@@ -787,38 +819,6 @@ export default function Home() {
     setCategories(prev => prev.filter(c => c.id !== id));
   }
 
-  const handleSetPlatformCommission = () => {
-    const rate = parseFloat(platformCommissionInput);
-    if (!isNaN(rate) && rate >= 0 && rate < 100) {
-      setPlatformCommissionRate(rate);
-      setPlatformCommissionPopoverOpen(false);
-    }
-  };
-
-  const handleSetBankCommission = () => {
-    const rate = parseFloat(bankCommissionInput);
-    if (!isNaN(rate) && rate >= 0 && rate < 100) {
-      setBankCommissionRate(rate);
-      setBankCommissionPopoverOpen(false);
-    }
-  };
-
-  const handleSetKdv = () => {
-    const rate = parseFloat(kdvInput);
-    if (!isNaN(rate) && rate >= 0) {
-      setKdvRate(rate);
-      setKdvPopoverOpen(false);
-    }
-  };
-
-  const handleSetStopaj = () => {
-    const rate = parseFloat(stopajInput);
-    if (!isNaN(rate) && rate >= 0 && rate < 100) {
-      setStopajRate(rate);
-      setStopajPopoverOpen(false);
-    }
-  };
-
   const productAverages = useMemo(() => {
     const calculateMargin = (prods: Product[], type: 'store' | 'online') => {
       let totalProfit = 0;
@@ -827,11 +827,11 @@ export default function Home() {
       let totalVat = 0;
       let totalCommission = 0;
       let totalStopaj = 0;
-      
+
       prods.forEach(product => {
         const hasRecipe = product.recipe && product.recipe.length > 0;
         const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
-        
+
         if (type === 'store' && product.storePrice > 0) {
           const econ = calculateEconomicsFromPrice(product.storePrice, cost, kdvRate, bankCommissionRate, 0);
           totalProfit += econ.netProfit;
@@ -982,83 +982,13 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-4">
             {/* Rates Summary Popovers */}
             <div className="flex items-center gap-2 glass-panel p-1.5 px-3">
-              <Popover open={isKdvPopoverOpen} onOpenChange={(open) => { if (open) setKdvInput(String(kdvRate)); setKdvPopoverOpen(open) }}>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-primary/10">
-                    <Percent className="h-3.5 w-3.5" /> KDV: %{kdvRate}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-4 glass-panel border-none shadow-xl">
-                  <div className="grid gap-3">
-                    <h4 className="font-bold">KDV Oranı</h4>
-                    <div className="flex items-center gap-2">
-                      <Input type="number" value={kdvInput} onChange={(e) => setKdvInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSetKdv()} />
-                      <span className="font-bold">%</span>
-                    </div>
-                    <Button onClick={handleSetKdv} size="sm">Güncelle</Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-
+              <RatePopover title="KDV Oranı" label="KDV:" rate={kdvRate} onSave={setKdvRate} maxLimit={100} />
               <Separator orientation="vertical" className="h-4" />
-
-              <Popover open={isBankCommissionPopoverOpen} onOpenChange={(open) => { if (open) setBankCommissionInput(String(bankCommissionRate)); setBankCommissionPopoverOpen(open) }}>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-primary/10">
-                    <Percent className="h-3.5 w-3.5" /> Banka: %{bankCommissionRate}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-4 glass-panel border-none shadow-xl">
-                  <div className="grid gap-3">
-                    <h4 className="font-bold">Banka Komisyonu</h4>
-                    <div className="flex items-center gap-2">
-                      <Input type="number" value={bankCommissionInput} onChange={(e) => setBankCommissionInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSetBankCommission()} />
-                      <span className="font-bold">%</span>
-                    </div>
-                    <Button onClick={handleSetBankCommission} size="sm">Güncelle</Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-
+              <RatePopover title="Banka Komisyonu" label="Banka:" rate={bankCommissionRate} onSave={setBankCommissionRate} maxLimit={100} />
               <Separator orientation="vertical" className="h-4" />
-
-              <Popover open={isPlatformCommissionPopoverOpen} onOpenChange={(open) => { if (open) setPlatformCommissionInput(String(platformCommissionRate)); setPlatformCommissionPopoverOpen(open) }}>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-primary/10">
-                    <Percent className="h-3.5 w-3.5" /> Platform: %{platformCommissionRate}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-4 glass-panel border-none shadow-xl">
-                  <div className="grid gap-3">
-                    <h4 className="font-bold">Platform Komisyonu</h4>
-                    <div className="flex items-center gap-2">
-                      <Input type="number" value={platformCommissionInput} onChange={(e) => setPlatformCommissionInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSetPlatformCommission()} />
-                      <span className="font-bold">%</span>
-                    </div>
-                    <Button onClick={handleSetPlatformCommission} size="sm">Güncelle</Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-
+              <RatePopover title="Platform Komisyonu" label="Platform:" rate={platformCommissionRate} onSave={setPlatformCommissionRate} maxLimit={100} />
               <Separator orientation="vertical" className="h-4" />
-
-              <Popover open={isStopajPopoverOpen} onOpenChange={(open) => { if (open) setStopajInput(String(stopajRate)); setStopajPopoverOpen(open) }}>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-primary/10">
-                    <Percent className="h-3.5 w-3.5" /> Stopaj: %{stopajRate}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-4 glass-panel border-none shadow-xl">
-                  <div className="grid gap-3">
-                    <h4 className="font-bold">Stopaj Oranı</h4>
-                    <div className="flex items-center gap-2">
-                      <Input type="number" value={stopajInput} onChange={(e) => setStopajInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSetStopaj()} />
-                      <span className="font-bold">%</span>
-                    </div>
-                    <Button onClick={handleSetStopaj} size="sm">Güncelle</Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <RatePopover title="Stopaj Oranı" label="Stopaj:" rate={stopajRate} onSave={setStopajRate} maxLimit={100} />
             </div>
 
             <Button onClick={() => setCategoryDialogOpen(true)} variant="outline" className="glass-panel border-dashed h-11 px-5">
@@ -1123,82 +1053,20 @@ export default function Home() {
                     <TableHead className="font-bold w-[340px] px-6 py-4">Ürün Adı</TableHead>
                     <TableHead className="text-left font-bold w-[120px] px-4 py-4">Maliyet</TableHead>
                     <TableHead className="text-left font-bold w-[160px] px-4 py-2">
-                       <div className="flex flex-col justify-center">
-                         <span>Mağaza Fiyatı</span>
-                         <MarginDisplay marginData={productAverages.overallStore} />
-                       </div>
+                      <div className="flex flex-col justify-center">
+                        <span>Mağaza Fiyatı</span>
+                        <MarginDisplay marginData={productAverages.overallStore} />
+                      </div>
                     </TableHead>
-                    {storeMargins.map((margin) => (
-                      <TableHead key={margin.id} className="text-left font-bold w-[140px] px-2 py-4 relative group">
-                        <Button variant="ghost" size="icon" className="absolute top-2 right-1 h-5 w-5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => handleDeleteMargin(margin.id)}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                        <MarginEditPopover
-                          type="store"
-                          margin={margin}
-                          onSave={(data) => handleUpdateMarginDetails(margin.id, data)}
-                          trigger={
-                            <div className="cursor-pointer hover:text-primary transition-colors flex flex-col pr-6">
-                              <span className="truncate">{margin.name || `%${margin.value} Marj`}</span>
-                              <span className="text-[10px] font-medium text-muted-foreground mt-0.5 uppercase tracking-tighter">
-                                {margin.name && `%${margin.value} Marj • `}
-                                %{margin.commissionRate ?? bankCommissionRate} Kom.
-                              </span>
-                            </div>
-                          }
-                        />
-                      </TableHead>
-                    ))}
-                    <TableHead className="w-[40px] p-0 flex items-center justify-center">
-                      <MarginEditPopover
-                        type="store"
-                        onSave={(data) => handleAddMargin('store', data)}
-                        trigger={
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <PlusCircle className="h-5 w-5" />
-                          </Button>
-                        }
-                      />
-                    </TableHead>
+                    {renderMarginHeaders('store', storeMargins, bankCommissionRate)}
                     <TableHead className="w-8 px-0 border-x border-border/20" />
                     <TableHead className="text-left font-bold w-[160px] px-4 py-2">
-                       <div className="flex flex-col justify-center">
-                         <span>Online Fiyat</span>
-                         <MarginDisplay marginData={productAverages.overallOnline} />
-                       </div>
+                      <div className="flex flex-col justify-center">
+                        <span>Online Fiyat</span>
+                        <MarginDisplay marginData={productAverages.overallOnline} />
+                      </div>
                     </TableHead>
-                    {onlineMargins.map((margin) => (
-                      <TableHead key={margin.id} className="text-left font-bold w-[140px] px-2 py-4 relative group">
-                        <Button variant="ghost" size="icon" className="absolute top-2 right-1 h-5 w-5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => handleDeleteMargin(margin.id)}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                        <MarginEditPopover
-                          type="online"
-                          margin={margin}
-                          onSave={(data) => handleUpdateMarginDetails(margin.id, data)}
-                          trigger={
-                            <div className="cursor-pointer hover:text-primary transition-colors flex flex-col pr-6">
-                              <span className="truncate">{margin.name || `%${margin.value} Marj`}</span>
-                              <span className="text-[10px] font-medium text-muted-foreground mt-0.5 uppercase tracking-tighter">
-                                {margin.name && `%${margin.value} Marj • `}
-                                %{margin.commissionRate ?? platformCommissionRate} Kom.
-                              </span>
-                            </div>
-                          }
-                        />
-                      </TableHead>
-                    ))}
-                    <TableHead className="w-[40px] p-0 flex items-center justify-center">
-                      <MarginEditPopover
-                        type="online"
-                        onSave={(data) => handleAddMargin('online', data)}
-                        trigger={
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <PlusCircle className="h-5 w-5" />
-                          </Button>
-                        }
-                      />
-                    </TableHead>
+                    {renderMarginHeaders('online', onlineMargins, platformCommissionRate)}
                     <TableHead className="text-center font-bold w-[80px] px-4 py-4">İşlem</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1226,17 +1094,17 @@ export default function Home() {
                                 </div>
                               </div>
                             </TableCell>
-                            
+
                             <TableCell className="text-left px-4 py-2">
                               <MarginDisplay marginData={avgStoreMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
                             </TableCell>
-                            
+
                             <TableCell colSpan={storeMargins.length + 2} />
-                            
+
                             <TableCell className="text-left px-4 py-2">
                               <MarginDisplay marginData={avgOnlineMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
                             </TableCell>
-                            
+
                             <TableCell colSpan={onlineMargins.length + 2} className="text-right py-2.5 px-6">
                               <div className="flex justify-end items-center h-full">
                                 <span className="text-[11px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
@@ -1250,7 +1118,8 @@ export default function Home() {
                               <SortableProductRow
                                 product={product}
                                 ingredients={ingredients}
-                                margins={margins}
+                                storeMargins={storeMargins}
+                                onlineMargins={onlineMargins}
                                 categories={categories}
                                 platformCommissionRate={platformCommissionRate}
                                 bankCommissionRate={bankCommissionRate}
