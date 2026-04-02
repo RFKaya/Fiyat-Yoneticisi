@@ -239,6 +239,46 @@ function MarginDisplay({ marginData, colorStyle }: { marginData: { percentage: n
   );
 }
 
+function MarginCells({ margins, cost, kdvRate, defaultCommissionRate, stopajRate = 0 }:
+  { margins: Margin[]; cost: number; kdvRate: number; defaultCommissionRate: number; stopajRate?: number; }) {
+  return (
+    <>
+      {margins.map((margin) => {
+        const commission = margin.commissionRate !== undefined ? margin.commissionRate : defaultCommissionRate;
+        const mEcon = calculateEconomicsFromMargin(margin.value, cost, kdvRate, commission, stopajRate);
+
+        return (
+          <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-full h-full flex items-center">
+                    {mEcon.isCalculable ? formatCurrency(mEcon.sellingPrice) : 'Hesaplanamaz'}
+                  </div>
+                </TooltipTrigger>
+                <EconomicsTooltipContent
+                  isCalculable={mEcon.isCalculable}
+                  title="Ana Fiyat"
+                  revenue={mEcon.sellingPrice}
+                  vat={mEcon.vatAmount}
+                  kdvRate={kdvRate}
+                  commission={mEcon.commissionAmount}
+                  commissionRate={commission}
+                  stopaj={mEcon.stopajAmount}
+                  stopajRate={stopajRate > 0 ? stopajRate : undefined}
+                  cost={cost}
+                  netProfit={mEcon.netProfit}
+                  percentage={mEcon.profitPercentage}
+                />
+              </Tooltip>
+            </TooltipProvider>
+          </TableCell>
+        );
+      })}
+    </>
+  );
+}
+
 function SortableProductRow({
   product,
   ingredients,
@@ -387,37 +427,12 @@ function SortableProductRow({
           </TooltipProvider>
         )}
       </TableCell>
-      {storeMargins.map((margin) => {
-        const commission = margin.commissionRate !== undefined ? margin.commissionRate : bankCommissionRate;
-        const mEcon = calculateEconomicsFromMargin(margin.value, cost, kdvRate, commission, 0);
-
-        return (
-          <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="w-full h-full flex items-center">
-                    {mEcon.isCalculable ? formatCurrency(mEcon.sellingPrice) : 'Hesaplanamaz'}
-                  </div>
-                </TooltipTrigger>
-                <EconomicsTooltipContent
-                  isCalculable={mEcon.isCalculable}
-                  title="Ana Fiyat"
-                  revenue={mEcon.sellingPrice}
-                  vat={mEcon.vatAmount}
-                  kdvRate={kdvRate}
-                  commission={mEcon.commissionAmount}
-                  commissionRate={commission}
-                  stopaj={mEcon.stopajAmount}
-                  cost={cost}
-                  netProfit={mEcon.netProfit}
-                  percentage={mEcon.profitPercentage}
-                />
-              </Tooltip>
-            </TooltipProvider>
-          </TableCell>
-        );
-      })}
+      <MarginCells
+        margins={storeMargins}
+        cost={cost}
+        kdvRate={kdvRate}
+        defaultCommissionRate={bankCommissionRate}
+      />
       <TableCell className="text-left px-0 w-[30px] py-1">
       </TableCell>
 
@@ -469,38 +484,13 @@ function SortableProductRow({
         )}
       </TableCell>
 
-      {onlineMargins.map((margin) => {
-        const commission = margin.commissionRate !== undefined ? margin.commissionRate : platformCommissionRate;
-        const mEcon = calculateEconomicsFromMargin(margin.value, cost, kdvRate, commission, stopajRate);
-
-        return (
-          <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="w-full h-full flex items-center">
-                    {mEcon.isCalculable ? formatCurrency(mEcon.sellingPrice) : 'Hesaplanamaz'}
-                  </div>
-                </TooltipTrigger>
-                <EconomicsTooltipContent
-                  isCalculable={mEcon.isCalculable}
-                  title="Ana Fiyat"
-                  revenue={mEcon.sellingPrice}
-                  vat={mEcon.vatAmount}
-                  kdvRate={kdvRate}
-                  commission={mEcon.commissionAmount}
-                  commissionRate={commission}
-                  stopaj={mEcon.stopajAmount}
-                  stopajRate={stopajRate}
-                  cost={cost}
-                  netProfit={mEcon.netProfit}
-                  percentage={mEcon.profitPercentage}
-                />
-              </Tooltip>
-            </TooltipProvider>
-          </TableCell>
-        );
-      })}
+      <MarginCells
+        margins={onlineMargins}
+        cost={cost}
+        kdvRate={kdvRate}
+        defaultCommissionRate={platformCommissionRate}
+        stopajRate={stopajRate}
+      />
       <TableCell className="text-left px-0 w-[30px] py-1">
       </TableCell>
 
