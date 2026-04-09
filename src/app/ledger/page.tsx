@@ -401,7 +401,7 @@ export default function LedgerPage() {
                       const totalRow = shopRow + onlineRow;
                       const avgKgPrice = parseNumber(day.kg) > 0 ? totalRow / parseNumber(day.kg) : 0;
                       return (
-                        <tr key={day.id} className={`${isToday ? 'ledger-row-today' : ''} ${isPast ? 'ledger-row-past' : ''}`}>
+                        <tr key={day.id} data-date={day.date} className={`${isToday ? 'ledger-row-today' : ''} ${isPast ? 'ledger-row-past' : ''}`}>
                           <td style={{ textAlign: 'center' }}>{day.date.split('-').reverse().join('.')}</td>
                           <td><input value={day.cash || ''} onChange={(e) => updateDay(day.id, 'cash', e.target.value)} /></td>
                           <td><input value={day.pos || ''} onChange={(e) => updateDay(day.id, 'pos', e.target.value)} /></td>

@@ -1,0 +1,69 @@
+{
+  "manifest_version": 3,
+  "name": "Arsamiea Ledger Sync",
+  "version": "1.0",
+  "description": "Trendyol Go verilerini otomatik olarak Hesap Defterine aktarır.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://localhost:9002/*",
+    "http://127.0.0.1:9002/*",
+    "https://partner.tgoyemek.com/*",
+    "https://*.getirapi.com/*",
+    "https://partner-app.yemeksepeti.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:9002/*",
+        "http://127.0.0.1:9002/*"
+      ],
+      "js": [
+        "content-ledger.js"
+      ],
+      "css": [
+        "content-ledger.css"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://partner.tgoyemek.com/meal/*/order/history/delivered*"
+      ],
+      "js": [
+        "content-tgo.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://restoran.getiryemek.com/*"
+      ],
+      "js": [
+        "content-getir.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://partner-app.yemeksepeti.com/*"
+      ],
+      "js": [
+        "content-yemek.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_title": "Ledger Sync"
+  }
+}

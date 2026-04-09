@@ -1,0 +1,60 @@
+/* Reverted layout changes - Keeping them completely independent */
+
+#ledger-sync-overlay {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  z-index: 999999 !important;
+}
+
+.ledger-sync-btn {
+  position: absolute !important;
+  pointer-events: auto !important;
+  color: white;
+  border: none;
+  padding: 2px 0;
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: all 0.1s ease;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  width: 44px;
+}
+
+.ledger-sync-btn:hover {
+  filter: brightness(1.1);
+  transform: scale(1.05);
+}
+
+.ledger-sync-btn.tgo {
+  background: #ff5a00 !important;
+}
+
+.ledger-sync-btn.ys {
+  background: #8e0000 !important;
+}
+
+.ledger-sync-btn:active {
+  transform: translateY(0);
+}
+
+.ledger-sync-btn.loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.ledger-sync-btn.success {
+  background: #22c55e;
+}
+
+.ledger-sync-btn.error {
+  background: #ef4444;
+}
