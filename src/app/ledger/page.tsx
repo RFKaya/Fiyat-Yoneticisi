@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Header from '@/components/layout/Header';
 import LoadingState from '@/components/layout/LoadingState';
+import { pageLedgerLogger as log } from '@/lib/logger';
 import './ledger.css';
 
 type PlatformData = { count: number | string; rev: number | string };
@@ -101,6 +102,7 @@ export default function LedgerPage() {
   }, [currentShopId]);
 
   useEffect(() => {
+    log.info('Dükkan listesi yükleniyor...');
     fetch('/api/shops')
       .then((res) => {
         if (!res.ok) throw new Error('Dükkanlar yüklenemedi');
@@ -108,20 +110,43 @@ export default function LedgerPage() {
       })
       .then(data => {
         setShops(data);
+        log.success('Dükkan listesi yüklendi', { 
+          count: data.length, 
+          shops: data.map((s: any) => s.name).join(', ')
+        });
       }).catch(error => {
+        log.error('Dükkan listesi yüklenemedi!', { message: error.message });
         window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Dükkan listesi alınamadı. Lütfen sayfayı yenileyin.' }));
       });
   }, []);
 
   useEffect(() => {
     setIsLoading(true);
+    log.info(`Ledger verisi yükleniyor...`, { shopId: currentShopId });
+    const timer = log.time(`Ledger shop_${currentShopId} yükleme süresi`);
+
     fetch(`/api/ledger?shop=${currentShopId}`)
       .then((res) => {
-        if (!res.ok) throw new Error('Veriler yüklenemedi');
+        if (!res.ok) {
+          log.error(`Ledger API yanıtı başarısız: ${res.status}`);
+          throw new Error('Veriler yüklenemedi');
+        }
         return res.json();
       })
       .then(data => {
+        timer.end();
         setShopData(data);
+        const monthCount = data.months ? Object.keys(data.months).length : 0;
+        log.success('Ledger verisi yüklendi', { 
+          shopId: currentShopId,
+          shopName: data.shopName || '?',
+          months: monthCount,
+        });
+        setIsLoading(false);
+      })
+      .catch(error => {
+        timer.end();
+        log.error('Ledger verisi yüklenemedi!', { shopId: currentShopId, message: error.message });
         setIsLoading(false);
       });
   }, [currentShopId]);
@@ -148,7 +173,7 @@ export default function LedgerPage() {
   }, [shopData, currentMonthKey, currentYear, currentMonth]);
 
   useEffect(() => {
-    // İlk olarak timeout'u temizleyelim
+    // İlk olarak timeout'ı temizleyelim
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
     // Eğer veriler yükleniyorsa veya shopData henüz tam yüklenmediyse kaydetme işlemini başlatma
@@ -157,7 +182,17 @@ export default function LedgerPage() {
     // Sadece şu anda aktif olan ayın verilerini kaydedeceğiz (Kısmi Güncelleme / PATCH)
     const activeMonthData = shopData.months[currentMonthKey] || monthData;
 
+    log.debug('Değişiklik algılandı — 1 saniye sonra otomatik kaydedilecek', { 
+      shopId: currentShopId, 
+      monthKey: currentMonthKey,
+      dayCount: activeMonthData.days?.length || 0,
+      costCount: activeMonthData.costs?.length || 0,
+    });
+
     saveTimeoutRef.current = setTimeout(() => {
+      log.debug('Otomatik kayıt başlatılıyor (PATCH)...', { shopId: currentShopId, monthKey: currentMonthKey });
+      const saveTimer = log.time(`PATCH shop_${currentShopId} kayıt süresi`);
+
       fetch(`/api/ledger?shop=${currentShopId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -167,9 +202,16 @@ export default function LedgerPage() {
         })
       })
         .then((res) => {
-          if (!res.ok) throw new Error('Kısmi kayıt başarısız');
+          saveTimer.end();
+          if (!res.ok) {
+            log.error(`Kısmi kayıt başarısız: ${res.status}`);
+            throw new Error('Kısmi kayıt başarısız');
+          }
+          log.success('Ledger otomatik kaydedildi ✓', { shopId: currentShopId, monthKey: currentMonthKey });
         })
         .catch(error => {
+          saveTimer.end();
+          log.error('Ledger otomatik kayıt hatası!', { message: error.message });
           window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Değişiklikler kaydedilemedi! Lütfen sistemin kilitli olup olmadığını kontrol edin.' }));
         });
     }, 1000);

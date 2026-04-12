@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { authLogger as log } from '@/lib/logger';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +24,7 @@ export default function AuthWrapper({ isAuthenticated, children }: { isAuthentic
     
     setLoading(true);
     setError('');
+    log.info('Giriş denemesi başlatılıyor...');
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -36,12 +38,15 @@ export default function AuthWrapper({ isAuthenticated, children }: { isAuthentic
       const data = await res.json();
 
       if (res.ok) {
+        log.success('Giriş başarılı — sayfa yenileniyor');
         router.refresh();
       } else {
+        log.warn('Giriş başarısız', { status: res.status, message: data.message });
         setError(data.message || 'Giriş başarısız');
         setPassword('');
       }
     } catch (err) {
+      log.error('Giriş isteği sırasında bağlantı hatası', err);
       setError('Bağlantı hatası');
     } finally {
       setLoading(false);

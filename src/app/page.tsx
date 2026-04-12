@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Product, RecipeItem, Ingredient, Category, Margin } from '@/lib/types';
 import { calculateCost, calculateEconomicsFromPrice, calculateEconomicsFromMargin } from '@/lib/utils';
+import { pageHomeLogger as log } from '@/lib/logger';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -630,6 +631,7 @@ export default function Home() {
   }, []);
 
   const addProduct = React.useCallback((productData: Omit<Product, 'id' | 'recipe' | 'order' | 'manualCost'>) => {
+    log.info('Yeni ürün ekleniyor', { name: productData.name, categoryId: productData.categoryId });
     setProducts((prev) => {
       const newOrder = prev.length > 0 ? Math.max(...prev.map(p => p.order)) + 1 : 0;
       return [...prev, { ...productData, id: generateId(), recipe: [], order: newOrder, manualCost: 0 }];
@@ -638,6 +640,7 @@ export default function Home() {
   }, []);
 
   const deleteProduct = React.useCallback((id: string) => {
+    log.warn('Ürün siliniyor', { productId: id });
     setProducts((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
@@ -738,12 +741,21 @@ export default function Home() {
 
   // Data Fetching and Saving
   useEffect(() => {
+    log.info('Sayfa yükleniyor — veriler çekiliyor...');
+    const timer = log.time('Veri yükleme süresi');
+
     fetch('/api/data')
       .then((res) => {
-        if (!res.ok) throw new Error('Veri çekilemedi');
+        if (!res.ok) {
+          log.error(`API yanıtı başarısız: ${res.status} ${res.statusText}`);
+          throw new Error('Veri çekilemedi');
+        }
+        log.debug('API yanıtı alındı, JSON ayrıştırılıyor...');
         return res.json();
       })
       .then((data) => {
+        timer.end();
+
         const sortedProducts = (data.products || []).sort((a: Product, b: Product) => (a.order ?? 0) - (b.order ?? 0));
         const sortedIngredients = (data.ingredients || []).sort((a: Ingredient, b: Ingredient) => (a.order ?? 0) - (b.order ?? 0));
 
@@ -760,10 +772,24 @@ export default function Home() {
         setKdvRate(data.kdvRate ?? 10);
         setStopajRate(data.stopajRate ?? 1);
 
+        log.success('Veriler başarıyla yüklendi', {
+          products: sortedProducts.length,
+          ingredients: sortedIngredients.length,
+          categories: sortedCategories.length,
+          margins: (data.margins || []).length,
+          rates: {
+            platform: data.platformCommissionRate ?? 15,
+            banka: data.bankCommissionRate ?? 2.5,
+            kdv: data.kdvRate ?? 10,
+            stopaj: data.stopajRate ?? 1,
+          },
+        });
+
         setIsLoading(false);
       })
       .catch((error) => {
-        console.error('Failed to load data:', error);
+        timer.end();
+        log.error('Veri yükleme hatası!', { message: error.message });
         window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Veriler yüklenemedi. Lütfen sayfayı yenileyin veya tekrar giriş yapın.' }));
         setIsLoading(false);
       });
@@ -773,21 +799,37 @@ export default function Home() {
     if (isInitialMount.current) {
       if (!isLoading) {
         isInitialMount.current = false;
+        log.debug('İlk yükleme tamamlandı — otomatik kayıt aktif');
       }
       return;
     }
 
     if (!isLoading) {
+      log.debug('Değişiklik algılandı — otomatik kayıt başlatılıyor...', {
+        products: products.length,
+        ingredients: ingredients.length,
+        categories: categories.length,
+        margins: margins.length,
+      });
+
+      const saveTimer = log.time('Otomatik kayıt süresi');
+
       fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ products, ingredients, margins, categories, platformCommissionRate, kdvRate, bankCommissionRate, stopajRate }),
       })
         .then((res) => {
-          if (!res.ok) throw new Error('Kayıt başarısız');
+          saveTimer.end();
+          if (!res.ok) {
+            log.error(`Kayıt yanıtı başarısız: ${res.status}`);
+            throw new Error('Kayıt başarısız');
+          }
+          log.success('Veriler otomatik kaydedildi ✓');
         })
         .catch(error => {
-          console.error('Failed to save data:', error);
+          saveTimer.end();
+          log.error('Otomatik kayıt hatası!', { message: error.message });
           window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Yaptığınız değişiklikler kaydedilemedi! Lütfen sayfayı yenileyin veya sistemin kilitli olup olmadığını kontrol edin.' }));
         });
     }
@@ -797,6 +839,7 @@ export default function Home() {
 
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) return;
+    log.info('Yeni kategori ekleniyor', { name: newCategoryName, color: newCategoryColor });
     setCategories(prev => {
       const newOrder = prev.length > 0 ? Math.max(...prev.map(c => c.order ?? -1)) + 1 : 0;
       return [...prev, { id: generateId(), name: newCategoryName, color: newCategoryColor, order: newOrder }];
@@ -806,6 +849,7 @@ export default function Home() {
   }
 
   const handleDeleteCategory = (id: string) => {
+    log.warn('Kategori siliniyor', { categoryId: id });
     setProducts(prev => prev.map(p => p.categoryId === id ? { ...p, categoryId: undefined } : p));
     setCategories(prev => prev.filter(c => c.id !== id));
   }

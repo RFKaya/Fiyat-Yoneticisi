@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Ingredient, Product, Category, RecipeItem, Margin } from '@/lib/types';
+import { pageMaterialsLogger as log } from '@/lib/logger';
 import Header from '@/components/layout/Header';
 import LoadingState from '@/components/layout/LoadingState';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -327,12 +328,20 @@ export default function MaterialsPage() {
   );
 
   useEffect(() => {
+    log.info('Malzeme sayfası yükleniyor — veriler çekiliyor...');
+    const timer = log.time('Malzeme verisi yükleme süresi');
+
     fetch('/api/data')
       .then((res) => {
-        if (!res.ok) throw new Error('Veri çekilemedi');
+        if (!res.ok) {
+          log.error(`API yanıtı başarısız: ${res.status} ${res.statusText}`);
+          throw new Error('Veri çekilemedi');
+        }
+        log.debug('API yanıtı alındı, ayrıştırılıyor...');
         return res.json();
       })
       .then((data) => {
+        timer.end();
         setAppData({
           products: data.products || [],
           ingredients: (data.ingredients || []).sort((a: Ingredient, b: Ingredient) => (a.order ?? 0) - (b.order ?? 0)),
@@ -342,10 +351,16 @@ export default function MaterialsPage() {
           kdvRate: data.kdvRate ?? 10,
           bankCommissionRate: data.bankCommissionRate ?? 2.5,
         });
+        log.success('Malzeme verileri başarıyla yüklendi', {
+          ingredients: (data.ingredients || []).length,
+          products: (data.products || []).length,
+          categories: (data.categories || []).length,
+        });
         setIsLoading(false);
       })
       .catch((error) => {
-        console.error('Failed to load data:', error);
+        timer.end();
+        log.error('Malzeme verisi yükleme hatası!', { message: error.message });
         window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Veriler yüklenemedi. Lütfen sayfayı yenileyin veya tekrar giriş yapın.' }));
         setIsLoading(false);
       });
@@ -355,21 +370,35 @@ export default function MaterialsPage() {
     if (isInitialMount.current) {
       if (!isLoading) {
         isInitialMount.current = false;
+        log.debug('İlk yükleme tamamlandı — otomatik kayıt aktif');
       }
       return;
     }
 
     if (!isLoading) {
+      log.debug('Değişiklik algılandı — kaydediliyor...', {
+        ingredients: appData.ingredients.length,
+        products: appData.products.length,
+      });
+
+      const saveTimer = log.time('Malzeme otomatik kayıt süresi');
+
       fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(appData),
       })
         .then((res) => {
-          if (!res.ok) throw new Error('Kayıt başarısız');
+          saveTimer.end();
+          if (!res.ok) {
+            log.error(`Kayıt yanıtı başarısız: ${res.status}`);
+            throw new Error('Kayıt başarısız');
+          }
+          log.success('Malzeme verileri otomatik kaydedildi ✓');
         })
         .catch(error => {
-          console.error('Failed to save data:', error);
+          saveTimer.end();
+          log.error('Malzeme otomatik kayıt hatası!', { message: error.message });
           window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Değişiklikler kaydedilemedi! Lütfen sistemin kilitli olup olmadığını kontrol edin.' }));
         });
     }
@@ -378,6 +407,7 @@ export default function MaterialsPage() {
   const handleSaveIngredient = (data: Omit<Ingredient, 'id' | 'order'>) => {
     setAppData((prev) => {
       if (editingIngredient) {
+        log.info('Malzeme güncelleniyor', { id: editingIngredient.id, name: data.name });
         return {
           ...prev,
           ingredients: prev.ingredients.map((i) =>
@@ -385,6 +415,7 @@ export default function MaterialsPage() {
           ),
         }
       } else {
+        log.info('Yeni malzeme ekleniyor', { name: data.name, price: data.price, unit: data.unit });
         const newOrder = prev.ingredients.length > 0 ? Math.max(...prev.ingredients.map(i => i.order ?? -1)) + 1 : 0;
         return {
           ...prev,
@@ -405,6 +436,7 @@ export default function MaterialsPage() {
   }
 
   const deleteIngredient = (id: string) => {
+    log.warn('Malzeme siliniyor', { ingredientId: id });
     setAppData((prev) => ({ ...prev, ingredients: prev.ingredients.filter((i) => i.id !== id) }));
   };
 

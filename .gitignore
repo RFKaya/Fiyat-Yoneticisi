@@ -6,6 +6,7 @@
 /out/
 /build
 /dist
+*.tsbuildinfo
 
 # IDEs & Editors
 .idea/
