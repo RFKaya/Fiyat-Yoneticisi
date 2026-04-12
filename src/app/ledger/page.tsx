@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Header from '@/components/layout/Header';
+import LoadingState from '@/components/layout/LoadingState';
 import './ledger.css';
 
 type PlatformData = { count: number | string; rev: number | string };
@@ -331,12 +332,7 @@ export default function LedgerPage() {
 
   return (
     <div className="ledger-container">
-      {isLoading && (
-        <div className="ledger-loading-overlay">
-          <div className="ledger-spinner"></div>
-          <p style={{ fontSize: '1.1rem', fontWeight: 500, letterSpacing: '0.05em' }}>Veriler Yükleniyor...</p>
-        </div>
-      )}
+      {isLoading && <LoadingState fullPage={true} />}
       <Header />
       <div className="ledger-wrapper">
         <div className="ledger-content-container">

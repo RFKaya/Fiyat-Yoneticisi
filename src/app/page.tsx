@@ -8,6 +8,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { CSS } from '@dnd-kit/utilities';
 
 import Header from '@/components/layout/Header';
+import LoadingState from '@/components/layout/LoadingState';
 import ProductForm from '@/components/products/ProductForm';
 import InlineRecipeEditor from '@/components/products/InlineRecipeEditor';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -239,8 +240,8 @@ function MarginDisplay({ marginData, colorStyle }: { marginData: { percentage: n
   );
 }
 
-function MarginCells({ margins, cost, kdvRate, defaultCommissionRate, stopajRate = 0 }:
-  { margins: Margin[]; cost: number; kdvRate: number; defaultCommissionRate: number; stopajRate?: number; }) {
+const MarginCells = React.memo(({ margins, cost, kdvRate, defaultCommissionRate, stopajRate = 0 }:
+  { margins: Margin[]; cost: number; kdvRate: number; defaultCommissionRate: number; stopajRate?: number; }) => {
   return (
     <>
       {margins.map((margin) => {
@@ -277,9 +278,9 @@ function MarginCells({ margins, cost, kdvRate, defaultCommissionRate, stopajRate
       })}
     </>
   );
-}
+});
 
-function SortableProductRow({
+const SortableProductRow = React.memo(({
   product,
   ingredients,
   storeMargins,
@@ -307,9 +308,9 @@ function SortableProductRow({
   updateProduct: (id: string, field: keyof Product, value: any) => void,
   deleteProduct: (id: string) => void,
   isExpanded: boolean,
-  onToggleExpand: () => void,
+  onToggleExpand: (id: string) => void,
   updateIngredientPrice: (ingredientId: string, newPrice: number) => void;
-}) {
+}) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: product.id });
 
   const [editingField, setEditingField] = useState<'name' | 'storePrice' | 'onlinePrice' | null>(null);
@@ -374,7 +375,7 @@ function SortableProductRow({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={onToggleExpand}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => onToggleExpand(product.id)}>
                   {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                 </Button>
               </TooltipTrigger>
@@ -526,7 +527,7 @@ function SortableProductRow({
       </TableCell>
     </TableRow>
   );
-}
+});
 
 function SortableCategoryItem({ category, onDelete }: { category: Category; onDelete: (id: string) => void }) {
   const {
@@ -611,7 +612,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const isInitialMount = React.useRef(true);
 
-  // Rate states (only keep actual data states, UI states moved to RatePopover)
+  // Rate states
   const [platformCommissionRate, setPlatformCommissionRate] = useState(15);
   const [bankCommissionRate, setBankCommissionRate] = useState(2.5);
   const [kdvRate, setKdvRate] = useState(10);
@@ -619,6 +620,80 @@ export default function Home() {
 
   const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a, b) => a.value - b.value), [margins]);
   const onlineMargins = useMemo(() => margins.filter(m => m.type === 'online').sort((a, b) => a.value - b.value), [margins]);
+
+  const toggleProductExpansion = React.useCallback((productId: string) => {
+    setExpandedProductIds(prev =>
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  }, []);
+
+  const addProduct = React.useCallback((productData: Omit<Product, 'id' | 'recipe' | 'order' | 'manualCost'>) => {
+    setProducts((prev) => {
+      const newOrder = prev.length > 0 ? Math.max(...prev.map(p => p.order)) + 1 : 0;
+      return [...prev, { ...productData, id: generateId(), recipe: [], order: newOrder, manualCost: 0 }];
+    });
+    setAddProductDialogOpen(false);
+  }, []);
+
+  const deleteProduct = React.useCallback((id: string) => {
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  const updateProduct = React.useCallback((id: string, field: keyof Product, value: string | number | undefined) => {
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          if (field === 'name' || field === 'categoryId') {
+            return { ...p, [field]: value };
+          }
+          const numericValue = typeof value === 'string' ? parseFloat(value) : (value || 0);
+          const finalValue = isNaN(numericValue) ? '' : numericValue;
+          return { ...p, [field]: finalValue };
+        }
+        return p;
+      })
+    );
+  }, []);
+
+  const updateProductRecipe = React.useCallback((productId: string, newRecipe: RecipeItem[]) => {
+    setProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        // If a recipe is added, clear manualCost. If recipe is cleared, user can set manualCost.
+        const manualCost = newRecipe.length > 0 ? 0 : p.manualCost;
+        return { ...p, recipe: newRecipe, manualCost };
+      }
+      return p;
+    }));
+  }, []);
+
+  const updateIngredientPrice = React.useCallback((ingredientId: string, newPrice: number) => {
+    setIngredients(prevIngredients =>
+      prevIngredients.map(ing =>
+        ing.id === ingredientId ? { ...ing, price: newPrice } : ing
+      )
+    );
+  }, []);
+
+  const handleUpdateMarginDetails = React.useCallback((id: string, marginData: Partial<Margin>) => {
+    setMargins(prev => prev.map(m => m.id === id ? { ...m, ...marginData } : m));
+  }, []);
+
+  const handleDeleteMargin = React.useCallback((id: string) => {
+    setMargins(prev => prev.filter((m) => m.id !== id));
+  }, []);
+
+  const handleAddMargin = React.useCallback((type: 'store' | 'online', marginData: Partial<Margin>) => {
+    const newMarginObject: Margin = {
+      id: generateId(),
+      type,
+      value: marginData.value || 0,
+      name: marginData.name,
+      commissionRate: marginData.commissionRate
+    };
+    setMargins((prev) => [...prev, newMarginObject]);
+  }, []);
 
   const renderMarginHeaders = (
     type: 'store' | 'online',
@@ -718,80 +793,6 @@ export default function Home() {
     }
   }, [products, ingredients, margins, categories, platformCommissionRate, kdvRate, bankCommissionRate, stopajRate, isLoading]);
 
-  const toggleProductExpansion = (productId: string) => {
-    setExpandedProductIds(prev =>
-      prev.includes(productId)
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
-    );
-  };
-
-  const addProduct = (productData: Omit<Product, 'id' | 'recipe' | 'order' | 'manualCost'>) => {
-    setProducts((prev) => {
-      const newOrder = prev.length > 0 ? Math.max(...prev.map(p => p.order)) + 1 : 0;
-      return [...prev, { ...productData, id: generateId(), recipe: [], order: newOrder, manualCost: 0 }];
-    });
-    setAddProductDialogOpen(false);
-  };
-
-  const deleteProduct = (id: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
-  };
-
-  const updateProduct = (id: string, field: keyof Product, value: string | number | undefined) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          if (field === 'name' || field === 'categoryId') {
-            return { ...p, [field]: value };
-          }
-          const numericValue = typeof value === 'string' ? parseFloat(value) : (value || 0);
-          const finalValue = isNaN(numericValue) ? '' : numericValue;
-          return { ...p, [field]: finalValue };
-        }
-        return p;
-      })
-    );
-  };
-
-  const updateProductRecipe = (productId: string, newRecipe: RecipeItem[]) => {
-    setProducts(prev => prev.map(p => {
-      if (p.id === productId) {
-        // If a recipe is added, clear manualCost. If recipe is cleared, user can set manualCost.
-        const manualCost = newRecipe.length > 0 ? 0 : p.manualCost;
-        return { ...p, recipe: newRecipe, manualCost };
-      }
-      return p;
-    }));
-  }
-
-  const updateIngredientPrice = (ingredientId: string, newPrice: number) => {
-    setIngredients(prevIngredients =>
-      prevIngredients.map(ing =>
-        ing.id === ingredientId ? { ...ing, price: newPrice } : ing
-      )
-    );
-  };
-
-  const handleAddMargin = (type: 'store' | 'online', marginData: Partial<Margin>) => {
-    const newMarginObject: Margin = {
-      id: generateId(),
-      type,
-      value: marginData.value || 0,
-      name: marginData.name,
-      commissionRate: marginData.commissionRate
-    };
-    setMargins((prev) => [...prev, newMarginObject]);
-  };
-
-
-  const handleDeleteMargin = (id: string) => {
-    setMargins(margins.filter((m) => m.id !== id));
-  };
-
-  const handleUpdateMarginDetails = (id: string, marginData: Partial<Margin>) => {
-    setMargins(prev => prev.map(m => m.id === id ? { ...m, ...marginData } : m));
-  };
 
 
   const handleAddCategory = () => {
@@ -943,19 +944,9 @@ export default function Home() {
   const categoryIds = useMemo(() => categories.map(c => c.id), [categories]);
   const pricedIngredients = useMemo(() => ingredients.filter(ing => ing.price !== undefined && ing.unit !== undefined), [ingredients]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-grow container mx-auto p-4 md:p-8 flex items-center justify-center">
-          <p className="text-lg text-muted-foreground">Veriler yükleniyor...</p>
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex flex-col">
+      {isLoading && <LoadingState fullPage={true} />}
       <Header />
       <main className="flex-1 w-full max-w-[1950px] mx-auto p-4 md:p-6 lg:p-8 space-y-8">
         {/* Page Header */}
@@ -1118,7 +1109,7 @@ export default function Home() {
                                 updateProduct={updateProduct}
                                 deleteProduct={deleteProduct}
                                 isExpanded={expandedProductIds.includes(product.id)}
-                                onToggleExpand={() => toggleProductExpansion(product.id)}
+                                onToggleExpand={toggleProductExpansion}
                                 updateIngredientPrice={updateIngredientPrice}
                               />
                               {expandedProductIds.includes(product.id) && (
