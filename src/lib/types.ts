@@ -27,7 +27,7 @@ export type Margin = {
   id: string;
   value: number;
   type: 'store' | 'online';
-  commissionRate?: number;
+  commissionRate?: number | null;
   name?: string;
 };
 

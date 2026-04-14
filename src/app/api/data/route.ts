@@ -129,10 +129,27 @@ export async function POST(request: Request) {
       // 4. UPSERT MARGINS
       if (data.margins) {
         for (const mar of data.margins) {
+          // If commissionRate is explicitly 0, we save it as 0. 
+          // If it's undefined/null, we save as null to allow fallback to default.
+          const commRate = (mar.commissionRate === undefined || mar.commissionRate === null || mar.commissionRate === '') 
+            ? null 
+            : parseFloat(String(mar.commissionRate).replace(',', '.'));
+
           await tx.margin.upsert({
             where: { id: mar.id },
-            update: { name: mar.name, value: safeFloat(mar.value), type: mar.type, commissionRate: safeFloat(mar.commissionRate) },
-            create: { id: mar.id, name: mar.name, value: safeFloat(mar.value), type: mar.type, commissionRate: safeFloat(mar.commissionRate) }
+            update: { 
+              name: mar.name, 
+              value: safeFloat(mar.value), 
+              type: mar.type, 
+              commissionRate: commRate 
+            },
+            create: { 
+              id: mar.id, 
+              name: mar.name, 
+              value: safeFloat(mar.value), 
+              type: mar.type, 
+              commissionRate: commRate 
+            }
           });
         }
       }

@@ -4,6 +4,13 @@ import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import path from 'path';
 
 let dbPath = process.env.DATABASE_URL?.replace('file:', '') || './database.sqlite';
+
+// If path is relative and doesn't explicitly start with 'prisma/', 
+// prepend 'prisma/' to ensure it works when running from project root.
+if (!path.isAbsolute(dbPath) && !dbPath.startsWith('prisma') && !dbPath.startsWith('./prisma')) {
+  dbPath = path.join('prisma', dbPath);
+}
+
 if (!path.isAbsolute(dbPath)) {
   dbPath = path.join(process.cwd(), dbPath);
 }

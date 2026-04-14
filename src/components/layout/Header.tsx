@@ -1,3 +1,5 @@
+'use client';
+
 import { PiggyBank, Sprout, Home, Sun, Moon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -19,8 +21,8 @@ export default function Header() {
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <Button asChild variant={pathname === '/' ? 'default' : 'ghost'} size="sm">
-              <Link href="/">
+            <Button asChild variant={pathname === '/prices' || pathname === '/' ? 'default' : 'ghost'} size="sm">
+              <Link href="/prices">
                 <Home className="mr-2 h-4 w-4" />
                 Fiyatlar
               </Link>
