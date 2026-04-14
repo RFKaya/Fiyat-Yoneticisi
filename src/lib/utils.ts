@@ -17,7 +17,7 @@ export function calculateCost(recipe: RecipeItem[], ingredients: Ingredient[]): 
 
     let itemCost = 0;
     // If ingredient has no unit or price, the quantity is the direct cost in TL.
-    if (ingredient.unit === undefined || ingredient.price === undefined) {
+    if (ingredient.unit == null || ingredient.price == null) {
         itemCost = item.quantity || 0;
     } else {
         switch (ingredient.unit) {

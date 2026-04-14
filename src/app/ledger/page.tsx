@@ -8,7 +8,7 @@ import './ledger.css';
 
 type PlatformData = { count: number | string; rev: number | string };
 type DayData = {
-  id: string;
+  id?: string;
   date: string;
   cash: number | string;
   pos: number | string;
@@ -90,16 +90,34 @@ export default function LedgerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditingShopMargin, setIsEditingShopMargin] = useState(false);
   const [isEditingOnlineMargin, setIsEditingOnlineMargin] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'waiting' | 'saving' | 'saved' | 'error'>('idle');
 
   const currentMonthKey = `${currentYear}-${currentMonth}`;
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isDirtyRef = useRef(false);
 
   // Persist currentShopId to localStorage when it changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('lastSelectedShopId', currentShopId);
     }
+    // Dükkan değişince kayıt durumunu sıfırla
+    setSaveStatus('idle');
   }, [currentShopId]);
+
+  // Sayfa kapanırken kaydedilmemiş veri varsa uyar
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirtyRef.current || saveStatus === 'waiting' || saveStatus === 'saving') {
+        const msg = "Kaydedilmemiş değişiklikleriniz var. Ayrılmak istediğinize emin misiniz?";
+        e.returnValue = msg;
+        return msg;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [saveStatus]);
 
   useEffect(() => {
     log.info('Dükkan listesi yükleniyor...');
@@ -160,7 +178,7 @@ export default function LedgerPage() {
       for (let i = 1; i <= daysInMonth; i++) {
         const dateStr = `${currentYear}-${currentMonth}-${i.toString().padStart(2, '0')}`;
         initialDays.push({
-          id: dateStr, date: dateStr, cash: 0, pos: 0, mealCard: 0, kg: 0,
+          date: dateStr, cash: 0, pos: 0, mealCard: 1, kg: 0,
           platforms: {
             migros: { count: 0, rev: 0 }, getir: { count: 0, rev: 0 },
             yemeksepeti: { count: 0, rev: 0 }, trendyol: { count: 0, rev: 0 }
@@ -179,6 +197,9 @@ export default function LedgerPage() {
     // Eğer veriler yükleniyorsa veya shopData henüz tam yüklenmediyse kaydetme işlemini başlatma
     if (isLoading || !shopData || !shopData.months || Object.keys(shopData.months).length === 0) return;
 
+    // Sadece kullanıcı bir değişiklik yaptıysa (isDirtyRef) kaydet:
+    if (!isDirtyRef.current) return;
+
     // Sadece şu anda aktif olan ayın verilerini kaydedeceğiz (Kısmi Güncelleme / PATCH)
     const activeMonthData = shopData.months[currentMonthKey] || monthData;
 
@@ -189,7 +210,12 @@ export default function LedgerPage() {
       costCount: activeMonthData.costs?.length || 0,
     });
 
+    setSaveStatus('waiting');
+
     saveTimeoutRef.current = setTimeout(() => {
+      // Bir sonraki kullanici işlemi gelene kadar dirty flag'i temizle
+      isDirtyRef.current = false;
+      setSaveStatus('saving');
       log.debug('Otomatik kayıt başlatılıyor (PATCH)...', { shopId: currentShopId, monthKey: currentMonthKey });
       const saveTimer = log.time(`PATCH shop_${currentShopId} kayıt süresi`);
 
@@ -205,12 +231,20 @@ export default function LedgerPage() {
           saveTimer.end();
           if (!res.ok) {
             log.error(`Kısmi kayıt başarısız: ${res.status}`);
+            setSaveStatus('error');
             throw new Error('Kısmi kayıt başarısız');
           }
+          setSaveStatus('saved');
           log.success('Ledger otomatik kaydedildi ✓', { shopId: currentShopId, monthKey: currentMonthKey });
+          
+          // 3 saniye sonra saved durumunu idle'a çek
+          setTimeout(() => {
+            setSaveStatus(prev => prev === 'saved' ? 'idle' : prev);
+          }, 3000);
         })
         .catch(error => {
           saveTimer.end();
+          setSaveStatus('error');
           log.error('Ledger otomatik kayıt hatası!', { message: error.message });
           window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Değişiklikler kaydedilemedi! Lütfen sistemin kilitli olup olmadığını kontrol edin.' }));
         });
@@ -223,6 +257,7 @@ export default function LedgerPage() {
   }, [shopData, currentShopId, currentMonthKey, monthData, isLoading]);
 
   const updateDay = (id: string, field: string, value: string, platform?: keyof DayData['platforms'], pField?: keyof PlatformData) => {
+    isDirtyRef.current = true;
     // Only allow numbers, comma, and dot
     const filteredValue = value.replace(/[^0-9,.]/g, '');
 
@@ -230,7 +265,7 @@ export default function LedgerPage() {
       const currentMonths = prev.months || {};
       const currentMonthData = currentMonths[currentMonthKey] || monthData;
       const days = [...currentMonthData.days];
-      const dayIndex = days.findIndex(d => d.id === id);
+      const dayIndex = days.findIndex(d => d.date === id);
       if (dayIndex === -1) return prev;
 
       const day = { ...days[dayIndex] };
@@ -247,6 +282,7 @@ export default function LedgerPage() {
   };
 
   const addCost = () => {
+    isDirtyRef.current = true;
     setShopData(prev => {
       const currentMonths = prev.months || {};
       const currentMonthData = currentMonths[currentMonthKey] || monthData;
@@ -256,6 +292,7 @@ export default function LedgerPage() {
   };
 
   const updateCost = (id: string, field: string, value: string) => {
+    isDirtyRef.current = true;
     setShopData(prev => {
       const currentMonths = prev.months || {};
       const currentMonthData = currentMonths[currentMonthKey] || monthData;
@@ -267,6 +304,7 @@ export default function LedgerPage() {
   };
 
   const deleteCost = (id: string) => {
+    isDirtyRef.current = true;
     setShopData(prev => {
       const currentMonths = prev.months || {};
       const currentMonthData = currentMonths[currentMonthKey] || monthData;
@@ -276,6 +314,7 @@ export default function LedgerPage() {
   };
 
   const updateCommission = (platform: keyof NonNullable<MonthData['commissions']>, value: string) => {
+    isDirtyRef.current = true;
     setShopData(prev => {
       const currentMonths = prev.months || {};
       const currentMonthData = currentMonths[currentMonthKey] || monthData;
@@ -288,6 +327,7 @@ export default function LedgerPage() {
   };
 
   const updateMargin = (type: 'shop' | 'online', value: string) => {
+    isDirtyRef.current = true;
     setShopData(prev => {
       const currentMonths = prev.months || {};
       const currentMonthData = currentMonths[currentMonthKey] || monthData;
@@ -300,6 +340,7 @@ export default function LedgerPage() {
   };
 
   const updateFixedCost = (field: 'rent' | 'ads' | 'electricity' | 'water' | 'accounting', value: string) => {
+    isDirtyRef.current = true;
     setShopData(prev => {
       const currentMonths = prev.months || {};
       const currentMonthData = currentMonths[currentMonthKey] || monthData;
@@ -314,6 +355,7 @@ export default function LedgerPage() {
   };
 
   const updatePlatformAd = (platform: keyof NonNullable<MonthData['platformAds']>, value: string) => {
+    isDirtyRef.current = true;
     setShopData(prev => {
       const currentMonths = prev.months || {};
       const currentMonthData = currentMonths[currentMonthKey] || monthData;
@@ -411,6 +453,12 @@ export default function LedgerPage() {
                 <h2 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.025em' }}>
                   {shopData.shopName || shops.find(s => s.id === currentShopId)?.name || 'İşyeri'}
                 </h2>
+                <div className={`ledger-save-indicator status-${saveStatus}`}>
+                  {saveStatus === 'waiting' && <span className="status-waiting">🕒 Kayıt bekliyor...</span>}
+                  {saveStatus === 'saving' && <span className="status-saving animate-pulse">🔄 Kaydediliyor...</span>}
+                  {saveStatus === 'saved' && <span className="status-saved">✅ Kaydedildi</span>}
+                  {saveStatus === 'error' && <span className="status-error">❌ Kayıt hatası!</span>}
+                </div>
               </div>
               <div className="ledger-table-responsive">
                 <table className="ledger-modern-table">
@@ -439,20 +487,20 @@ export default function LedgerPage() {
                       const totalRow = shopRow + onlineRow;
                       const avgKgPrice = parseNumber(day.kg) > 0 ? totalRow / parseNumber(day.kg) : 0;
                       return (
-                        <tr key={day.id} className={`${isToday ? 'ledger-row-today' : ''} ${isPast ? 'ledger-row-past' : ''}`}>
+                        <tr key={day.date} className={`${isToday ? 'ledger-row-today' : ''} ${isPast ? 'ledger-row-past' : ''}`}>
                           <td style={{ textAlign: 'center' }}>{day.date.split('-').reverse().join('.')}</td>
-                          <td><input value={day.cash || ''} onChange={(e) => updateDay(day.id, 'cash', e.target.value)} /></td>
-                          <td><input value={day.pos || ''} onChange={(e) => updateDay(day.id, 'pos', e.target.value)} /></td>
-                          <td><input value={day.mealCard || ''} onChange={(e) => updateDay(day.id, 'mealCard', e.target.value)} /></td>
-                          <td><input value={day.kg || ''} onChange={(e) => updateDay(day.id, 'kg', e.target.value)} /></td>
-                          <td><input value={day.platforms.migros.count || ''} onChange={(e) => updateDay(day.id, 'platforms', e.target.value, 'migros', 'count')} /></td>
-                          <td><input value={day.platforms.migros.rev || ''} onChange={(e) => updateDay(day.id, 'platforms', e.target.value, 'migros', 'rev')} /></td>
-                          <td><input value={day.platforms.getir.count || ''} onChange={(e) => updateDay(day.id, 'platforms', e.target.value, 'getir', 'count')} /></td>
-                          <td><input value={day.platforms.getir.rev || ''} onChange={(e) => updateDay(day.id, 'platforms', e.target.value, 'getir', 'rev')} /></td>
-                          <td><input value={day.platforms.yemeksepeti.count || ''} onChange={(e) => updateDay(day.id, 'platforms', e.target.value, 'yemeksepeti', 'count')} /></td>
-                          <td><input value={day.platforms.yemeksepeti.rev || ''} onChange={(e) => updateDay(day.id, 'platforms', e.target.value, 'yemeksepeti', 'rev')} /></td>
-                          <td><input value={day.platforms.trendyol.count || ''} onChange={(e) => updateDay(day.id, 'platforms', e.target.value, 'trendyol', 'count')} /></td>
-                          <td><input value={day.platforms.trendyol.rev || ''} onChange={(e) => updateDay(day.id, 'platforms', e.target.value, 'trendyol', 'rev')} /></td>
+                          <td><input value={day.cash || ''} onChange={(e) => updateDay(day.date, 'cash', e.target.value)} /></td>
+                          <td><input value={day.pos || ''} onChange={(e) => updateDay(day.date, 'pos', e.target.value)} /></td>
+                          <td><input value={day.mealCard || ''} onChange={(e) => updateDay(day.date, 'mealCard', e.target.value)} /></td>
+                          <td><input value={day.kg || ''} onChange={(e) => updateDay(day.date, 'kg', e.target.value)} /></td>
+                          <td><input value={day.platforms.migros.count || ''} onChange={(e) => updateDay(day.date, 'platforms', e.target.value, 'migros', 'count')} /></td>
+                          <td><input value={day.platforms.migros.rev || ''} onChange={(e) => updateDay(day.date, 'platforms', e.target.value, 'migros', 'rev')} /></td>
+                          <td><input value={day.platforms.getir.count || ''} onChange={(e) => updateDay(day.date, 'platforms', e.target.value, 'getir', 'count')} /></td>
+                          <td><input value={day.platforms.getir.rev || ''} onChange={(e) => updateDay(day.date, 'platforms', e.target.value, 'getir', 'rev')} /></td>
+                          <td><input value={day.platforms.yemeksepeti.count || ''} onChange={(e) => updateDay(day.date, 'platforms', e.target.value, 'yemeksepeti', 'count')} /></td>
+                          <td><input value={day.platforms.yemeksepeti.rev || ''} onChange={(e) => updateDay(day.date, 'platforms', e.target.value, 'yemeksepeti', 'rev')} /></td>
+                          <td><input value={day.platforms.trendyol.count || ''} onChange={(e) => updateDay(day.date, 'platforms', e.target.value, 'trendyol', 'count')} /></td>
+                          <td><input value={day.platforms.trendyol.rev || ''} onChange={(e) => updateDay(day.date, 'platforms', e.target.value, 'trendyol', 'rev')} /></td>
                           <td className="ledger-highlight-col">{fmt(shopRow)}</td><td className="ledger-highlight-col">{onlineCountRow || ''}</td>
                           <td className="ledger-highlight-col">{fmt(onlineRow)}</td><td className="ledger-highlight-col">{avgKgPrice > 0 ? fmt(avgKgPrice) : '-'}</td>
                           <td className="ledger-highlight-col">{fmt(totalRow)}</td>

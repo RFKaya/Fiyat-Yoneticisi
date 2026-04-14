@@ -189,12 +189,12 @@ function EconomicsTooltipContent({
             <span className="text-destructive">- {formatCurrency(vat)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
-            <span>Komisyon {commissionRate !== undefined ? `(%${commissionRate.toFixed(2)})` : ''}</span>
+            <span>Komisyon { (commissionRate !== undefined && commissionRate !== null) ? `(%${commissionRate.toFixed(2)})` : ''}</span>
             <span className="text-destructive">- {formatCurrency(commission)}</span>
           </div>
           {stopaj > 0 && (
             <div className="flex justify-between text-muted-foreground">
-              <span>Stopaj {stopajRate !== undefined ? `(%${stopajRate})` : ''}</span>
+              <span>Stopaj {(stopajRate !== undefined && stopajRate !== null) ? `(%${stopajRate})` : ''}</span>
               <span className="text-destructive">- {formatCurrency(stopaj)}</span>
             </div>
           )}
@@ -246,7 +246,7 @@ const MarginCells = React.memo(({ margins, cost, kdvRate, defaultCommissionRate,
   return (
     <>
       {margins.map((margin) => {
-        const commission = margin.commissionRate !== undefined ? margin.commissionRate : defaultCommissionRate;
+        const commission = (margin.commissionRate !== undefined && margin.commissionRate !== null) ? margin.commissionRate : defaultCommissionRate;
         const mEcon = calculateEconomicsFromMargin(margin.value, cost, kdvRate, commission, stopajRate);
 
         return (

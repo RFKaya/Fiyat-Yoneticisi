@@ -89,3 +89,43 @@
     -moz-appearance: textfield;
   }
 }
+
+/* Ledger Save Indicator Styles */
+.ledger-save-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.4rem 0.8rem;
+  border-radius: 9999px;
+  background: rgba(var(--primary), 0.1);
+  transition: all 0.3s ease;
+  margin-top: 0.5rem;
+  width: fit-content;
+}
+
+.ledger-save-indicator.status-idle {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.ledger-save-indicator.status-waiting {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.ledger-save-indicator.status-saving {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.ledger-save-indicator.status-saved {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.ledger-save-indicator.status-error {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}

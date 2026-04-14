@@ -1,136 +1,203 @@
 import { NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { verifyAuthCookie } from '@/lib/auth';
-import { apiDataLogger as log, logApiRequest, logApiResponse, logApiError, summarizeData } from '@/lib/logger';
+import { prisma } from '@/lib/prisma';
+import { apiDataLogger as log } from '@/lib/logger';
 
-// Define paths and default data structure
-const dataDirPath = path.join(process.cwd(), 'src/data');
-const dataFilePath = path.join(dataDirPath, 'app-data.json');
-const defaultData = {
-  products: [],
-  ingredients: [],
-  categories: [],
-  margins: [],
-  platformCommissionRate: 15,
-  kdvRate: 10,
-  bankCommissionRate: 2.5,
-  stopajRate: 1,
+const safeFloat = (val: any) => {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return val;
+  const str = String(val).replace(',', '.');
+  const parsed = parseFloat(str);
+  return isNaN(parsed) ? 0 : parsed;
 };
 
-// Helper function to read data. If the file doesn't exist, it creates it.
-async function readData() {
-  try {
-    log.debug('Veri dosyası okunuyor...', { path: dataFilePath });
-    const fileContent = await fs.readFile(dataFilePath, 'utf8');
-    const data = JSON.parse(fileContent);
-    log.debug('Veri dosyası başarıyla okundu', summarizeData(data));
-    return data;
-  } catch (error) {
-    // If the file or directory doesn't exist, create it.
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      try {
-        log.warn('Veri dosyası bulunamadı, yeni dosya oluşturuluyor...', { path: dataFilePath });
-        await fs.mkdir(dataDirPath, { recursive: true });
-        await fs.writeFile(dataFilePath, JSON.stringify(defaultData, null, 2), 'utf8');
-        log.success('Varsayılan veri dosyası başarıyla oluşturuldu');
-        return defaultData;
-      } catch (writeError) {
-        log.error('Varsayılan veri dosyası oluşturulamadı!', writeError);
-        // If we can't create the file, there's a bigger problem.
-        throw new Error('Failed to create and initialize data file.');
-      }
-    }
-    log.error('Veri dosyası okunurken beklenmeyen hata', error);
-    // For other errors, re-throw them.
-    throw error;
-  }
-}
-
-/**
- * Handles GET requests to fetch all application data.
- */
 export async function GET() {
-  logApiRequest('API:Data', 'GET');
-
-  if (!(await verifyAuthCookie())) {
-    logApiResponse('API:Data', 'GET', 401, { reason: 'Yetkilendirme başarısız' });
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
-    const timer = log.time('GET veri okuma süresi');
-    const data = await readData();
-    timer.end();
-
-    logApiResponse('API:Data', 'GET', 200, {
-      products: data.products?.length || 0,
-      ingredients: data.ingredients?.length || 0,
-      categories: data.categories?.length || 0,
-      margins: data.margins?.length || 0,
-      rates: {
-        platformCommission: data.platformCommissionRate,
-        bankCommission: data.bankCommissionRate,
-        kdv: data.kdvRate,
-        stopaj: data.stopajRate,
-      },
+    const categories = await prisma.category.findMany({
+      orderBy: { order: 'asc' }
     });
+    const ingredients = await prisma.ingredient.findMany({
+      orderBy: { order: 'asc' }
+    });
+    
+    // Fetch products with their recipes
+    const productsRaw = await prisma.product.findMany({
+      include: { recipe: true },
+      orderBy: { order: 'asc' }
+    });
+    
+    // Map products to the frontend format
+    const products = productsRaw.map(p => ({
+      id: p.id,
+      name: p.name,
+      manualCost: p.manualCost,
+      categoryId: p.categoryId,
+      storePrice: p.storePrice,
+      onlinePrice: p.onlinePrice,
+      order: p.order,
+      recipe: p.recipe.map(r => ({
+        ingredientId: r.ingredientId,
+        quantity: r.quantity
+      }))
+    }));
 
-    return NextResponse.json(data);
-  } catch (error: any) {
-    logApiError('API:Data', 'GET', error);
-    return NextResponse.json({ message: 'Error reading data file.', error: error.message }, { status: 500 });
+    const margins = await prisma.margin.findMany();
+    const settings = await prisma.globalSettings.findFirst();
+
+    return NextResponse.json({
+      categories,
+      ingredients,
+      products,
+      margins,
+      platformCommissionRate: settings?.platformCommission ?? 15,
+      kdvRate: settings?.kdvRate ?? 10,
+      bankCommissionRate: settings?.bankCommissionRate ?? 2.5,
+      stopajRate: settings?.stopajRate ?? 1,
+    });
+  } catch (error) {
+    log.error('API /data GET Error', error);
+    return NextResponse.json(
+      { error: 'Failed to read data' },
+      { status: 500 }
+    );
   }
 }
 
-/**
- * Handles POST requests to update application data.
- * It completely overwrites the data file with the new data from the request body.
- */
 export async function POST(request: Request) {
-  logApiRequest('API:Data', 'POST');
-
-  if (!(await verifyAuthCookie())) {
-    logApiResponse('API:Data', 'POST', 401, { reason: 'Yetkilendirme başarısız' });
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
-    const newData = await request.json();
+    const data = await request.json();
     
-    log.debug('Gelen veri yapısı kontrol ediliyor...', summarizeData(newData));
+    await prisma.$transaction(async (tx) => {
+      // 1. UPSERT CATEGORIES
+      if (data.categories) {
+        for (const cat of data.categories) {
+          await tx.category.upsert({
+            where: { id: cat.id },
+            update: { name: cat.name, color: cat.color || '', order: cat.order || 0 },
+            create: { id: cat.id, name: cat.name, color: cat.color || '', order: cat.order || 0 }
+          });
+        }
+      }
+      
+      // 2. UPSERT INGREDIENTS
+      if (data.ingredients) {
+        for (const ing of data.ingredients) {
+          await tx.ingredient.upsert({
+            where: { id: ing.id },
+            update: { name: ing.name, price: ing.price, unit: ing.unit, order: ing.order || 0 },
+            create: { id: ing.id, name: ing.name, price: ing.price, unit: ing.unit, order: ing.order || 0 }
+          });
+        }
+      }
 
-    // Basic validation to ensure we're not writing junk
-    if (typeof newData.products === 'undefined' || typeof newData.ingredients === 'undefined' || typeof newData.platformCommissionRate === 'undefined' || typeof newData.kdvRate === 'undefined' || typeof newData.bankCommissionRate === 'undefined' || typeof newData.stopajRate === 'undefined') {
-        log.error('Geçersiz veri yapısı! Zorunlu alanlar eksik.', {
-          products: typeof newData.products !== 'undefined',
-          ingredients: typeof newData.ingredients !== 'undefined',
-          platformCommissionRate: typeof newData.platformCommissionRate !== 'undefined',
-          kdvRate: typeof newData.kdvRate !== 'undefined',
-          bankCommissionRate: typeof newData.bankCommissionRate !== 'undefined',
-          stopajRate: typeof newData.stopajRate !== 'undefined',
-        });
-        throw new Error("Invalid data structure received.");
-    }
-    
-    // Ensure the directory exists before writing. This is a safeguard.
-    await fs.mkdir(dataDirPath, { recursive: true });
+      // 3. UPSERT PRODUCTS & RECIPES
+      if (data.products) {
+        for (const prod of data.products) {
+          await tx.product.upsert({
+            where: { id: prod.id },
+            update: { 
+               name: prod.name, 
+               manualCost: safeFloat(prod.manualCost), 
+               storePrice: safeFloat(prod.storePrice), 
+               onlinePrice: safeFloat(prod.onlinePrice), 
+               order: prod.order || 0, 
+               categoryId: prod.categoryId 
+            },
+            create: { 
+               id: prod.id, 
+               name: prod.name, 
+               manualCost: safeFloat(prod.manualCost), 
+               storePrice: safeFloat(prod.storePrice), 
+               onlinePrice: safeFloat(prod.onlinePrice), 
+               order: prod.order || 0, 
+               categoryId: prod.categoryId 
+            }
+          });
+          
+          await tx.recipeItem.deleteMany({ where: { productId: prod.id } });
+          for (const rec of prod.recipe || []) {
+            // make sure ingredient exists
+            const ingCount = await tx.ingredient.count({ where: { id: rec.ingredientId } });
+            if (ingCount > 0) {
+              await tx.recipeItem.create({
+                data: { productId: prod.id, ingredientId: rec.ingredientId, quantity: safeFloat(rec.quantity) }
+              });
+            }
+          }
+        }
+      }
 
-    const timer = log.time('POST veri yazma süresi');
-    // Write the updated data back to the file, overwriting it.
-    await fs.writeFile(dataFilePath, JSON.stringify(newData, null, 2));
-    timer.end();
+      // 4. UPSERT MARGINS
+      if (data.margins) {
+        for (const mar of data.margins) {
+          await tx.margin.upsert({
+            where: { id: mar.id },
+            update: { name: mar.name, value: safeFloat(mar.value), type: mar.type, commissionRate: safeFloat(mar.commissionRate) },
+            create: { id: mar.id, name: mar.name, value: safeFloat(mar.value), type: mar.type, commissionRate: safeFloat(mar.commissionRate) }
+          });
+        }
+      }
 
-    logApiResponse('API:Data', 'POST', 200, {
-      products: newData.products?.length || 0,
-      ingredients: newData.ingredients?.length || 0,
-      categories: newData.categories?.length || 0,
-      margins: newData.margins?.length || 0,
+      // 5. UPDATE SETTINGS
+      const settingsFields = ['platformCommissionRate', 'kdvRate', 'bankCommissionRate', 'stopajRate'];
+      if (settingsFields.some(f => data[f] !== undefined)) {
+        const existing = await tx.globalSettings.findFirst();
+        const payload = {
+          platformCommission: data.platformCommissionRate,
+          kdvRate: data.kdvRate,
+          bankCommissionRate: data.bankCommissionRate,
+          stopajRate: data.stopajRate,
+        };
+        
+        if (existing) {
+          await tx.globalSettings.update({
+            where: { id: existing.id },
+            data: {
+               platformCommission: data.platformCommissionRate !== undefined ? safeFloat(data.platformCommissionRate) : existing.platformCommission,
+               kdvRate: data.kdvRate !== undefined ? safeFloat(data.kdvRate) : existing.kdvRate,
+               bankCommissionRate: data.bankCommissionRate !== undefined ? safeFloat(data.bankCommissionRate) : existing.bankCommissionRate,
+               stopajRate: data.stopajRate !== undefined ? safeFloat(data.stopajRate) : existing.stopajRate,
+            }
+          });
+        } else {
+          await tx.globalSettings.create({
+            data: {
+               platformCommission: safeFloat(data.platformCommissionRate) || 15,
+               kdvRate: safeFloat(data.kdvRate) || 10,
+               bankCommissionRate: safeFloat(data.bankCommissionRate) || 2.5,
+               stopajRate: safeFloat(data.stopajRate) || 1,
+            }
+          });
+        }
+      }
+
+      // 6. DELETE MISSING ITEMS (Cleanup)
+      if (data.products) {
+        const incomingProdIds = data.products.map((p: any) => p.id);
+        await tx.product.deleteMany({ where: { id: { notIn: incomingProdIds } } });
+      }
+      
+      if (data.ingredients) {
+        const incomingIngIds = data.ingredients.map((i: any) => i.id);
+        await tx.ingredient.deleteMany({ where: { id: { notIn: incomingIngIds } } });
+      }
+      
+      if (data.categories) {
+        const incomingCatIds = data.categories.map((c: any) => c.id);
+        await tx.category.deleteMany({ where: { id: { notIn: incomingCatIds } } });
+      }
+      
+      if (data.margins) {
+        const incomingMarIds = data.margins.map((m: any) => m.id);
+        await tx.margin.deleteMany({ where: { id: { notIn: incomingMarIds } } });
+      }
     });
 
-    return NextResponse.json({ message: 'Data saved successfully.' }, { status: 200 });
-  } catch (error: any) {
-    logApiError('API:Data', 'POST', error);
-    return NextResponse.json({ message: 'Error writing data file.', error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    log.error('Failed to save data via API', error);
+    return NextResponse.json(
+      { error: 'Failed to write data' },
+      { status: 500 }
+    );
   }
 }

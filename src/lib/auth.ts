@@ -1,9 +1,6 @@
 import { cookies } from 'next/headers';
-import { promises as fs } from 'fs';
-import path from 'path';
 import crypto from 'crypto';
 
-const passwordFilePath = path.join(process.cwd(), 'src/data/password.txt');
 const SALT = "fiyat-yoneticisi-super-secret-salt-x95";
 
 // Global state for rate limiting incorrect password attempts.
@@ -14,18 +11,11 @@ if (!globalAny.authRateLimitUntil) {
 }
 
 export async function getServerPassword() {
-  try {
-    const pwd = await fs.readFile(passwordFilePath, 'utf8');
-    return pwd.trim();
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      const defaultPwd = 'admin'; // Default password
-      await fs.mkdir(path.dirname(passwordFilePath), { recursive: true });
-      await fs.writeFile(passwordFilePath, defaultPwd, 'utf8');
-      return defaultPwd;
-    }
-    throw error;
+  const pwd = process.env.ADMIN_PASSWORD;
+  if (!pwd) {
+    return 'admin'; // Fallback if no .env config
   }
+  return pwd.trim();
 }
 
 export async function getPasswordHash() {

@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Shop {
+  id           String        @id @default(cuid())
+  name         String
+  ledgerMonths LedgerMonth[]
+  ledgerDays   LedgerDay[]
+
+  @@map("shops")
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String
+  color    String?
+  order    Int       @default(0)
+  products Product[]
+
+  @@map("categories")
+}
+
+model Ingredient {
+  id      String       @id @default(cuid())
+  name    String
+  price   Float?
+  unit    String?
+  order   Int          @default(0)
+  recipes RecipeItem[]
+
+  @@map("ingredients")
+}
+
+model Product {
+  id          String       @id @default(cuid())
+  name        String
+  manualCost  Float        @default(0) @map("manual_cost")
+  storePrice  Float        @default(0) @map("store_price")
+  onlinePrice Float        @default(0) @map("online_price")
+  order       Int          @default(0)
+  categoryId  String?      @map("category_id")
+  category    Category?    @relation(fields: [categoryId], references: [id])
+  recipe      RecipeItem[]
+
+  @@map("products")
+}
+
+model RecipeItem {
+  id           String     @id @default(cuid())
+  productId    String     @map("product_id")
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredientId String     @map("ingredient_id")
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  quantity     Float
+
+  @@map("recipe_items")
+}
+
+model Margin {
+  id             String  @id @default(cuid())
+  name           String?
+  value          Float
+  type           String
+  commissionRate Float?  @map("commission_rate")
+
+  @@map("margins")
+}
+
+model GlobalSettings {
+  id                 String @id @default(cuid())
+  platformCommission Float  @default(15) @map("platform_commission")
+  kdvRate            Float  @default(10) @map("kdv_rate")
+  bankCommissionRate Float  @default(2.5) @map("bank_commission_rate")
+  stopajRate         Float  @default(1) @map("stopaj_rate")
+
+  @@map("global_settings")
+}
+
+model LedgerMonth {
+  id              String      @id @default(cuid())
+  shopId          String      @map("shop_id")
+  shop            Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  monthKey        String      @map("month_key")
+  rent            Float?      @default(0)
+  electricity     Float?      @default(0)
+  water           Float?      @default(0)
+  accounting      Float?      @default(0)
+  ads             Float?      @default(0)
+  migrosComm      Float?      @default(0) @map("migros_comm")
+  getirComm       Float?      @default(0) @map("getir_comm")
+  yemeksepetiComm Float?      @default(0) @map("yemeksepeti_comm")
+  trendyolComm    Float?      @default(0) @map("trendyol_comm")
+  migrosAd        Float?      @default(0) @map("migros_ad")
+  getirAd         Float?      @default(0) @map("getir_ad")
+  yemeksepetiAd   Float?      @default(0) @map("yemeksepeti_ad")
+  trendyolAd      Float?      @default(0) @map("trendyol_ad")
+  shopMargin      Float?      @default(0) @map("shop_margin")
+  onlineMargin    Float?      @default(0) @map("online_margin")
+  extraCosts      ExtraCost[]
+
+  @@unique([shopId, monthKey])
+  @@map("ledger_months")
+}
+
+model LedgerDay {
+  id               String   @id @default(cuid())
+  shopId           String   @map("shop_id")
+  shop             Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  date             DateTime
+
+  cash             Float?   @default(0)
+  pos              Float?   @default(0)
+  mealCard         Float?   @default(0) @map("meal_card")
+  kg               Float?   @default(0)
+
+  migrosCount      Int?     @default(0) @map("migros_count")
+  migrosRev        Float?   @default(0) @map("migros_rev")
+
+  getirCount       Int?     @default(0) @map("getir_count")
+  getirRev         Float?   @default(0) @map("getir_rev")
+
+  yemeksepetiCount Int?     @default(0) @map("yemeksepeti_count")
+  yemeksepetiRev   Float?   @default(0) @map("yemeksepeti_rev")
+
+  trendyolCount    Int?     @default(0) @map("trendyol_count")
+  trendyolRev      Float?   @default(0) @map("trendyol_rev")
+
+  @@unique([shopId, date])
+  @@map("ledger_days")
+}
+
+model ExtraCost {
+  id            String      @id @default(cuid())
+  ledgerMonthId String      @map("ledger_month_id")
+  ledgerMonth   LedgerMonth @relation(fields: [ledgerMonthId], references: [id], onDelete: Cascade)
+  name          String
+  amount        Float
+
+  @@map("extra_costs")
+}

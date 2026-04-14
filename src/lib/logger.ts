@@ -70,6 +70,23 @@ function isServer(): boolean {
   return typeof window === 'undefined';
 }
 
+/** Formats data object into a single-line string with parentheses */
+function formatDataInline(data: any): string {
+  if (data === undefined || data === null) return '';
+  
+  try {
+    if (typeof data === 'object') {
+      const entries = Object.entries(data)
+        .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+        .join(', ');
+      return entries ? ` (${entries})` : '';
+    }
+    return ` (${data})`;
+  } catch (e) {
+    return ' ([Data error])';
+  }
+}
+
 // Server-side ANSI color codes
 const ANSI = {
   reset:   '\x1b[0m',
@@ -123,6 +140,7 @@ function logMessage(
 
   const levelName = LogLevel[level] as keyof typeof LogLevel;
   const timestamp = getTimestamp();
+  const dataStr = formatDataInline(data);
 
   if (isServer()) {
     // ─── Server-side (Node.js with ANSI) ────────
@@ -136,14 +154,8 @@ function logMessage(
                     : level === LogLevel.WARN ? console.warn
                     : console.log;
 
-    consoleFn(`${timeStr} ${levelStr} ${moduleStr} ${message}`);
-    if (data !== undefined) {
-      if (typeof data === 'object') {
-        console.dir(data, { depth: 4, colors: true });
-      } else {
-        console.log(`  ${ANSI.dim}└─${ANSI.reset}`, data);
-      }
-    }
+    const detailsStr = dataStr ? `${ANSI.gray}${dataStr}${ANSI.reset}` : '';
+    consoleFn(`${timeStr} ${levelStr} ${moduleStr} ${message}${detailsStr}`);
 
   } else {
     // ─── Client-side (Browser with CSS) ─────────
@@ -156,22 +168,14 @@ function logMessage(
                     : level === LogLevel.DEBUG ? console.debug
                     : console.log;
 
-    if (data !== undefined) {
-      consoleFn(
-        `%c${timestamp}%c %c${levelName}%c %c${module}%c ${message}`,
-        STYLES.timestamp, '',
-        levelStyle, '',
-        moduleStyle, '',
-        data
-      );
-    } else {
-      consoleFn(
-        `%c${timestamp}%c %c${levelName}%c %c${module}%c ${message}`,
-        STYLES.timestamp, '',
-        levelStyle, '',
-        moduleStyle, ''
-      );
-    }
+    consoleFn(
+      `%c${timestamp}%c %c${levelName}%c %c${module}%c ${message}%c${dataStr}`,
+      STYLES.timestamp, '',
+      levelStyle, '',
+      moduleStyle, '',
+      '', // color for message
+      STYLES.dim // color for inline data
+    );
   }
 }
 

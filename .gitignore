@@ -27,3 +27,11 @@ Thumbs.db
 
 # Firebase / Hosting
 apphosting.yaml
+
+/src/generated/prisma
+
+# SQLite Database
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
