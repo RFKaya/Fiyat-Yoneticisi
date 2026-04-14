@@ -148,7 +148,7 @@ export default function LedgerPage() {
       for (let i = 1; i <= daysInMonth; i++) {
         const dateStr = `${currentYear}-${currentMonth}-${i.toString().padStart(2, '0')}`;
         initialDays.push({
-          date: dateStr, cash: 0, pos: 0, mealCard: 1, kg: 0,
+          date: dateStr, cash: 0, pos: 0, mealCard: 0, kg: 0,
           platforms: {
             migros: { count: 0, rev: 0 }, getir: { count: 0, rev: 0 },
             yemeksepeti: { count: 0, rev: 0 }, trendyol: { count: 0, rev: 0 }
