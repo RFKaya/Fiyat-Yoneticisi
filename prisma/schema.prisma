@@ -9,19 +9,20 @@ datasource db {
 model Shop {
   id           String        @id @default(cuid())
   name         String
-  ledgerMonths LedgerMonth[]
   ledgerDays   LedgerDay[]
+  ledgerMonths LedgerMonth[]
 
   @@map("shops")
 }
 
 model Category {
-  id                 String    @id @default(cuid())
+  id                 String                @id @default(cuid())
   name               String
   color              String?
-  order              Int       @default(0)
-  targetStoreMargin  Float?    @map("target_store_margin")
-  targetOnlineMargin Float?    @map("target_online_margin")
+  order              Int                   @default(0)
+  targetOnlineMargin Float?                @map("target_online_margin")
+  targetStoreMargin  Float?                @map("target_store_margin")
+  storeMarginValues  CategoryStoreMargin[]
   products           Product[]
 
   @@map("categories")
@@ -55,35 +56,48 @@ model Product {
 model RecipeItem {
   id           String     @id @default(cuid())
   productId    String     @map("product_id")
-  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
   ingredientId String     @map("ingredient_id")
-  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
   quantity     Float
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("recipe_items")
 }
 
 model Margin {
-  id             String  @id @default(cuid())
-  name           String?
-  value          Float
-  type           String
-  commissionRate Float?  @map("commission_rate")
+  id                String                @id @default(cuid())
+  name              String?
+  value             Float
+  type              String
+  commissionRate    Float?                @map("commission_rate")
+  categorySpecifics CategoryStoreMargin[]
 
   @@map("margins")
 }
 
+model CategoryStoreMargin {
+  id         String   @id @default(cuid())
+  categoryId String   @map("category_id")
+  marginId   String   @map("margin_id")
+  value      Float
+  margin     Margin   @relation(fields: [marginId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, marginId])
+  @@map("category_store_margins")
+}
+
 model GlobalSettings {
-  id                      String @id @default("default")
-  platformCommission      Float  @default(15) @map("platform_commission")
-  kdvRate                 Float  @default(10) @map("kdv_rate")
-  bankCommissionRate      Float  @default(2.5) @map("bank_commission_rate")
-  stopajRate              Float  @default(1) @map("stopaj_rate")
-  onlineTargetMargin      Float  @default(20) @map("online_target_margin")
-  migrosCommission        Float  @default(40) @map("migros_commission")
-  getirCommission         Float  @default(40) @map("getir_commission")
-  yemeksepetiCommission   Float  @default(40) @map("yemeksepeti_commission")
-  trendyolCommission      Float  @default(40) @map("trendyol_commission")
+  id                    String @id @default("default")
+  platformCommission    Float  @default(15) @map("platform_commission")
+  kdvRate               Float  @default(10) @map("kdv_rate")
+  bankCommissionRate    Float  @default(2.5) @map("bank_commission_rate")
+  stopajRate            Float  @default(1) @map("stopaj_rate")
+  onlineTargetMargin    Float  @default(20) @map("online_target_margin")
+  migrosCommission      Float  @default(40) @map("migros_commission")
+  getirCommission       Float  @default(40) @map("getir_commission")
+  yemeksepetiCommission Float  @default(40) @map("yemeksepeti_commission")
+  trendyolCommission    Float  @default(40) @map("trendyol_commission")
 
   @@map("global_settings")
 }
@@ -91,7 +105,6 @@ model GlobalSettings {
 model LedgerMonth {
   id              String      @id @default(cuid())
   shopId          String      @map("shop_id")
-  shop            Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
   monthKey        String      @map("month_key")
   rent            Float?      @default(0)
   electricity     Float?      @default(0)
@@ -109,6 +122,7 @@ model LedgerMonth {
   shopMargin      Float?      @default(0) @map("shop_margin")
   onlineMargin    Float?      @default(0) @map("online_margin")
   extraCosts      ExtraCost[]
+  shop            Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@unique([shopId, monthKey])
   @@map("ledger_months")
@@ -117,25 +131,20 @@ model LedgerMonth {
 model LedgerDay {
   id               String   @id @default(cuid())
   shopId           String   @map("shop_id")
-  shop             Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   date             DateTime
-
   cash             Float?   @default(0)
   pos              Float?   @default(0)
   mealCard         Float?   @default(0) @map("meal_card")
   kg               Float?   @default(0)
-
   migrosCount      Int?     @default(0) @map("migros_count")
   migrosRev        Float?   @default(0) @map("migros_rev")
-
   getirCount       Int?     @default(0) @map("getir_count")
   getirRev         Float?   @default(0) @map("getir_rev")
-
   yemeksepetiCount Int?     @default(0) @map("yemeksepeti_count")
   yemeksepetiRev   Float?   @default(0) @map("yemeksepeti_rev")
-
   trendyolCount    Int?     @default(0) @map("trendyol_count")
   trendyolRev      Float?   @default(0) @map("trendyol_rev")
+  shop             Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@unique([shopId, date])
   @@map("ledger_days")
@@ -144,9 +153,9 @@ model LedgerDay {
 model ExtraCost {
   id            String      @id @default(cuid())
   ledgerMonthId String      @map("ledger_month_id")
-  ledgerMonth   LedgerMonth @relation(fields: [ledgerMonthId], references: [id], onDelete: Cascade)
   name          String
   amount        Float
+  ledgerMonth   LedgerMonth @relation(fields: [ledgerMonthId], references: [id], onDelete: Cascade)
 
   @@map("extra_costs")
 }

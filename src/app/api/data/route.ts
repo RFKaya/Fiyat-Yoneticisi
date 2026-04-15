@@ -13,20 +13,37 @@ const safeFloat = (val: any): number | null => {
 
 export async function GET() {
   try {
-    const categories = await prisma.category.findMany({
+    // Fetch categories with their specific margin values
+    const categoriesRaw = await prisma.category.findMany({
+      include: { storeMarginValues: true },
       orderBy: { order: 'asc' }
     });
+
+    const categories = categoriesRaw.map(c => ({
+      id: c.id,
+      name: c.name,
+      color: c.color,
+      order: c.order,
+      targetStoreMargin: c.targetStoreMargin,
+      targetOnlineMargin: c.targetOnlineMargin,
+      storeMarginValues: c.storeMarginValues.map(mv => ({
+        id: mv.id,
+        categoryId: mv.categoryId,
+        marginId: mv.marginId,
+        value: mv.value
+      }))
+    }));
+
     const ingredients = await prisma.ingredient.findMany({
       orderBy: { order: 'asc' }
     });
-    
+
     // Fetch products with their recipes
     const productsRaw = await prisma.product.findMany({
       include: { recipe: true },
       orderBy: { order: 'asc' }
     });
-    
-    // Map products to the frontend format
+
     const products = productsRaw.map(p => ({
       id: p.id,
       name: p.name,
@@ -45,6 +62,12 @@ export async function GET() {
     const settings = await prisma.globalSettings.findUnique({
       where: { id: 'default' }
     }) as GlobalSettings | null;
+
+    log.debug('GET /api/data returning', {
+      categoriesCount: categories.length,
+      categoriesWithMargins: categories.filter(c => c.storeMarginValues.length > 0).length,
+      marginsCount: margins.length
+    });
 
     return NextResponse.json({
       categories,
@@ -79,24 +102,24 @@ export async function POST(request: Request) {
       margins: data.margins?.length,
       ingredients: data.ingredients?.length
     });
-    
+
     await prisma.$transaction(async (tx) => {
       // 1. UPSERT CATEGORIES
       if (data.categories) {
         for (const cat of data.categories) {
           await tx.category.upsert({
             where: { id: cat.id },
-            update: { 
-              name: cat.name, 
-              color: cat.color || '', 
+            update: {
+              name: cat.name,
+              color: cat.color || '',
               order: cat.order || 0,
               targetStoreMargin: safeFloat(cat.targetStoreMargin),
               targetOnlineMargin: safeFloat(cat.targetOnlineMargin)
             },
-            create: { 
-              id: cat.id, 
-              name: cat.name, 
-              color: cat.color || '', 
+            create: {
+              id: cat.id,
+              name: cat.name,
+              color: cat.color || '',
               order: cat.order || 0,
               targetStoreMargin: safeFloat(cat.targetStoreMargin),
               targetOnlineMargin: safeFloat(cat.targetOnlineMargin)
@@ -104,7 +127,7 @@ export async function POST(request: Request) {
           });
         }
       }
-      
+
       // 2. UPSERT INGREDIENTS
       if (data.ingredients) {
         for (const ing of data.ingredients) {
@@ -121,25 +144,25 @@ export async function POST(request: Request) {
         for (const prod of data.products) {
           await tx.product.upsert({
             where: { id: prod.id },
-            update: { 
-               name: prod.name, 
-               manualCost: safeFloat(prod.manualCost) ?? 0, 
-               storePrice: safeFloat(prod.storePrice) ?? 0, 
-               onlinePrice: safeFloat(prod.onlinePrice) ?? 0, 
-               order: prod.order || 0, 
-               categoryId: prod.categoryId 
+            update: {
+              name: prod.name,
+              manualCost: safeFloat(prod.manualCost) ?? 0,
+              storePrice: safeFloat(prod.storePrice) ?? 0,
+              onlinePrice: safeFloat(prod.onlinePrice) ?? 0,
+              order: prod.order || 0,
+              categoryId: prod.categoryId
             },
-            create: { 
-               id: prod.id, 
-               name: prod.name, 
-               manualCost: safeFloat(prod.manualCost) ?? 0, 
-               storePrice: safeFloat(prod.storePrice) ?? 0, 
-               onlinePrice: safeFloat(prod.onlinePrice) ?? 0, 
-               order: prod.order || 0, 
-               categoryId: prod.categoryId 
+            create: {
+              id: prod.id,
+              name: prod.name,
+              manualCost: safeFloat(prod.manualCost) ?? 0,
+              storePrice: safeFloat(prod.storePrice) ?? 0,
+              onlinePrice: safeFloat(prod.onlinePrice) ?? 0,
+              order: prod.order || 0,
+              categoryId: prod.categoryId
             }
           });
-          
+
           await tx.recipeItem.deleteMany({ where: { productId: prod.id } });
           for (const rec of prod.recipe || []) {
             // make sure ingredient exists
@@ -153,41 +176,62 @@ export async function POST(request: Request) {
         }
       }
 
-      // 4. UPSERT MARGINS
+      // 4. UPSERT MARGINS & THEIR CATEGORY-SPECIFIC VALUES
       if (data.margins) {
         for (const mar of data.margins) {
-          // If commissionRate is explicitly 0, we save it as 0. 
-          // If it's undefined/null, we save as null to allow fallback to default.
-          const commRate = (mar.commissionRate === undefined || mar.commissionRate === null || mar.commissionRate === '') 
-            ? null 
+          const commRate = (mar.commissionRate === undefined || mar.commissionRate === null || mar.commissionRate === '')
+            ? null
             : parseFloat(String(mar.commissionRate).replace(',', '.'));
 
           await tx.margin.upsert({
             where: { id: mar.id },
-            update: { 
-              name: mar.name, 
-              value: safeFloat(mar.value) ?? 0, 
-              type: mar.type, 
-              commissionRate: commRate 
+            update: {
+              name: mar.name,
+              value: safeFloat(mar.value) ?? 0,
+              type: mar.type,
+              commissionRate: commRate
             },
-            create: { 
-              id: mar.id, 
-              name: mar.name, 
-              value: safeFloat(mar.value) ?? 0, 
-              type: mar.type, 
-              commissionRate: commRate 
+            create: {
+              id: mar.id,
+              name: mar.name,
+              value: safeFloat(mar.value) ?? 0,
+              type: mar.type,
+              commissionRate: commRate
             }
           });
+        }
+      }
+
+      // Handle Category Margin Values
+      if (data.categories) {
+        for (const cat of data.categories) {
+          if (cat.storeMarginValues) {
+            // Delete existing and re-create for this category
+            await tx.categoryStoreMargin.deleteMany({ where: { categoryId: cat.id } });
+            for (const mv of cat.storeMarginValues) {
+              // Ensure margin exists before creating link
+              const mCount = await tx.margin.count({ where: { id: mv.marginId } });
+              if (mCount > 0) {
+                await tx.categoryStoreMargin.create({
+                  data: {
+                    categoryId: cat.id,
+                    marginId: mv.marginId,
+                    value: safeFloat(mv.value) ?? 0
+                  }
+                });
+              }
+            }
+          }
         }
       }
 
       // 5. UPDATE SETTINGS (USING STABLE ID "default")
       const settingsFields = [
         'platformCommissionRate', 'kdvRate', 'bankCommissionRate', 'stopajRate',
-        'onlineTargetMargin', 'migrosCommission', 'getirCommission', 
+        'onlineTargetMargin', 'migrosCommission', 'getirCommission',
         'yemeksepetiCommission', 'trendyolCommission'
       ];
-      
+
       if (settingsFields.some(f => data[f] !== undefined)) {
         // Cleanup any potential old records that don't have the 'default' ID
         await tx.globalSettings.deleteMany({
@@ -227,17 +271,17 @@ export async function POST(request: Request) {
         const incomingProdIds = data.products.map((p: any) => p.id);
         await tx.product.deleteMany({ where: { id: { notIn: incomingProdIds } } });
       }
-      
+
       if (data.ingredients) {
         const incomingIngIds = data.ingredients.map((i: any) => i.id);
         await tx.ingredient.deleteMany({ where: { id: { notIn: incomingIngIds } } });
       }
-      
+
       if (data.categories) {
         const incomingCatIds = data.categories.map((c: any) => c.id);
         await tx.category.deleteMany({ where: { id: { notIn: incomingCatIds } } });
       }
-      
+
       if (data.margins) {
         const incomingMarIds = data.margins.map((m: any) => m.id);
         await tx.margin.deleteMany({ where: { id: { notIn: incomingMarIds } } });
@@ -246,11 +290,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    log.error('API /data POST ERROR!', { 
-      message: error.message, 
-      code: error.code, 
+    log.error('API /data POST ERROR!', {
+      message: error.message,
+      code: error.code,
       meta: error.meta,
-      stack: error.stack?.split('\n')[0] 
+      stack: error.stack?.split('\n')[0]
     });
     return NextResponse.json(
       { error: 'Failed to write data', details: error.message, code: error.code },

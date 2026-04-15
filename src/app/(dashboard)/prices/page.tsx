@@ -69,9 +69,10 @@ function MarginEditPopover({
     const numericValue = parseFloat(value);
     const numericCommission = parseFloat(commission);
 
-    if (!isNaN(numericValue) && numericValue > 0) {
+    // For Store margins, value can be 0 (default) as it's defined per category
+    if (type === 'store' || (!isNaN(numericValue) && numericValue > 0)) {
       onSave({
-        value: numericValue,
+        value: !isNaN(numericValue) ? numericValue : 0,
         name: name.trim() || undefined,
         commissionRate: !isNaN(numericCommission) ? numericCommission : null,
       });
@@ -93,50 +94,67 @@ function MarginEditPopover({
         <div className="grid gap-4">
           <div className="space-y-1">
             <h4 className="font-bold leading-none">
-              {margin ? 'Marjı Düzenle' : `Yeni Kâr Marjı (${type === 'store' ? 'Mağaza' : 'Online'})`}
+              {margin ? 'Kolonu Düzenle' : (type === 'store' ? 'Yeni Satış Kolonu' : 'Yeni Online Marj')}
             </h4>
             <p className="text-xs text-muted-foreground">
-              Analiz için detayları belirleyin.
+              {type === 'store'
+                ? 'Bu kolon tüm kategorilerde görünecek, ancak kâr oranlarını her kategori için ayrı belirleyeceksiniz.'
+                : 'Analiz için detayları belirleyin.'}
             </p>
           </div>
           <div className="grid gap-3">
             <div className="space-y-1">
-              <Label htmlFor="margin-name" className="text-xs font-semibold">İsim (Opsiyonel)</Label>
+              <Label htmlFor="margin-name" className="text-xs font-semibold">Kolon/Platform İsmi</Label>
               <Input
                 id="margin-name"
-                placeholder="Örn: Trendyol, Getir..."
+                placeholder={type === 'store' ? 'Örn: Kampanyalı, Özel...' : 'Örn: Trendyol, Getir...'}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="h-8 text-sm"
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label htmlFor="margin-value" className="text-xs font-semibold">Marj (%)</Label>
-                <Input
-                  id="margin-value"
-                  type="number"
-                  placeholder="30"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  className="h-8 text-sm"
-                />
+            {type === 'online' && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="margin-value" className="text-xs font-semibold">Varsayılan Marj (%)</Label>
+                  <Input
+                    id="margin-value"
+                    type="number"
+                    placeholder="30"
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="margin-comm" className="text-xs font-semibold">Komisyon (%)</Label>
+                  <Input
+                    id="margin-comm"
+                    type="number"
+                    placeholder="Örn: 15"
+                    value={commission}
+                    onChange={(e) => setCommission(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
               </div>
+            )}
+            {type === 'store' && (
               <div className="space-y-1">
-                <Label htmlFor="margin-comm" className="text-xs font-semibold">Komisyon (%)</Label>
+                <Label htmlFor="margin-comm" className="text-xs font-semibold">Banka/İşlem Komisyonu (%)</Label>
                 <Input
                   id="margin-comm"
                   type="number"
-                  placeholder="Örn: 15"
+                  placeholder="Opsiyonel (Örn: 2.5)"
                   value={commission}
                   onChange={(e) => setCommission(e.target.value)}
                   className="h-8 text-sm"
                 />
               </div>
-            </div>
+            )}
           </div>
           <Button onClick={handleSave} size="sm" className="w-full font-bold">
-            {margin ? 'Güncelle' : 'Marj Ekle'}
+            {margin ? 'Güncelle' : 'Kolon Ekle'}
           </Button>
         </div>
       </PopoverContent>
@@ -374,6 +392,15 @@ const SortableProductRow = React.memo(({
   const onlineEconomics = calculateEconomicsFromPrice(product.onlinePrice, cost, kdvRate, platformCommissionRate, stopajRate);
   const showNetOnlineProfit = product.onlinePrice > 0;
 
+  // Prepare store dynamic margin cells
+  const categoryStoreMarginCells = storeMargins.map(m => {
+    // Find the specific margin value for this category and margin column
+    const mv = category?.storeMarginValues?.find(v => v.marginId === m.id);
+    const targetVal = mv?.value || 0;
+    const comm = m.commissionRate ?? bankCommissionRate;
+    return { name: m.name || `%${targetVal} Marj`, commission: comm, targetMargin: targetVal };
+  });
+
   return (
     <TableRow ref={setNodeRef} style={style} key={product.id} className={isExpanded ? 'border-b-0' : ''}>
       <TableCell className="w-[340px] px-4 py-1">
@@ -455,16 +482,39 @@ const SortableProductRow = React.memo(({
           </TooltipProvider>
         )}
       </TableCell>
-      <PlatformCells
-        cost={cost}
-        kdvRate={kdvRate}
-        stopajRate={0}
-        targetMargin={0} // Not used for direct storePrice display actually, but MarginCells does use it for "suggested" margins
-        platforms={storeMargins.map(m => ({ name: m.name || `%${m.value} Marj`, commission: m.commissionRate ?? bankCommissionRate }))}
-      // Wait, I should probably keep MarginCells for Store if it works fine and only change Online
-      />
-      <TableCell className="text-left px-0 w-[30px] py-1">
-      </TableCell>
+
+      {/* Store dynamic margin cells */}
+      {categoryStoreMarginCells.map((cell, idx) => {
+        const mEcon = calculateEconomicsFromMargin(cell.targetMargin, cost, kdvRate, cell.commission, 0);
+        return (
+          <TableCell key={idx} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-full h-full flex items-center">
+                    {mEcon.isCalculable ? formatCurrency(mEcon.sellingPrice) : 'Hesaplanamaz'}
+                  </div>
+                </TooltipTrigger>
+                <EconomicsTooltipContent
+                  isCalculable={mEcon.isCalculable}
+                  title={`${cell.name} Fiyatı`}
+                  revenue={mEcon.sellingPrice}
+                  vat={mEcon.vatAmount}
+                  kdvRate={kdvRate}
+                  commission={mEcon.commissionAmount}
+                  commissionRate={cell.commission}
+                  cost={cost}
+                  netProfit={mEcon.netProfit}
+                  percentage={mEcon.profitPercentage}
+                  headerLabel={`${cell.name} (%${cell.targetMargin} Hedef)`}
+                />
+              </Tooltip>
+            </TooltipProvider>
+          </TableCell>
+        );
+      })}
+
+      <TableCell className="text-left px-0 w-[40px] py-1" />
 
       <TableCell className="w-8 px-1 py-1" />
 
@@ -712,7 +762,7 @@ export default function Home() {
   const [yemeksepetiCommission, setYemeksepetiCommission] = useState(15);
   const [trendyolCommission, setTrendyolCommission] = useState(15);
 
-  const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a, b) => a.value - b.value), [margins]);
+  const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a, b) => (a.name || '').localeCompare(b.name || '')), [margins]);
 
   const platforms = useMemo(() => [
     { key: 'migros', name: 'Migros', commission: migrosCommission },
@@ -753,12 +803,27 @@ export default function Home() {
     setProducts((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
-  const updateCategoryMargin = React.useCallback((categoryId: string, type: 'store' | 'online', value: number) => {
+  const updateCategoryMargin = React.useCallback((categoryId: string, type: 'store' | 'online', value: number, marginId?: string) => {
     isDirtyRef.current = true;
-    setCategories(prev => prev.map(c => c.id === categoryId ? {
-      ...c,
-      [type === 'store' ? 'targetStoreMargin' : 'targetOnlineMargin']: value
-    } : c));
+    setCategories(prev => prev.map(c => {
+      if (c.id === categoryId) {
+        if (type === 'online') {
+          return { ...c, targetOnlineMargin: value };
+        } else if (type === 'store' && marginId) {
+          const existingValues = c.storeMarginValues || [];
+          const index = existingValues.findIndex(v => v.marginId === marginId);
+          let newValues;
+          if (index >= 0) {
+            newValues = [...existingValues];
+            newValues[index] = { ...newValues[index], value };
+          } else {
+            newValues = [...existingValues, { id: generateId(), categoryId, marginId, value }];
+          }
+          return { ...c, storeMarginValues: newValues };
+        }
+      }
+      return c;
+    }));
   }, []);
 
 
@@ -839,8 +904,10 @@ export default function Home() {
             onSave={(data) => handleUpdateMarginDetails(margin.id, data)}
             trigger={
               <HeaderColumnLabel
-                title={margin.name || `%${margin.value} Marj`}
-                subtitle={margin.name ? `%${margin.value} Marj • %${margin.commissionRate ?? defaultCommissionRate} Kom.` : `%${margin.commissionRate ?? defaultCommissionRate} Kom.`}
+                title={margin.name || (type === 'store' ? 'Yeni Kolon' : `%${margin.value} Marj`)}
+                subtitle={type === 'store'
+                  ? `${margin.commissionRate ? `%${margin.commissionRate} Banka` : 'Std. Banka'}`
+                  : (margin.name ? `%${margin.value} Marj • %${margin.commissionRate ?? defaultCommissionRate} Kom.` : `%${margin.commissionRate ?? defaultCommissionRate} Kom.`)}
               />
             }
           />
@@ -1307,29 +1374,54 @@ export default function Home() {
                             <TableCell className="text-left px-4 py-2">
                               <div className="flex items-center">
                                 <MarginDisplay marginData={avgStoreMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
-                                {category && (
-                                  <CategoryMarginPopover
-                                    type="store"
-                                    categoryName={category.name}
-                                    currentValue={category.targetStoreMargin}
-                                    onSave={(val) => updateCategoryMargin(category.id, 'store', val)}
-                                  />
-                                )}
                               </div>
                             </TableCell>
 
-                            <TableCell colSpan={storeMargins.length + 2} />
+                            {/* Store Dynamic Margin Inputs for Category */}
+                            {storeMargins.map(m => {
+                              const mv = category?.storeMarginValues?.find(v => v.marginId === m.id);
+                              const currentVal = mv?.value || 0;
+                              return (
+                                <TableCell key={m.id} className="px-2 py-2">
+                                  {category ? (
+                                    <div className="flex items-center gap-1 group/input">
+                                      <Input
+                                        type="number"
+                                        className="h-7 w-16 text-xs font-bold bg-background/50 border-dashed focus:bg-background transition-all"
+                                        defaultValue={currentVal}
+                                        onBlur={(e) => {
+                                          const val = parseFloat(e.target.value);
+                                          if (!isNaN(val) && val !== currentVal) {
+                                            updateCategoryMargin(category.id, 'store', val, m.id);
+                                          }
+                                        }}
+                                        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                                      />
+                                      <span className="text-[10px] font-bold text-muted-foreground">%</span>
+                                    </div>
+                                  ) : null}
+                                </TableCell>
+                              );
+                            })}
+
+                            <TableCell colSpan={2} className="w-[40px] px-0" />
 
                             <TableCell className="text-left px-4 py-2">
                               <div className="flex items-center">
                                 <MarginDisplay marginData={avgOnlineMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
                                 {category && (
-                                  <CategoryMarginPopover
-                                    type="online"
-                                    categoryName={category.name}
-                                    currentValue={category.targetOnlineMargin}
-                                    onSave={(val) => updateCategoryMargin(category.id, 'online', val)}
-                                  />
+                                  <div className="flex items-center justify-center translate-x-1">
+                                    <div className="bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full flex items-center gap-1.5 hover:bg-indigo-500/15 transition-all cursor-default">
+                                      <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Hedef:</span>
+                                      <span className="text-xs font-bold text-indigo-400">%{category.targetOnlineMargin || onlineTargetMargin}</span>
+                                      <CategoryMarginPopover
+                                        type="online"
+                                        categoryName={category.name}
+                                        currentValue={category.targetOnlineMargin}
+                                        onSave={(val) => updateCategoryMargin(category.id, 'online', val)}
+                                      />
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                             </TableCell>

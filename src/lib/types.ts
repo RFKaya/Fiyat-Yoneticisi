@@ -13,6 +13,14 @@ export type Category = {
   order: number;
   targetStoreMargin?: number;
   targetOnlineMargin?: number;
+  storeMarginValues?: CategoryStoreMargin[];
+};
+
+export type CategoryStoreMargin = {
+  id: string;
+  categoryId: string;
+  marginId: string;
+  value: number;
 };
 
 export type Ingredient = {
@@ -31,6 +39,7 @@ export type Margin = {
   type: 'store' | 'online';
   commissionRate?: number | null;
   name?: string;
+  categorySpecifics?: CategoryStoreMargin[];
 };
 
 export type Product = {
