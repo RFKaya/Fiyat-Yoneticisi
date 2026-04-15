@@ -16,11 +16,13 @@ model Shop {
 }
 
 model Category {
-  id       String    @id @default(cuid())
-  name     String
-  color    String?
-  order    Int       @default(0)
-  products Product[]
+  id                 String    @id @default(cuid())
+  name               String
+  color              String?
+  order              Int       @default(0)
+  targetStoreMargin  Float?    @map("target_store_margin")
+  targetOnlineMargin Float?    @map("target_online_margin")
+  products           Product[]
 
   @@map("categories")
 }
@@ -72,11 +74,16 @@ model Margin {
 }
 
 model GlobalSettings {
-  id                 String @id @default(cuid())
-  platformCommission Float  @default(15) @map("platform_commission")
-  kdvRate            Float  @default(10) @map("kdv_rate")
-  bankCommissionRate Float  @default(2.5) @map("bank_commission_rate")
-  stopajRate         Float  @default(1) @map("stopaj_rate")
+  id                      String @id @default("default")
+  platformCommission      Float  @default(15) @map("platform_commission")
+  kdvRate                 Float  @default(10) @map("kdv_rate")
+  bankCommissionRate      Float  @default(2.5) @map("bank_commission_rate")
+  stopajRate              Float  @default(1) @map("stopaj_rate")
+  onlineTargetMargin      Float  @default(20) @map("online_target_margin")
+  migrosCommission        Float  @default(40) @map("migros_commission")
+  getirCommission         Float  @default(40) @map("getir_commission")
+  yemeksepetiCommission   Float  @default(40) @map("yemeksepeti_commission")
+  trendyolCommission      Float  @default(40) @map("trendyol_commission")
 
   @@map("global_settings")
 }

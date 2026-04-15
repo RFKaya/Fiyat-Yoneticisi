@@ -1,14 +1,21 @@
 'use client';
 
-import { PiggyBank, Sprout, Home, Sun, Moon } from 'lucide-react';
+import { PiggyBank, Sprout, Home, Sun, Moon, Calculator } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/components/theme-provider';
 
+import { useState, useEffect } from 'react';
+
 export default function Header() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full px-4 pt-4">
@@ -39,6 +46,12 @@ export default function Header() {
                 Malzemeler
               </Link>
             </Button>
+            <Button asChild variant={pathname === '/calculator' ? 'default' : 'ghost'} size="sm">
+              <Link href="/calculator">
+                <Calculator className="mr-2 h-4 w-4" />
+                Hesapla
+              </Link>
+            </Button>
           </div>
           <div className="h-6 w-px bg-border" />
           <Button
@@ -47,7 +60,13 @@ export default function Header() {
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             title="Temayı Değiştir"
           >
-            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            {!mounted ? (
+              <div className="h-5 w-5" />
+            ) : theme === 'dark' ? (
+              <Sun className="h-5 w-5" />
+            ) : (
+              <Moon className="h-5 w-5" />
+            )}
           </Button>
         </div>
       </div>

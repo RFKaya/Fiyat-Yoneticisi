@@ -11,6 +11,8 @@ export type Category = {
   name: string;
   color: string;
   order: number;
+  targetStoreMargin?: number;
+  targetOnlineMargin?: number;
 };
 
 export type Ingredient = {
@@ -40,4 +42,17 @@ export type Product = {
   onlinePrice: number;
   order: number;
   categoryId?: string;
+};
+
+export type GlobalSettings = {
+  id: string;
+  platformCommission: number;
+  kdvRate: number;
+  bankCommissionRate: number;
+  stopajRate: number;
+  onlineTargetMargin: number;
+  migrosCommission: number;
+  getirCommission: number;
+  yemeksepetiCommission: number;
+  trendyolCommission: number;
 };

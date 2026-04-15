@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiDataLogger as log } from '@/lib/logger';
+import { GlobalSettings } from '@/lib/types';
 
-const safeFloat = (val: any) => {
-  if (val === undefined || val === null || val === '') return 0;
+const safeFloat = (val: any): number | null => {
+  if (val === undefined || val === null || val === '') return null;
   if (typeof val === 'number') return val;
   const str = String(val).replace(',', '.');
   const parsed = parseFloat(str);
@@ -41,7 +42,9 @@ export async function GET() {
     }));
 
     const margins = await prisma.margin.findMany();
-    const settings = await prisma.globalSettings.findFirst();
+    const settings = await prisma.globalSettings.findUnique({
+      where: { id: 'default' }
+    }) as GlobalSettings | null;
 
     return NextResponse.json({
       categories,
@@ -52,6 +55,11 @@ export async function GET() {
       kdvRate: settings?.kdvRate ?? 10,
       bankCommissionRate: settings?.bankCommissionRate ?? 2.5,
       stopajRate: settings?.stopajRate ?? 1,
+      onlineTargetMargin: settings?.onlineTargetMargin ?? 30,
+      migrosCommission: settings?.migrosCommission ?? 15,
+      getirCommission: settings?.getirCommission ?? 15,
+      yemeksepetiCommission: settings?.yemeksepetiCommission ?? 15,
+      trendyolCommission: settings?.trendyolCommission ?? 15,
     });
   } catch (error) {
     log.error('API /data GET Error', error);
@@ -65,6 +73,12 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
+    log.debug('POST /api/data received', {
+      products: data.products?.length,
+      categories: data.categories?.length,
+      margins: data.margins?.length,
+      ingredients: data.ingredients?.length
+    });
     
     await prisma.$transaction(async (tx) => {
       // 1. UPSERT CATEGORIES
@@ -72,8 +86,21 @@ export async function POST(request: Request) {
         for (const cat of data.categories) {
           await tx.category.upsert({
             where: { id: cat.id },
-            update: { name: cat.name, color: cat.color || '', order: cat.order || 0 },
-            create: { id: cat.id, name: cat.name, color: cat.color || '', order: cat.order || 0 }
+            update: { 
+              name: cat.name, 
+              color: cat.color || '', 
+              order: cat.order || 0,
+              targetStoreMargin: safeFloat(cat.targetStoreMargin),
+              targetOnlineMargin: safeFloat(cat.targetOnlineMargin)
+            },
+            create: { 
+              id: cat.id, 
+              name: cat.name, 
+              color: cat.color || '', 
+              order: cat.order || 0,
+              targetStoreMargin: safeFloat(cat.targetStoreMargin),
+              targetOnlineMargin: safeFloat(cat.targetOnlineMargin)
+            }
           });
         }
       }
@@ -96,18 +123,18 @@ export async function POST(request: Request) {
             where: { id: prod.id },
             update: { 
                name: prod.name, 
-               manualCost: safeFloat(prod.manualCost), 
-               storePrice: safeFloat(prod.storePrice), 
-               onlinePrice: safeFloat(prod.onlinePrice), 
+               manualCost: safeFloat(prod.manualCost) ?? 0, 
+               storePrice: safeFloat(prod.storePrice) ?? 0, 
+               onlinePrice: safeFloat(prod.onlinePrice) ?? 0, 
                order: prod.order || 0, 
                categoryId: prod.categoryId 
             },
             create: { 
                id: prod.id, 
                name: prod.name, 
-               manualCost: safeFloat(prod.manualCost), 
-               storePrice: safeFloat(prod.storePrice), 
-               onlinePrice: safeFloat(prod.onlinePrice), 
+               manualCost: safeFloat(prod.manualCost) ?? 0, 
+               storePrice: safeFloat(prod.storePrice) ?? 0, 
+               onlinePrice: safeFloat(prod.onlinePrice) ?? 0, 
                order: prod.order || 0, 
                categoryId: prod.categoryId 
             }
@@ -119,7 +146,7 @@ export async function POST(request: Request) {
             const ingCount = await tx.ingredient.count({ where: { id: rec.ingredientId } });
             if (ingCount > 0) {
               await tx.recipeItem.create({
-                data: { productId: prod.id, ingredientId: rec.ingredientId, quantity: safeFloat(rec.quantity) }
+                data: { productId: prod.id, ingredientId: rec.ingredientId, quantity: safeFloat(rec.quantity) ?? 1 }
               });
             }
           }
@@ -139,14 +166,14 @@ export async function POST(request: Request) {
             where: { id: mar.id },
             update: { 
               name: mar.name, 
-              value: safeFloat(mar.value), 
+              value: safeFloat(mar.value) ?? 0, 
               type: mar.type, 
               commissionRate: commRate 
             },
             create: { 
               id: mar.id, 
               name: mar.name, 
-              value: safeFloat(mar.value), 
+              value: safeFloat(mar.value) ?? 0, 
               type: mar.type, 
               commissionRate: commRate 
             }
@@ -154,37 +181,45 @@ export async function POST(request: Request) {
         }
       }
 
-      // 5. UPDATE SETTINGS
-      const settingsFields = ['platformCommissionRate', 'kdvRate', 'bankCommissionRate', 'stopajRate'];
+      // 5. UPDATE SETTINGS (USING STABLE ID "default")
+      const settingsFields = [
+        'platformCommissionRate', 'kdvRate', 'bankCommissionRate', 'stopajRate',
+        'onlineTargetMargin', 'migrosCommission', 'getirCommission', 
+        'yemeksepetiCommission', 'trendyolCommission'
+      ];
+      
       if (settingsFields.some(f => data[f] !== undefined)) {
-        const existing = await tx.globalSettings.findFirst();
-        const payload = {
-          platformCommission: data.platformCommissionRate,
-          kdvRate: data.kdvRate,
-          bankCommissionRate: data.bankCommissionRate,
-          stopajRate: data.stopajRate,
-        };
-        
-        if (existing) {
-          await tx.globalSettings.update({
-            where: { id: existing.id },
-            data: {
-               platformCommission: data.platformCommissionRate !== undefined ? safeFloat(data.platformCommissionRate) : existing.platformCommission,
-               kdvRate: data.kdvRate !== undefined ? safeFloat(data.kdvRate) : existing.kdvRate,
-               bankCommissionRate: data.bankCommissionRate !== undefined ? safeFloat(data.bankCommissionRate) : existing.bankCommissionRate,
-               stopajRate: data.stopajRate !== undefined ? safeFloat(data.stopajRate) : existing.stopajRate,
-            }
-          });
-        } else {
-          await tx.globalSettings.create({
-            data: {
-               platformCommission: safeFloat(data.platformCommissionRate) || 15,
-               kdvRate: safeFloat(data.kdvRate) || 10,
-               bankCommissionRate: safeFloat(data.bankCommissionRate) || 2.5,
-               stopajRate: safeFloat(data.stopajRate) || 1,
-            }
-          });
-        }
+        // Cleanup any potential old records that don't have the 'default' ID
+        await tx.globalSettings.deleteMany({
+          where: { id: { not: 'default' } }
+        });
+
+        await tx.globalSettings.upsert({
+          where: { id: 'default' },
+          update: {
+            platformCommission: data.platformCommissionRate !== undefined ? (safeFloat(data.platformCommissionRate) ?? 15) : undefined,
+            kdvRate: data.kdvRate !== undefined ? (safeFloat(data.kdvRate) ?? 10) : undefined,
+            bankCommissionRate: data.bankCommissionRate !== undefined ? (safeFloat(data.bankCommissionRate) ?? 2.5) : undefined,
+            stopajRate: data.stopajRate !== undefined ? (safeFloat(data.stopajRate) ?? 1) : undefined,
+            onlineTargetMargin: data.onlineTargetMargin !== undefined ? (safeFloat(data.onlineTargetMargin) ?? 30) : undefined,
+            migrosCommission: data.migrosCommission !== undefined ? (safeFloat(data.migrosCommission) ?? 15) : undefined,
+            getirCommission: data.getirCommission !== undefined ? (safeFloat(data.getirCommission) ?? 15) : undefined,
+            yemeksepetiCommission: data.yemeksepetiCommission !== undefined ? (safeFloat(data.yemeksepetiCommission) ?? 15) : undefined,
+            trendyolCommission: data.trendyolCommission !== undefined ? (safeFloat(data.trendyolCommission) ?? 15) : undefined,
+          },
+          create: {
+            id: 'default',
+            platformCommission: safeFloat(data.platformCommissionRate) ?? 15,
+            kdvRate: safeFloat(data.kdvRate) ?? 10,
+            bankCommissionRate: safeFloat(data.bankCommissionRate) ?? 2.5,
+            stopajRate: safeFloat(data.stopajRate) ?? 1,
+            onlineTargetMargin: safeFloat(data.onlineTargetMargin) ?? 30,
+            migrosCommission: safeFloat(data.migrosCommission) ?? 15,
+            getirCommission: safeFloat(data.getirCommission) ?? 15,
+            yemeksepetiCommission: safeFloat(data.yemeksepetiCommission) ?? 15,
+            trendyolCommission: safeFloat(data.trendyolCommission) ?? 15,
+          }
+        });
       }
 
       // 6. DELETE MISSING ITEMS (Cleanup)
@@ -210,10 +245,15 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    log.error('Failed to save data via API', error);
+  } catch (error: any) {
+    log.error('API /data POST ERROR!', { 
+      message: error.message, 
+      code: error.code, 
+      meta: error.meta,
+      stack: error.stack?.split('\n')[0] 
+    });
     return NextResponse.json(
-      { error: 'Failed to write data' },
+      { error: 'Failed to write data', details: error.message, code: error.code },
       { status: 500 }
     );
   }

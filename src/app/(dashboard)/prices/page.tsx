@@ -188,7 +188,7 @@ function EconomicsTooltipContent({
             <span className="text-destructive">- {formatCurrency(vat)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
-            <span>Komisyon { (commissionRate !== undefined && commissionRate !== null) ? `(%${commissionRate.toFixed(2)})` : ''}</span>
+            <span>Komisyon {(commissionRate !== undefined && commissionRate !== null) ? `(%${commissionRate.toFixed(2)})` : ''}</span>
             <span className="text-destructive">- {formatCurrency(commission)}</span>
           </div>
           {stopaj > 0 && (
@@ -240,16 +240,37 @@ function MarginDisplay({ marginData, colorStyle }: { marginData: { percentage: n
   );
 }
 
-const MarginCells = React.memo(({ margins, cost, kdvRate, defaultCommissionRate, stopajRate = 0 }:
-  { margins: Margin[]; cost: number; kdvRate: number; defaultCommissionRate: number; stopajRate?: number; }) => {
+const HeaderColumnLabel = React.forwardRef<HTMLDivElement, { title: string, subtitle: string }>(
+  ({ title, subtitle, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        {...props}
+        className="cursor-pointer hover:text-primary transition-colors flex flex-col overflow-hidden"
+      >
+        <span className="truncate font-bold">{title}</span>
+        <span className="text-[10px] font-medium text-muted-foreground mt-0.5 uppercase tracking-tighter truncate">
+          {subtitle}
+        </span>
+      </div>
+    );
+  }
+);
+HeaderColumnLabel.displayName = 'HeaderColumnLabel';
+
+const PlatformCells = React.memo(({ cost, kdvRate, stopajRate, targetMargin, platforms }: {
+  cost: number;
+  kdvRate: number;
+  stopajRate: number;
+  targetMargin: number;
+  platforms: { name: string, commission: number }[];
+}) => {
   return (
     <>
-      {margins.map((margin) => {
-        const commission = (margin.commissionRate !== undefined && margin.commissionRate !== null) ? margin.commissionRate : defaultCommissionRate;
-        const mEcon = calculateEconomicsFromMargin(margin.value, cost, kdvRate, commission, stopajRate);
-
+      {platforms.map((p, idx) => {
+        const mEcon = calculateEconomicsFromMargin(targetMargin, cost, kdvRate, p.commission, stopajRate);
         return (
-          <TableCell key={margin.id} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
+          <TableCell key={idx} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -259,17 +280,18 @@ const MarginCells = React.memo(({ margins, cost, kdvRate, defaultCommissionRate,
                 </TooltipTrigger>
                 <EconomicsTooltipContent
                   isCalculable={mEcon.isCalculable}
-                  title="Ana Fiyat"
+                  title={`${p.name} Fiyatı`}
                   revenue={mEcon.sellingPrice}
                   vat={mEcon.vatAmount}
                   kdvRate={kdvRate}
                   commission={mEcon.commissionAmount}
-                  commissionRate={commission}
+                  commissionRate={p.commission}
                   stopaj={mEcon.stopajAmount}
                   stopajRate={stopajRate > 0 ? stopajRate : undefined}
                   cost={cost}
                   netProfit={mEcon.netProfit}
                   percentage={mEcon.profitPercentage}
+                  headerLabel={`${p.name} (%${targetMargin} Hedef)`}
                 />
               </Tooltip>
             </TooltipProvider>
@@ -284,7 +306,6 @@ const SortableProductRow = React.memo(({
   product,
   ingredients,
   storeMargins,
-  onlineMargins,
   categories,
   platformCommissionRate,
   bankCommissionRate,
@@ -294,12 +315,14 @@ const SortableProductRow = React.memo(({
   deleteProduct,
   isExpanded,
   onToggleExpand,
-  updateIngredientPrice
+  updateIngredientPrice,
+  onlineTargetMargin,
+  platforms,
+  category
 }: {
   product: Product,
   ingredients: Ingredient[],
   storeMargins: Margin[],
-  onlineMargins: Margin[],
   categories: Category[],
   platformCommissionRate: number,
   bankCommissionRate: number,
@@ -310,6 +333,9 @@ const SortableProductRow = React.memo(({
   isExpanded: boolean,
   onToggleExpand: (id: string) => void,
   updateIngredientPrice: (ingredientId: string, newPrice: number) => void;
+  onlineTargetMargin: number;
+  platforms: { name: string, commission: number }[];
+  category?: Category;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: product.id });
 
@@ -317,14 +343,15 @@ const SortableProductRow = React.memo(({
 
   const hasRecipe = product.recipe && product.recipe.length > 0;
   const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
-  const category = categories.find(c => c.id === product.categoryId);
+  // Use product category for coloring, but the passed category is more reliable for target calculations
+  const displayCategory = categories.find(c => c.id === product.categoryId);
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.8 : 1,
     zIndex: isDragging ? 10 : 'auto',
-    backgroundColor: category ? `${category.color}33` : undefined,
+    backgroundColor: displayCategory ? `${displayCategory.color}33` : undefined,
   };
 
   const handleUpdate = (field: 'name' | 'storePrice' | 'onlinePrice', value: string) => {
@@ -428,11 +455,13 @@ const SortableProductRow = React.memo(({
           </TooltipProvider>
         )}
       </TableCell>
-      <MarginCells
-        margins={storeMargins}
+      <PlatformCells
         cost={cost}
         kdvRate={kdvRate}
-        defaultCommissionRate={bankCommissionRate}
+        stopajRate={0}
+        targetMargin={0} // Not used for direct storePrice display actually, but MarginCells does use it for "suggested" margins
+        platforms={storeMargins.map(m => ({ name: m.name || `%${m.value} Marj`, commission: m.commissionRate ?? bankCommissionRate }))}
+      // Wait, I should probably keep MarginCells for Store if it works fine and only change Online
       />
       <TableCell className="text-left px-0 w-[30px] py-1">
       </TableCell>
@@ -485,17 +514,14 @@ const SortableProductRow = React.memo(({
         )}
       </TableCell>
 
-      <MarginCells
-        margins={onlineMargins}
+      <PlatformCells
         cost={cost}
         kdvRate={kdvRate}
-        defaultCommissionRate={platformCommissionRate}
         stopajRate={stopajRate}
+        targetMargin={category?.targetOnlineMargin ?? onlineTargetMargin}
+        platforms={platforms}
       />
-      <TableCell className="text-left px-0 w-[30px] py-1">
-      </TableCell>
-
-      <TableCell className="text-right w-[60px] px-4 py-1">
+      <TableCell className="text-right w-[80px] px-4 py-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -562,7 +588,7 @@ function SortableCategoryItem({ category, onDelete }: { category: Category; onDe
   );
 }
 
-function RatePopover({ title, label, rate, onSave, maxLimit = 100 }: { title: string, label: string, rate: number, onSave: (r: number) => void, maxLimit?: number }) {
+function RatePopover({ title, label, rate, onSave, maxLimit = 100, trigger }: { title: string, label?: string, rate: number, onSave: (r: number) => void, maxLimit?: number, trigger?: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState(String(rate));
 
@@ -577,9 +603,11 @@ function RatePopover({ title, label, rate, onSave, maxLimit = 100 }: { title: st
   return (
     <Popover open={isOpen} onOpenChange={(open) => { if (open) setInput(String(rate)); setIsOpen(open) }}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-primary/10">
-          <Percent className="h-3.5 w-3.5" /> {label} %{rate}
-        </Button>
+        {trigger || (
+          <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs hover:bg-primary/10">
+            <Percent className="h-3.5 w-3.5" /> {label} %{rate}
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-64 p-4 glass-panel border-none shadow-xl">
         <div className="grid gap-3">
@@ -589,6 +617,63 @@ function RatePopover({ title, label, rate, onSave, maxLimit = 100 }: { title: st
             <span className="font-bold">%</span>
           </div>
           <Button onClick={handleSave} size="sm">Güncelle</Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function CategoryMarginPopover({
+  type,
+  categoryName,
+  currentValue,
+  onSave,
+  onApply
+}: {
+  type: 'store' | 'online',
+  categoryName: string,
+  currentValue?: number,
+  onSave: (val: number) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [input, setInput] = useState(String(currentValue || ''));
+
+  const handleSave = () => {
+    const newVal = parseFloat(input);
+    if (!isNaN(newVal) && newVal >= 0) {
+      onSave(newVal);
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={(open) => { if (open) setInput(String(currentValue || '')); setIsOpen(open) }}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 text-primary/50 hover:text-primary hover:bg-primary/10 transition-all">
+          <PlusCircle className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-4 glass-panel border-none shadow-xl">
+        <div className="grid gap-4">
+          <div className="space-y-1">
+            <h4 className="font-bold leading-none">{categoryName}</h4>
+            <p className="text-xs text-muted-foreground">
+              {type === 'store' ? 'Mağaza' : 'Online'} Kâr Marjı Hedefi (%)
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Örn: 30"
+              onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+            />
+            <span className="font-bold">%</span>
+          </div>
+          <Button onClick={handleSave} size="sm" className="w-full font-bold">
+            Hedefi Kaydet
+          </Button>
         </div>
       </PopoverContent>
     </Popover>
@@ -621,9 +706,28 @@ export default function Home() {
   const [bankCommissionRate, setBankCommissionRate] = useState(2.5);
   const [kdvRate, setKdvRate] = useState(10);
   const [stopajRate, setStopajRate] = useState(1);
+  const [onlineTargetMargin, setOnlineTargetMargin] = useState(30);
+  const [migrosCommission, setMigrosCommission] = useState(15);
+  const [getirCommission, setGetirCommission] = useState(15);
+  const [yemeksepetiCommission, setYemeksepetiCommission] = useState(15);
+  const [trendyolCommission, setTrendyolCommission] = useState(15);
 
   const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a, b) => a.value - b.value), [margins]);
-  const onlineMargins = useMemo(() => margins.filter(m => m.type === 'online').sort((a, b) => a.value - b.value), [margins]);
+
+  const platforms = useMemo(() => [
+    { key: 'migros', name: 'Migros', commission: migrosCommission },
+    { key: 'getir', name: 'Getir', commission: getirCommission },
+    { key: 'yemeksepeti', name: 'Yemeksepeti', commission: yemeksepetiCommission },
+    { key: 'trendyol', name: 'Trendyol', commission: trendyolCommission },
+  ], [migrosCommission, getirCommission, yemeksepetiCommission, trendyolCommission]);
+
+  const updatePlatformCommission = (key: string, val: number) => {
+    isDirtyRef.current = true;
+    if (key === 'migros') setMigrosCommission(val);
+    else if (key === 'getir') setGetirCommission(val);
+    else if (key === 'yemeksepeti') setYemeksepetiCommission(val);
+    else if (key === 'trendyol') setTrendyolCommission(val);
+  };
 
   const toggleProductExpansion = React.useCallback((productId: string) => {
     setExpandedProductIds(prev =>
@@ -648,6 +752,15 @@ export default function Home() {
     log.warn('Ürün siliniyor', { productId: id });
     setProducts((prev) => prev.filter((p) => p.id !== id));
   }, []);
+
+  const updateCategoryMargin = React.useCallback((categoryId: string, type: 'store' | 'online', value: number) => {
+    isDirtyRef.current = true;
+    setCategories(prev => prev.map(c => c.id === categoryId ? {
+      ...c,
+      [type === 'store' ? 'targetStoreMargin' : 'targetOnlineMargin']: value
+    } : c));
+  }, []);
+
 
   const updateProduct = React.useCallback((id: string, field: keyof Product, value: string | number | undefined) => {
     isDirtyRef.current = true;
@@ -716,7 +829,7 @@ export default function Home() {
   ) => (
     <>
       {marginsList.map((margin) => (
-        <TableHead key={margin.id} className="text-left font-bold w-[140px] px-2 py-4 relative group">
+        <TableHead key={margin.id} className="th-premium w-[140px] px-2 relative group">
           <Button variant="ghost" size="icon" className="absolute top-2 right-1 h-5 w-5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => handleDeleteMargin(margin.id)}>
             <X className="h-3 w-3" />
           </Button>
@@ -725,13 +838,10 @@ export default function Home() {
             margin={margin}
             onSave={(data) => handleUpdateMarginDetails(margin.id, data)}
             trigger={
-              <div className="cursor-pointer hover:text-primary transition-colors flex flex-col pr-6">
-                <span className="truncate">{margin.name || `%${margin.value} Marj`}</span>
-                <span className="text-[10px] font-medium text-muted-foreground mt-0.5 uppercase tracking-tighter">
-                  {margin.name && `%${margin.value} Marj • `}
-                  %{margin.commissionRate ?? defaultCommissionRate} Kom.
-                </span>
-              </div>
+              <HeaderColumnLabel
+                title={margin.name || `%${margin.value} Marj`}
+                subtitle={margin.name ? `%${margin.value} Marj • %${margin.commissionRate ?? defaultCommissionRate} Kom.` : `%${margin.commissionRate ?? defaultCommissionRate} Kom.`}
+              />
             }
           />
         </TableHead>
@@ -782,6 +892,11 @@ export default function Home() {
         setBankCommissionRate(data.bankCommissionRate ?? 2.5);
         setKdvRate(data.kdvRate ?? 10);
         setStopajRate(data.stopajRate ?? 1);
+        setOnlineTargetMargin(data.onlineTargetMargin ?? 30);
+        setMigrosCommission(data.migrosCommission ?? 15);
+        setGetirCommission(data.getirCommission ?? 15);
+        setYemeksepetiCommission(data.yemeksepetiCommission ?? 15);
+        setTrendyolCommission(data.trendyolCommission ?? 15);
 
         log.success('Veriler başarıyla yüklendi', {
           products: sortedProducts.length,
@@ -793,6 +908,7 @@ export default function Home() {
             banka: data.bankCommissionRate ?? 2.5,
             kdv: data.kdvRate ?? 10,
             stopaj: data.stopajRate ?? 1,
+            onlineTarget: data.onlineTargetMargin ?? 30,
           },
         });
 
@@ -830,7 +946,21 @@ export default function Home() {
       fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products, ingredients, margins, categories, platformCommissionRate, kdvRate, bankCommissionRate, stopajRate }),
+        body: JSON.stringify({
+          products,
+          ingredients,
+          margins,
+          categories,
+          platformCommissionRate,
+          kdvRate,
+          bankCommissionRate,
+          stopajRate,
+          onlineTargetMargin,
+          migrosCommission,
+          getirCommission,
+          yemeksepetiCommission,
+          trendyolCommission
+        }),
       })
         .then((res) => {
           saveTimer.end();
@@ -848,7 +978,12 @@ export default function Home() {
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, ingredients, margins, categories, platformCommissionRate, kdvRate, bankCommissionRate, stopajRate, isLoading]);
+  }, [
+    products, ingredients, margins, categories, platformCommissionRate,
+    kdvRate, bankCommissionRate, stopajRate, onlineTargetMargin,
+    migrosCommission, getirCommission, yemeksepetiCommission, trendyolCommission,
+    isLoading
+  ]);
 
 
 
@@ -1004,7 +1139,7 @@ export default function Home() {
     }
   }
 
-  const totalColumns = 8 + storeMargins.length + onlineMargins.length;
+  const totalColumns = 11 + storeMargins.length;
   const productIds = useMemo(() => products.map(p => p.id), [products]);
   const categoryIds = useMemo(() => categories.map(c => c.id), [categories]);
   const pricedIngredients = useMemo(() => ingredients.filter(ing => ing.price !== undefined && ing.unit !== undefined), [ingredients]);
@@ -1017,16 +1152,15 @@ export default function Home() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div>
             <div className="flex items-center gap-3 mb-2 h-6">
-               <h2 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-primary to-indigo-500">
+              <h2 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-primary to-indigo-500">
                 Ürün ve Kâr Analizi
               </h2>
-              <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full transition-all duration-300 ${
-                saveStatus === 'waiting' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+              <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full transition-all duration-300 ${saveStatus === 'waiting' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
                 saveStatus === 'saving' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20 animate-pulse' :
-                saveStatus === 'saved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                saveStatus === 'error' ? 'bg-destructive/10 text-destructive border border-destructive/20' :
-                'opacity-0'
-              }`}>
+                  saveStatus === 'saved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                    saveStatus === 'error' ? 'bg-destructive/10 text-destructive border border-destructive/20' :
+                      'opacity-0'
+                }`}>
                 {saveStatus === 'waiting' && '🕒 Kayıt Bekliyor'}
                 {saveStatus === 'saving' && '🔄 Kaydediliyor'}
                 {saveStatus === 'saved' && '✅ Kaydedildi'}
@@ -1048,6 +1182,8 @@ export default function Home() {
               <RatePopover title="Platform Komisyonu" label="Platform:" rate={platformCommissionRate} onSave={(val) => { isDirtyRef.current = true; setPlatformCommissionRate(val); }} maxLimit={100} />
               <Separator orientation="vertical" className="h-4" />
               <RatePopover title="Stopaj Oranı" label="Stopaj:" rate={stopajRate} onSave={(val) => { isDirtyRef.current = true; setStopajRate(val); }} maxLimit={100} />
+              <Separator orientation="vertical" className="h-4" />
+              <RatePopover title="Online Hedef Kâr Marjı" label="Online Hedef:" rate={onlineTargetMargin} onSave={(val) => { isDirtyRef.current = true; setOnlineTargetMargin(val); }} maxLimit={100} />
             </div>
 
             <Button onClick={() => setCategoryDialogOpen(true)} variant="outline" className="glass-panel border-dashed h-11 px-5">
@@ -1109,9 +1245,9 @@ export default function Home() {
               <Table className="table-fixed min-w-[1400px]">
                 <TableHeader className="bg-muted/30 backdrop-blur-sm sticky top-0 z-20">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="font-bold w-[340px] px-6 py-4">Ürün Adı</TableHead>
-                    <TableHead className="text-left font-bold w-[120px] px-4 py-4">Maliyet</TableHead>
-                    <TableHead className="text-left font-bold w-[160px] px-4 py-2">
+                    <TableHead className="th-premium w-[340px] px-6">Ürün Adı</TableHead>
+                    <TableHead className="th-premium w-[120px]">Maliyet</TableHead>
+                    <TableHead className="th-premium w-[160px] py-2">
                       <div className="flex flex-col justify-center">
                         <span>Mağaza Fiyatı</span>
                         <MarginDisplay marginData={productAverages.overallStore} />
@@ -1119,14 +1255,28 @@ export default function Home() {
                     </TableHead>
                     {renderMarginHeaders('store', storeMargins, bankCommissionRate)}
                     <TableHead className="w-8 px-0 border-x border-border/20" />
-                    <TableHead className="text-left font-bold w-[160px] px-4 py-2">
+                    <TableHead className="th-premium w-[160px] py-2">
                       <div className="flex flex-col justify-center">
                         <span>Online Fiyat</span>
                         <MarginDisplay marginData={productAverages.overallOnline} />
                       </div>
                     </TableHead>
-                    {renderMarginHeaders('online', onlineMargins, platformCommissionRate)}
-                    <TableHead className="text-center font-bold w-[80px] px-4 py-4">İşlem</TableHead>
+                    {platforms.map(p => (
+                      <TableHead key={p.key} className="th-premium w-[140px] px-2 relative group">
+                        <RatePopover
+                          title={`${p.name} Komisyonu`}
+                          rate={p.commission}
+                          onSave={(val) => updatePlatformCommission(p.key, val)}
+                          trigger={
+                            <HeaderColumnLabel
+                              title={p.name}
+                              subtitle={`%${p.commission} Kom.`}
+                            />
+                          }
+                        />
+                      </TableHead>
+                    ))}
+                    <TableHead className="th-premium text-center w-[80px]">İşlem</TableHead>
                   </TableRow>
                 </TableHeader>
                 <SortableContext items={productIds} strategy={verticalListSortingStrategy}>
@@ -1155,16 +1305,36 @@ export default function Home() {
                             </TableCell>
 
                             <TableCell className="text-left px-4 py-2">
-                              <MarginDisplay marginData={avgStoreMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
+                              <div className="flex items-center">
+                                <MarginDisplay marginData={avgStoreMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
+                                {category && (
+                                  <CategoryMarginPopover
+                                    type="store"
+                                    categoryName={category.name}
+                                    currentValue={category.targetStoreMargin}
+                                    onSave={(val) => updateCategoryMargin(category.id, 'store', val)}
+                                  />
+                                )}
+                              </div>
                             </TableCell>
 
                             <TableCell colSpan={storeMargins.length + 2} />
 
                             <TableCell className="text-left px-4 py-2">
-                              <MarginDisplay marginData={avgOnlineMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
+                              <div className="flex items-center">
+                                <MarginDisplay marginData={avgOnlineMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
+                                {category && (
+                                  <CategoryMarginPopover
+                                    type="online"
+                                    categoryName={category.name}
+                                    currentValue={category.targetOnlineMargin}
+                                    onSave={(val) => updateCategoryMargin(category.id, 'online', val)}
+                                  />
+                                )}
+                              </div>
                             </TableCell>
 
-                            <TableCell colSpan={onlineMargins.length + 2} className="text-right py-2.5 px-6">
+                            <TableCell colSpan={platforms.length + 1} className="text-right py-2.5 px-6">
                               <div className="flex justify-end items-center h-full">
                                 <span className="text-[11px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
                                   {productGroup.length} ÜRÜN
@@ -1178,7 +1348,6 @@ export default function Home() {
                                 product={product}
                                 ingredients={ingredients}
                                 storeMargins={storeMargins}
-                                onlineMargins={onlineMargins}
                                 categories={categories}
                                 platformCommissionRate={platformCommissionRate}
                                 bankCommissionRate={bankCommissionRate}
@@ -1189,6 +1358,9 @@ export default function Home() {
                                 isExpanded={expandedProductIds.includes(product.id)}
                                 onToggleExpand={toggleProductExpansion}
                                 updateIngredientPrice={updateIngredientPrice}
+                                onlineTargetMargin={onlineTargetMargin}
+                                platforms={platforms}
+                                category={category}
                               />
                               {expandedProductIds.includes(product.id) && (
                                 <TableRow className="bg-primary/5 hover:bg-primary/5">

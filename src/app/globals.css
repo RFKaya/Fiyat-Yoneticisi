@@ -56,6 +56,10 @@
     @apply bg-card/60 backdrop-blur-lg border border-border shadow-lg rounded-2xl;
   }
 
+  .th-premium {
+    @apply font-bold text-left px-4 py-4;
+  }
+
   .blob {
     @apply absolute blur-[80px] rounded-full opacity-30 animate-pulse;
     pointer-events: none;
