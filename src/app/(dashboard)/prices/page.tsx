@@ -276,6 +276,7 @@ const PlatformCells = React.memo(({ cost, kdvRate, stopajRate, targetMargin, pla
     </>
   );
 });
+PlatformCells.displayName = 'PlatformCells';
 
 const SortableProductRow = React.memo(({
   product,
@@ -350,7 +351,7 @@ const SortableProductRow = React.memo(({
   const showNetOnlineProfit = product.onlinePrice > 0;
 
   // Prepare store dynamic margin cells
-    const categoryStoreMarginCells = storeMargins.map(m => {
+  const categoryStoreMarginCells = storeMargins.map(m => {
     // Find the specific margin value for this category and margin column
     const mv = category?.storeMarginValues?.find(v => v.marginId === m.id);
     const targetVal = mv?.value || 0;
@@ -563,6 +564,7 @@ const SortableProductRow = React.memo(({
     </TableRow>
   );
 });
+SortableProductRow.displayName = 'SortableProductRow';
 
 function SortableCategoryItem({ category, onDelete }: { category: Category; onDelete: (id: string) => void }) {
   const {
@@ -1126,14 +1128,12 @@ export default function Home() {
     return grouped;
   }, [products, categories, productAverages]);
 
-
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
