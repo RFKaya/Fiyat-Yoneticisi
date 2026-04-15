@@ -793,11 +793,14 @@ export default function Home() {
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id === id) {
-          if (field === 'name' || field === 'categoryId') {
-            return { ...p, [field]: value };
+          if (field === 'categoryId') {
+            return { ...p, categoryId: value as string | undefined };
           }
-          const numericValue = typeof value === 'string' ? parseFloat(value) : (value || 0);
-          const finalValue = isNaN(numericValue) ? '' : numericValue;
+          if (field === 'name') {
+            return { ...p, name: value as string };
+          }
+          const numericValue = typeof value === 'string' ? parseFloat(value.replace(',', '.')) : (value ?? 0);
+          const finalValue = isNaN(numericValue as number) ? 0 : numericValue;
           return { ...p, [field]: finalValue };
         }
         return p;
@@ -1163,7 +1166,7 @@ export default function Home() {
     }
   }
 
-  const totalColumns = 11 + storeMargins.length;
+  const totalColumns = 7 + storeMargins.length + platforms.length;
   const productIds = useMemo(() => products.map(p => p.id), [products]);
   const categoryIds = useMemo(() => categories.map(c => c.id), [categories]);
   const pricedIngredients = useMemo(() => ingredients.filter(ing => ing.price !== undefined && ing.unit !== undefined), [ingredients]);
