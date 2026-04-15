@@ -42,12 +42,10 @@ const generateId = () => {
 };
 
 function MarginEditPopover({
-  type,
   margin,
   onSave,
   trigger,
 }: {
-  type: 'store' | 'online';
   margin?: Margin;
   onSave: (marginData: Partial<Margin>) => void;
   trigger: React.ReactNode;
@@ -70,19 +68,17 @@ function MarginEditPopover({
     const numericCommission = parseFloat(commission);
 
     // For Store margins, value can be 0 (default) as it's defined per category
-    if (type === 'store' || (!isNaN(numericValue) && numericValue > 0)) {
-      onSave({
-        value: !isNaN(numericValue) ? numericValue : 0,
-        name: name.trim() || undefined,
-        commissionRate: !isNaN(numericCommission) ? numericCommission : null,
-      });
-      if (!margin) {
-        setValue('');
-        setName('');
-        setCommission('');
-      }
-      setIsOpen(false);
+    onSave({
+      value: !isNaN(numericValue) ? numericValue : 0,
+      name: name.trim() || undefined,
+      commissionRate: !isNaN(numericCommission) ? numericCommission : null,
+    });
+    if (!margin) {
+      setValue('');
+      setName('');
+      setCommission('');
     }
+    setIsOpen(false);
   };
 
   return (
@@ -94,12 +90,10 @@ function MarginEditPopover({
         <div className="grid gap-4">
           <div className="space-y-1">
             <h4 className="font-bold leading-none">
-              {margin ? 'Kolonu Düzenle' : (type === 'store' ? 'Yeni Satış Kolonu' : 'Yeni Online Marj')}
+              {margin ? 'Kolonu Düzenle' : 'Yeni Satış Kolonu'}
             </h4>
             <p className="text-xs text-muted-foreground">
-              {type === 'store'
-                ? 'Bu kolon tüm kategorilerde görünecek, ancak kâr oranlarını her kategori için ayrı belirleyeceksiniz.'
-                : 'Analiz için detayları belirleyin.'}
+              Bu kolon tüm kategorilerde görünecek, ancak kâr oranlarını her kategori için ayrı belirleyeceksiniz.
             </p>
           </div>
           <div className="grid gap-3">
@@ -107,51 +101,12 @@ function MarginEditPopover({
               <Label htmlFor="margin-name" className="text-xs font-semibold">Kolon/Platform İsmi</Label>
               <Input
                 id="margin-name"
-                placeholder={type === 'store' ? 'Örn: Kampanyalı, Özel...' : 'Örn: Trendyol, Getir...'}
+                placeholder="Örn: Kampanyalı, Özel..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="h-8 text-sm"
               />
             </div>
-            {type === 'online' && (
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label htmlFor="margin-value" className="text-xs font-semibold">Varsayılan Marj (%)</Label>
-                  <Input
-                    id="margin-value"
-                    type="number"
-                    placeholder="30"
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="margin-comm" className="text-xs font-semibold">Komisyon (%)</Label>
-                  <Input
-                    id="margin-comm"
-                    type="number"
-                    placeholder="Örn: 15"
-                    value={commission}
-                    onChange={(e) => setCommission(e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                </div>
-              </div>
-            )}
-            {type === 'store' && (
-              <div className="space-y-1">
-                <Label htmlFor="margin-comm" className="text-xs font-semibold">Banka/İşlem Komisyonu (%)</Label>
-                <Input
-                  id="margin-comm"
-                  type="number"
-                  placeholder="Opsiyonel (Örn: 2.5)"
-                  value={commission}
-                  onChange={(e) => setCommission(e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-            )}
           </div>
           <Button onClick={handleSave} size="sm" className="w-full font-bold">
             {margin ? 'Güncelle' : 'Kolon Ekle'}
@@ -267,9 +222,11 @@ const HeaderColumnLabel = React.forwardRef<HTMLDivElement, { title: string, subt
         className="cursor-pointer hover:text-primary transition-colors flex flex-col overflow-hidden"
       >
         <span className="truncate font-bold">{title}</span>
-        <span className="text-[10px] font-medium text-muted-foreground mt-0.5 uppercase tracking-tighter truncate">
-          {subtitle}
-        </span>
+        {subtitle && (
+          <span className="text-[10px] font-medium text-muted-foreground mt-0.5 uppercase tracking-tighter truncate">
+            {subtitle}
+          </span>
+        )}
       </div>
     );
   }
@@ -393,11 +350,11 @@ const SortableProductRow = React.memo(({
   const showNetOnlineProfit = product.onlinePrice > 0;
 
   // Prepare store dynamic margin cells
-  const categoryStoreMarginCells = storeMargins.map(m => {
+    const categoryStoreMarginCells = storeMargins.map(m => {
     // Find the specific margin value for this category and margin column
     const mv = category?.storeMarginValues?.find(v => v.marginId === m.id);
     const targetVal = mv?.value || 0;
-    const comm = m.commissionRate ?? bankCommissionRate;
+    const comm = bankCommissionRate;
     return { name: m.name || `%${targetVal} Marj`, commission: comm, targetMargin: targetVal };
   });
 
@@ -503,6 +460,8 @@ const SortableProductRow = React.memo(({
                   kdvRate={kdvRate}
                   commission={mEcon.commissionAmount}
                   commissionRate={cell.commission}
+                  stopaj={mEcon.stopajAmount}
+                  stopajRate={0}
                   cost={cost}
                   netProfit={mEcon.netProfit}
                   percentage={mEcon.profitPercentage}
@@ -677,8 +636,7 @@ function CategoryMarginPopover({
   type,
   categoryName,
   currentValue,
-  onSave,
-  onApply
+  onSave
 }: {
   type: 'store' | 'online',
   categoryName: string,
@@ -736,7 +694,7 @@ export default function Home() {
   const [margins, setMargins] = useState<Margin[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
 
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'waiting' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isDirtyRef = useRef(false);
 
@@ -749,6 +707,7 @@ export default function Home() {
   const [newCategoryColor, setNewCategoryColor] = useState(categoryColors[0]);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
   const isInitialMount = React.useRef(true);
 
   // Rate states
@@ -875,11 +834,11 @@ export default function Home() {
     setMargins(prev => prev.filter((m) => m.id !== id));
   }, []);
 
-  const handleAddMargin = React.useCallback((type: 'store' | 'online', marginData: Partial<Margin>) => {
+  const handleAddMargin = React.useCallback((marginData: Partial<Margin>) => {
     isDirtyRef.current = true;
     const newMarginObject: Margin = {
       id: generateId(),
-      type,
+      type: 'store',
       value: marginData.value || 0,
       name: marginData.name,
       commissionRate: marginData.commissionRate
@@ -888,9 +847,7 @@ export default function Home() {
   }, []);
 
   const renderMarginHeaders = (
-    type: 'store' | 'online',
-    marginsList: Margin[],
-    defaultCommissionRate: number
+    marginsList: Margin[]
   ) => (
     <>
       {marginsList.map((margin) => (
@@ -899,15 +856,12 @@ export default function Home() {
             <X className="h-3 w-3" />
           </Button>
           <MarginEditPopover
-            type={type}
             margin={margin}
             onSave={(data) => handleUpdateMarginDetails(margin.id, data)}
             trigger={
               <HeaderColumnLabel
-                title={margin.name || (type === 'store' ? 'Yeni Kolon' : `%${margin.value} Marj`)}
-                subtitle={type === 'store'
-                  ? `${margin.commissionRate ? `%${margin.commissionRate} Banka` : 'Std. Banka'}`
-                  : (margin.name ? `%${margin.value} Marj • %${margin.commissionRate ?? defaultCommissionRate} Kom.` : `%${margin.commissionRate ?? defaultCommissionRate} Kom.`)}
+                title={margin.name || 'Yeni Kolon'}
+                subtitle=""
               />
             }
           />
@@ -915,8 +869,7 @@ export default function Home() {
       ))}
       <TableHead className="w-[40px] p-0 flex items-center justify-center">
         <MarginEditPopover
-          type={type}
-          onSave={(data) => handleAddMargin(type, data)}
+          onSave={(data) => handleAddMargin(data)}
           trigger={
             <Button variant="ghost" size="icon" className="h-8 w-8">
               <PlusCircle className="h-5 w-5" />
@@ -926,6 +879,10 @@ export default function Home() {
       </TableHead>
     </>
   );
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Data Fetching and Saving
   useEffect(() => {
@@ -1222,13 +1179,12 @@ export default function Home() {
               <h2 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-primary to-indigo-500">
                 Ürün ve Kâr Analizi
               </h2>
-              <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full transition-all duration-300 ${saveStatus === 'waiting' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+              <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full transition-all duration-300 ${
                 saveStatus === 'saving' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20 animate-pulse' :
                   saveStatus === 'saved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
                     saveStatus === 'error' ? 'bg-destructive/10 text-destructive border border-destructive/20' :
                       'opacity-0'
                 }`}>
-                {saveStatus === 'waiting' && '🕒 Kayıt Bekliyor'}
                 {saveStatus === 'saving' && '🔄 Kaydediliyor'}
                 {saveStatus === 'saved' && '✅ Kaydedildi'}
                 {saveStatus === 'error' && '❌ Hata!'}
@@ -1308,109 +1264,114 @@ export default function Home() {
         {/* Main Table Panel */}
         <div className="glass-panel overflow-hidden border-none shadow-2xl">
           <div className="p-1 overflow-x-auto">
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <Table className="table-fixed min-w-[1400px]">
-                <TableHeader className="bg-muted/30 backdrop-blur-sm sticky top-0 z-20">
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="th-premium w-[340px] px-6">Ürün Adı</TableHead>
-                    <TableHead className="th-premium w-[120px]">Maliyet</TableHead>
-                    <TableHead className="th-premium w-[160px] py-2">
-                      <div className="flex flex-col justify-center">
-                        <span>Mağaza Fiyatı</span>
-                        <MarginDisplay marginData={productAverages.overallStore} />
-                      </div>
-                    </TableHead>
-                    {renderMarginHeaders('store', storeMargins, bankCommissionRate)}
-                    <TableHead className="w-8 px-0 border-x border-border/20" />
-                    <TableHead className="th-premium w-[160px] py-2">
-                      <div className="flex flex-col justify-center">
-                        <span>Online Fiyat</span>
-                        <MarginDisplay marginData={productAverages.overallOnline} />
-                      </div>
-                    </TableHead>
-                    {platforms.map(p => (
-                      <TableHead key={p.key} className="th-premium w-[140px] px-2 relative group">
-                        <RatePopover
-                          title={`${p.name} Komisyonu`}
-                          rate={p.commission}
-                          onSave={(val) => updatePlatformCommission(p.key, val)}
-                          trigger={
-                            <HeaderColumnLabel
-                              title={p.name}
-                              subtitle={`%${p.commission} Kom.`}
-                            />
-                          }
-                        />
+            {isMounted ? (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <Table className="table-fixed min-w-[1400px]">
+                  <TableHeader className="bg-muted/30 backdrop-blur-sm sticky top-0 z-20">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="th-premium w-[340px] px-6">Ürün Adı</TableHead>
+                      <TableHead className="th-premium w-[120px]">Maliyet</TableHead>
+                      <TableHead className="th-premium w-[160px] py-2">
+                        <div className="flex flex-col justify-center">
+                          <span>Mağaza Fiyatı</span>
+                          <MarginDisplay marginData={productAverages.overallStore} />
+                        </div>
                       </TableHead>
-                    ))}
-                    <TableHead className="th-premium text-center w-[80px]">İşlem</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <SortableContext items={productIds} strategy={verticalListSortingStrategy}>
-                  <TableBody>
-                    {products.length > 0 ? (
-                      productsByCategory.map(({ category, products: productGroup, avgStoreMargin, avgOnlineMargin }) => (
-                        <React.Fragment key={category?.id || 'uncategorized'}>
-                          <TableRow
-                            className={`border-y border-border/10 ${!category ? 'bg-muted/10' : ''}`}
-                            style={{
-                              backgroundColor: category ? `${category.color}15` : undefined,
-                              borderLeft: category ? `4px solid ${category.color}` : 'none'
-                            }}
-                          >
-                            <TableCell colSpan={2} className="py-2.5 px-6">
-                              <div className="flex items-center justify-between w-full h-8">
-                                <div className="flex items-center gap-3">
-                                  <span
-                                    className="font-bold text-sm tracking-wide uppercase"
-                                    style={{ color: category ? category.color : 'inherit', filter: 'brightness(0.8)' }}
-                                  >
-                                    {category?.name || 'Kategorisiz Ürünler'}
-                                  </span>
+                      {renderMarginHeaders(storeMargins)}
+                      <TableHead className="w-8 px-0 border-x border-border/20" />
+                      <TableHead className="th-premium w-[160px] py-2">
+                        <div className="flex flex-col justify-center">
+                          <span>Online Fiyat</span>
+                          <MarginDisplay marginData={productAverages.overallOnline} />
+                        </div>
+                      </TableHead>
+                      {platforms.map(p => (
+                        <TableHead key={p.key} className="th-premium w-[140px] px-2 relative group">
+                          <RatePopover
+                            title={`${p.name} Komisyonu`}
+                            rate={p.commission}
+                            onSave={(val) => updatePlatformCommission(p.key, val)}
+                            trigger={
+                              <HeaderColumnLabel
+                                title={p.name}
+                                subtitle={`%${p.commission} Kom.`}
+                              />
+                            }
+                          />
+                        </TableHead>
+                      ))}
+                      <TableHead className="th-premium text-center w-[80px]">İşlem</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <SortableContext items={productIds} strategy={verticalListSortingStrategy}>
+                    <TableBody>
+                      {products.length > 0 ? (
+                        productsByCategory.map(({ category, products: productGroup, avgStoreMargin, avgOnlineMargin }) => (
+                          <React.Fragment key={category?.id || 'uncategorized'}>
+                            <TableRow
+                              className={`border-y border-border/10 ${!category ? 'bg-muted/10' : ''}`}
+                              style={{
+                                backgroundColor: category ? `${category.color}15` : undefined,
+                                borderLeft: category ? `4px solid ${category.color}` : 'none'
+                              }}
+                            >
+                              <TableCell colSpan={2} className="py-2.5 px-6">
+                                <div className="flex items-center justify-between w-full h-8">
+                                  <div className="flex items-center gap-3">
+                                    <span
+                                      className="font-bold text-sm tracking-wide uppercase"
+                                      style={{ color: category ? category.color : 'inherit', filter: 'brightness(0.8)' }}
+                                    >
+                                      {category?.name || 'Kategorisiz Ürünler'}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                            </TableCell>
+                              </TableCell>
 
-                            <TableCell className="text-left px-4 py-2">
-                              <div className="flex items-center">
-                                <MarginDisplay marginData={avgStoreMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
-                              </div>
-                            </TableCell>
+                              <TableCell className="text-left px-4 py-2">
+                                <div className="flex items-center">
+                                  <MarginDisplay marginData={avgStoreMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
+                                </div>
+                              </TableCell>
 
-                            {/* Store Dynamic Margin Inputs for Category */}
-                            {storeMargins.map(m => {
-                              const mv = category?.storeMarginValues?.find(v => v.marginId === m.id);
-                              const currentVal = mv?.value || 0;
-                              return (
-                                <TableCell key={m.id} className="px-2 py-2">
-                                  {category ? (
-                                    <div className="flex items-center gap-1 group/input">
-                                      <Input
-                                        type="number"
-                                        className="h-7 w-16 text-xs font-bold bg-background/50 border-dashed focus:bg-background transition-all"
-                                        defaultValue={currentVal}
-                                        onBlur={(e) => {
-                                          const val = parseFloat(e.target.value);
-                                          if (!isNaN(val) && val !== currentVal) {
-                                            updateCategoryMargin(category.id, 'store', val, m.id);
-                                          }
-                                        }}
-                                        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                                      />
-                                      <span className="text-[10px] font-bold text-muted-foreground">%</span>
-                                    </div>
-                                  ) : null}
-                                </TableCell>
-                              );
-                            })}
+                              {/* Store Dynamic Margin Inputs for Category */}
+                              {storeMargins.map(m => {
+                                const mv = category?.storeMarginValues?.find(v => v.marginId === m.id);
+                                const currentVal = mv?.value || 0;
+                                return (
+                                  <TableCell key={m.id} className="px-2 py-2">
+                                    {category ? (
+                                      <div className="flex items-center gap-1 group/input">
+                                        <Input
+                                          type="number"
+                                          className="h-7 w-16 text-xs font-bold bg-background/50 border-dashed focus:bg-background transition-all"
+                                          defaultValue={currentVal}
+                                          onBlur={(e) => {
+                                            const val = parseFloat(e.target.value);
+                                            if (!isNaN(val) && val !== currentVal) {
+                                              updateCategoryMargin(category.id, 'store', val, m.id);
+                                            }
+                                          }}
+                                          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                                        />
+                                        <span className="text-[10px] font-bold text-muted-foreground">%</span>
+                                      </div>
+                                    ) : null}
+                                  </TableCell>
+                                );
+                              })}
 
-                            <TableCell colSpan={2} className="w-[40px] px-0" />
+                              <TableCell colSpan={2} className="w-[40px] px-0" />
 
-                            <TableCell className="text-left px-4 py-2">
-                              <div className="flex items-center">
-                                <MarginDisplay marginData={avgOnlineMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
+                              <TableCell className="text-left px-4 py-2">
+                                <div className="flex items-center">
+                                  <MarginDisplay marginData={avgOnlineMargin as any} colorStyle={{ color: category ? category.color : 'inherit' }} />
+                                </div>
+                              </TableCell>
+
+                              <TableCell colSpan={platforms.length} className="text-center py-2">
                                 {category && (
-                                  <div className="flex items-center justify-center translate-x-1">
+                                  <div className="flex items-center justify-center">
                                     <div className="bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full flex items-center gap-1.5 hover:bg-indigo-500/15 transition-all cursor-default">
                                       <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Hedef:</span>
                                       <span className="text-xs font-bold text-indigo-400">%{category.targetOnlineMargin || onlineTargetMargin}</span>
@@ -1423,71 +1384,75 @@ export default function Home() {
                                     </div>
                                   </div>
                                 )}
-                              </div>
-                            </TableCell>
+                              </TableCell>
 
-                            <TableCell colSpan={platforms.length + 1} className="text-right py-2.5 px-6">
-                              <div className="flex justify-end items-center h-full">
-                                <span className="text-[11px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
-                                  {productGroup.length} ÜRÜN
-                                </span>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                          {productGroup.map(product => (
-                            <React.Fragment key={product.id}>
-                              <SortableProductRow
-                                product={product}
-                                ingredients={ingredients}
-                                storeMargins={storeMargins}
-                                categories={categories}
-                                platformCommissionRate={platformCommissionRate}
-                                bankCommissionRate={bankCommissionRate}
-                                kdvRate={kdvRate}
-                                stopajRate={stopajRate}
-                                updateProduct={updateProduct}
-                                deleteProduct={deleteProduct}
-                                isExpanded={expandedProductIds.includes(product.id)}
-                                onToggleExpand={toggleProductExpansion}
-                                updateIngredientPrice={updateIngredientPrice}
-                                onlineTargetMargin={onlineTargetMargin}
-                                platforms={platforms}
-                                category={category}
-                              />
-                              {expandedProductIds.includes(product.id) && (
-                                <TableRow className="bg-primary/5 hover:bg-primary/5">
-                                  <TableCell colSpan={totalColumns} className="p-0 border-b border-primary/10">
-                                    <div className="p-4 md:p-6">
-                                      <InlineRecipeEditor
-                                        product={product}
-                                        ingredients={ingredients}
-                                        allProducts={products}
-                                        onSave={(newRecipe) => updateProductRecipe(product.id, newRecipe)}
-                                        updateProduct={updateProduct}
-                                        updateIngredientPrice={updateIngredientPrice}
-                                      />
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              )}
-                            </React.Fragment>
-                          ))}
-                        </React.Fragment>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={totalColumns} className="h-40 text-center">
-                          <div className="flex flex-col items-center justify-center space-y-3">
-                            <p className="text-muted-foreground text-lg italic">Henüz ürün eklenmemiş.</p>
-                            <Button onClick={() => setAddProductDialogOpen(true)} variant="outline" size="sm">Hemen Bir Ürün Ekleyin</Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </SortableContext>
-              </Table>
-            </DndContext>
+                              <TableCell className="text-right py-2.5 px-2">
+                                <div className="flex justify-end items-center h-full">
+                                  <span className="text-[10px] font-bold text-primary px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 whitespace-nowrap">
+                                    {productGroup.length} ÜRÜN
+                                  </span>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            {productGroup.map(product => (
+                              <React.Fragment key={product.id}>
+                                <SortableProductRow
+                                  product={product}
+                                  ingredients={ingredients}
+                                  storeMargins={storeMargins}
+                                  categories={categories}
+                                  platformCommissionRate={platformCommissionRate}
+                                  bankCommissionRate={bankCommissionRate}
+                                  kdvRate={kdvRate}
+                                  stopajRate={stopajRate}
+                                  updateProduct={updateProduct}
+                                  deleteProduct={deleteProduct}
+                                  isExpanded={expandedProductIds.includes(product.id)}
+                                  onToggleExpand={toggleProductExpansion}
+                                  updateIngredientPrice={updateIngredientPrice}
+                                  onlineTargetMargin={onlineTargetMargin}
+                                  platforms={platforms}
+                                  category={category}
+                                />
+                                {expandedProductIds.includes(product.id) && (
+                                  <TableRow className="bg-primary/5 hover:bg-primary/5">
+                                    <TableCell colSpan={totalColumns} className="p-0 border-b border-primary/10">
+                                      <div className="p-4 md:p-6">
+                                        <InlineRecipeEditor
+                                          product={product}
+                                          ingredients={ingredients}
+                                          allProducts={products}
+                                          onSave={(newRecipe) => updateProductRecipe(product.id, newRecipe)}
+                                          updateProduct={updateProduct}
+                                          updateIngredientPrice={updateIngredientPrice}
+                                        />
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </React.Fragment>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={totalColumns} className="h-40 text-center">
+                            <div className="flex flex-col items-center justify-center space-y-3">
+                              <p className="text-muted-foreground text-lg italic">{!isMounted || isLoading ? 'Veriler Yükleniyor...' : 'Henüz ürün eklenmemiş.'}</p>
+                              {isMounted && !isLoading && <Button onClick={() => setAddProductDialogOpen(true)} variant="outline" size="sm">Hemen Bir Ürün Ekleyin</Button>}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </SortableContext>
+                </Table>
+              </DndContext>
+            ) : (
+              <div className="h-[600px] flex items-center justify-center">
+                <p className="text-muted-foreground animate-pulse font-medium">Tablo hazırlanıyor...</p>
+              </div>
+            )}
           </div>
         </div>
 
