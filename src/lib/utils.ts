@@ -133,3 +133,13 @@ export function calculateEconomicsFromMargin(
     isCalculable: true
   };
 }
+export function formatCurrency(amount: number, options: { minimumFractionDigits?: number, maximumFractionDigits?: number, fallback?: string } = {}) {
+  const { minimumFractionDigits = 2, maximumFractionDigits = 2, fallback = '' } = options;
+  if (isNaN(amount) || !isFinite(amount)) return fallback;
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY',
+    minimumFractionDigits,
+    maximumFractionDigits,
+  }).format(amount);
+}

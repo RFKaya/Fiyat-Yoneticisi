@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { calculateCost } from '@/lib/utils';
+import { calculateCost, formatCurrency } from '@/lib/utils';
 import { PlusCircle, Trash2, Edit } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -28,16 +28,6 @@ type InlineRecipeEditorProps = {
   updateProduct: (id: string, field: keyof Product, value: any) => void;
   updateIngredientPrice: (ingredientId: string, newPrice: number) => void;
 };
-
-const formatCurrency = (amount: number) => {
-    if (isNaN(amount) || !isFinite(amount)) return '0,00 ₺';
-    return new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: 'TRY',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4, 
-    }).format(amount);
-  };
 
 
 export default function InlineRecipeEditor({ product, ingredients, allProducts, onSave, updateProduct, updateIngredientPrice }: InlineRecipeEditorProps) {

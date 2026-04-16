@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Product, RecipeItem, Ingredient, Category, Margin } from '@/lib/types';
-import { calculateCost, calculateEconomicsFromPrice, calculateEconomicsFromMargin } from '@/lib/utils';
+import { calculateCost, calculateEconomicsFromPrice, calculateEconomicsFromMargin, formatCurrency } from '@/lib/utils';
 import { pageHomeLogger as log } from '@/lib/logger';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, } from '@dnd-kit/sortable';
@@ -23,13 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 
 
-const formatCurrency = (amount: number) => {
-  if (isNaN(amount) || !isFinite(amount)) return '';
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency: 'TRY',
-  }).format(amount);
-};
+
 
 const categoryColors = ['#F87171', '#FBBF24', '#34D399', '#60A5FA', '#A78BFA'];
 
@@ -233,17 +227,21 @@ const HeaderColumnLabel = React.forwardRef<HTMLDivElement, { title: string, subt
 );
 HeaderColumnLabel.displayName = 'HeaderColumnLabel';
 
-const PlatformCells = React.memo(({ cost, kdvRate, stopajRate, targetMargin, platforms }: {
+const EconomicsCells = React.memo(({
+  cost,
+  kdvRate,
+  stopajRate,
+  cells
+}: {
   cost: number;
   kdvRate: number;
   stopajRate: number;
-  targetMargin: number;
-  platforms: { name: string, commission: number }[];
+  cells: { name: string, commission: number, targetMargin: number }[];
 }) => {
   return (
     <>
-      {platforms.map((p, idx) => {
-        const mEcon = calculateEconomicsFromMargin(targetMargin, cost, kdvRate, p.commission, stopajRate);
+      {cells.map((cell, idx) => {
+        const mEcon = calculateEconomicsFromMargin(cell.targetMargin, cost, kdvRate, cell.commission, stopajRate);
         return (
           <TableCell key={idx} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
             <TooltipProvider>
@@ -255,18 +253,18 @@ const PlatformCells = React.memo(({ cost, kdvRate, stopajRate, targetMargin, pla
                 </TooltipTrigger>
                 <EconomicsTooltipContent
                   isCalculable={mEcon.isCalculable}
-                  title={`${p.name} Fiyatı`}
+                  title={`${cell.name} Fiyatı`}
                   revenue={mEcon.sellingPrice}
                   vat={mEcon.vatAmount}
                   kdvRate={kdvRate}
                   commission={mEcon.commissionAmount}
-                  commissionRate={p.commission}
+                  commissionRate={cell.commission}
                   stopaj={mEcon.stopajAmount}
                   stopajRate={stopajRate > 0 ? stopajRate : undefined}
                   cost={cost}
                   netProfit={mEcon.netProfit}
                   percentage={mEcon.profitPercentage}
-                  headerLabel={`${p.name} (%${targetMargin} Hedef)`}
+                  headerLabel={`${cell.name} (%${cell.targetMargin} Hedef)`}
                 />
               </Tooltip>
             </TooltipProvider>
@@ -276,7 +274,7 @@ const PlatformCells = React.memo(({ cost, kdvRate, stopajRate, targetMargin, pla
     </>
   );
 });
-PlatformCells.displayName = 'PlatformCells';
+EconomicsCells.displayName = 'EconomicsCells';
 
 const SortableProductRow = React.memo(({
   product,
@@ -441,38 +439,12 @@ const SortableProductRow = React.memo(({
         )}
       </TableCell>
 
-      {/* Store dynamic margin cells */}
-      {categoryStoreMarginCells.map((cell, idx) => {
-        const mEcon = calculateEconomicsFromMargin(cell.targetMargin, cost, kdvRate, cell.commission, 0);
-        return (
-          <TableCell key={idx} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="w-full h-full flex items-center">
-                    {mEcon.isCalculable ? formatCurrency(mEcon.sellingPrice) : 'Hesaplanamaz'}
-                  </div>
-                </TooltipTrigger>
-                <EconomicsTooltipContent
-                  isCalculable={mEcon.isCalculable}
-                  title={`${cell.name} Fiyatı`}
-                  revenue={mEcon.sellingPrice}
-                  vat={mEcon.vatAmount}
-                  kdvRate={kdvRate}
-                  commission={mEcon.commissionAmount}
-                  commissionRate={cell.commission}
-                  stopaj={mEcon.stopajAmount}
-                  stopajRate={0}
-                  cost={cost}
-                  netProfit={mEcon.netProfit}
-                  percentage={mEcon.profitPercentage}
-                  headerLabel={`${cell.name} (%${cell.targetMargin} Hedef)`}
-                />
-              </Tooltip>
-            </TooltipProvider>
-          </TableCell>
-        );
-      })}
+      <EconomicsCells
+        cost={cost}
+        kdvRate={kdvRate}
+        stopajRate={0}
+        cells={categoryStoreMarginCells}
+      />
 
       <TableCell className="text-left px-0 w-[40px] py-1" />
 
@@ -524,12 +496,15 @@ const SortableProductRow = React.memo(({
         )}
       </TableCell>
 
-      <PlatformCells
+      <EconomicsCells
         cost={cost}
         kdvRate={kdvRate}
         stopajRate={stopajRate}
-        targetMargin={category?.targetOnlineMargin ?? onlineTargetMargin}
-        platforms={platforms}
+        cells={platforms.map(p => ({
+          name: p.name,
+          commission: p.commission,
+          targetMargin: category?.targetOnlineMargin ?? onlineTargetMargin
+        }))}
       />
       <TableCell className="text-right w-[80px] px-4 py-1">
         <DropdownMenu>
@@ -599,7 +574,7 @@ function SortableCategoryItem({ category, onDelete }: { category: Category; onDe
   );
 }
 
-function RatePopover({ title, label, rate, onSave, maxLimit = 100, trigger }: { title: string, label?: string, rate: number, onSave: (r: number) => void, maxLimit?: number, trigger?: React.ReactNode }) {
+function RatePopover({ title, label, description, rate, onSave, maxLimit = 100, trigger, placeholder = "Örn: 30" }: { title: string, label?: string, description?: string, rate: number, onSave: (r: number) => void, maxLimit?: number, trigger?: React.ReactNode, placeholder?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState(String(rate));
 
@@ -622,73 +597,22 @@ function RatePopover({ title, label, rate, onSave, maxLimit = 100, trigger }: { 
       </PopoverTrigger>
       <PopoverContent className="w-64 p-4 glass-panel border-none shadow-xl">
         <div className="grid gap-3">
-          <h4 className="font-bold">{title}</h4>
-          <div className="flex items-center gap-2">
-            <Input type="number" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSave()} />
-            <span className="font-bold">%</span>
-          </div>
-          <Button onClick={handleSave} size="sm">Güncelle</Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function CategoryMarginPopover({
-  type,
-  categoryName,
-  currentValue,
-  onSave
-}: {
-  type: 'store' | 'online',
-  categoryName: string,
-  currentValue?: number,
-  onSave: (val: number) => void
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [input, setInput] = useState(String(currentValue || ''));
-
-  const handleSave = () => {
-    const newVal = parseFloat(input);
-    if (!isNaN(newVal) && newVal >= 0) {
-      onSave(newVal);
-      setIsOpen(false);
-    }
-  };
-
-  return (
-    <Popover open={isOpen} onOpenChange={(open) => { if (open) setInput(String(currentValue || '')); setIsOpen(open) }}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 text-primary/50 hover:text-primary hover:bg-primary/10 transition-all">
-          <PlusCircle className="h-4 w-4" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-72 p-4 glass-panel border-none shadow-xl">
-        <div className="grid gap-4">
           <div className="space-y-1">
-            <h4 className="font-bold leading-none">{categoryName}</h4>
-            <p className="text-xs text-muted-foreground">
-              {type === 'store' ? 'Mağaza' : 'Online'} Kâr Marjı Hedefi (%)
-            </p>
+            <h4 className="font-bold">{title}</h4>
+            {description && <p className="text-xs text-muted-foreground">{description}</p>}
           </div>
           <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Örn: 30"
-              onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-            />
+            <Input type="number" placeholder={placeholder} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSave()} />
             <span className="font-bold">%</span>
           </div>
-          <Button onClick={handleSave} size="sm" className="w-full font-bold">
-            Hedefi Kaydet
-          </Button>
+          <Button onClick={handleSave} size="sm" className="w-full">Güncelle</Button>
         </div>
       </PopoverContent>
     </Popover>
   );
 }
+
+
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -1378,11 +1302,16 @@ export default function Home() {
                                     <div className="bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full flex items-center gap-1.5 hover:bg-indigo-500/15 transition-all cursor-default">
                                       <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Hedef:</span>
                                       <span className="text-xs font-bold text-indigo-400">%{category.targetOnlineMargin || onlineTargetMargin}</span>
-                                      <CategoryMarginPopover
-                                        type="online"
-                                        categoryName={category.name}
-                                        currentValue={category.targetOnlineMargin}
+                                      <RatePopover
+                                        title={category.name}
+                                        description="Online Kâr Marjı Hedefi (%)"
+                                        rate={category.targetOnlineMargin || onlineTargetMargin}
                                         onSave={(val) => updateCategoryMargin(category.id, 'online', val)}
+                                        trigger={
+                                          <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 text-primary/50 hover:text-primary hover:bg-primary/10 transition-all">
+                                            <PlusCircle className="h-4 w-4" />
+                                          </Button>
+                                        }
                                       />
                                     </div>
                                   </div>
