@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Product, RecipeItem, Ingredient, Category, Margin } from '@/lib/types';
-import { calculateCost, calculateEconomicsFromPrice, calculateEconomicsFromMargin, formatCurrency } from '@/lib/utils';
+import { calculateCost, calculateEconomicsFromPrice, calculateEconomicsFromMargin, formatCurrency, cn } from '@/lib/utils';
 import { pageHomeLogger as log } from '@/lib/logger';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, } from '@dnd-kit/sortable';
@@ -628,6 +628,49 @@ function RatePopover({ title, label, description, rate, onSave, maxLimit = 100, 
   );
 }
 
+function CategoryMarginBadge({
+  value,
+  onSave,
+  title,
+  description,
+  colorClass = "text-indigo-400",
+  bgClass = "bg-indigo-500/10",
+  borderClass = "border-indigo-500/20",
+  className,
+  label
+}: {
+  value: number,
+  onSave: (val: number) => void,
+  title: string,
+  description: string,
+  colorClass?: string,
+  bgClass?: string,
+  borderClass?: string,
+  className?: string,
+  label?: string
+}) {
+  return (
+    <RatePopover
+      title={title}
+      description={description}
+      rate={value}
+      onSave={onSave}
+      trigger={
+        <div className={cn(
+          "py-1 rounded-full flex items-center gap-1.5 transition-all cursor-pointer border w-fit",
+          bgClass,
+          borderClass,
+          "hover:brightness-110 active:scale-95 px-2.5",
+          className
+        )}>
+          {label && <span className={cn("text-[9px] font-black uppercase tracking-widest leading-none", colorClass)}>{label}:</span>}
+          <span className={cn("text-xs font-bold leading-none", colorClass)}>%{value}</span>
+        </div>
+      }
+    />
+  );
+}
+
 
 
 export default function Home() {
@@ -1122,11 +1165,10 @@ export default function Home() {
               <h2 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-primary to-indigo-500">
                 Ürün ve Kâr Analizi
               </h2>
-              <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full transition-all duration-300 ${
-                saveStatus === 'saving' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20 animate-pulse' :
-                  saveStatus === 'saved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                    saveStatus === 'error' ? 'bg-destructive/10 text-destructive border border-destructive/20' :
-                      'opacity-0'
+              <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full transition-all duration-300 ${saveStatus === 'saving' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20 animate-pulse' :
+                saveStatus === 'saved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                  saveStatus === 'error' ? 'bg-destructive/10 text-destructive border border-destructive/20' :
+                    'opacity-0'
                 }`}>
                 {saveStatus === 'saving' && '🔄 Kaydediliyor'}
                 {saveStatus === 'saved' && '✅ Kaydedildi'}
@@ -1283,23 +1325,18 @@ export default function Home() {
                                 const currentVal = mv?.value || 0;
                                 return (
                                   <TableCell key={m.id} className="px-2 py-2">
-                                    {category ? (
-                                      <div className="flex items-center gap-1 group/input">
-                                        <Input
-                                          type="number"
-                                          className="h-7 w-16 text-xs font-bold bg-background/50 border-dashed focus:bg-background transition-all"
-                                          defaultValue={currentVal}
-                                          onBlur={(e) => {
-                                            const val = parseFloat(e.target.value);
-                                            if (!isNaN(val) && val !== currentVal) {
-                                              updateCategoryMargin(category.id, 'store', val, m.id);
-                                            }
-                                          }}
-                                          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                                        />
-                                        <span className="text-[10px] font-bold text-muted-foreground">%</span>
-                                      </div>
-                                    ) : null}
+                                    {category && (
+                                      <CategoryMarginBadge
+                                        title={`${category.name} - ${m.name || 'Mağaza'}`}
+                                        description="Mağaza Kâr Marjı Hedefi (%)"
+                                        value={currentVal}
+                                        onSave={(val) => updateCategoryMargin(category.id, 'store', val, m.id)}
+                                        colorClass="text-emerald-500"
+                                        bgClass="bg-emerald-500/10"
+                                        borderClass="border-emerald-500/20"
+                                        className="px-5"
+                                      />
+                                    )}
                                   </TableCell>
                                 );
                               })}
@@ -1315,21 +1352,14 @@ export default function Home() {
                               <TableCell colSpan={platforms.length} className="text-center py-2">
                                 {category && (
                                   <div className="flex items-center justify-center">
-                                    <div className="bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full flex items-center gap-1.5 hover:bg-indigo-500/15 transition-all cursor-default">
-                                      <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Hedef:</span>
-                                      <span className="text-xs font-bold text-indigo-400">%{category.targetOnlineMargin || onlineTargetMargin}</span>
-                                      <RatePopover
-                                        title={category.name}
-                                        description="Online Kâr Marjı Hedefi (%)"
-                                        rate={category.targetOnlineMargin || onlineTargetMargin}
-                                        onSave={(val) => updateCategoryMargin(category.id, 'online', val)}
-                                        trigger={
-                                          <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 text-primary/50 hover:text-primary hover:bg-primary/10 transition-all">
-                                            <PlusCircle className="h-4 w-4" />
-                                          </Button>
-                                        }
-                                      />
-                                    </div>
+                                    <CategoryMarginBadge
+                                      title={category.name}
+                                      description="Online Kâr Marjı Hedefi (%)"
+                                      value={category.targetOnlineMargin || onlineTargetMargin}
+                                      onSave={(val) => updateCategoryMargin(category.id, 'online', val)}
+                                      label="Hedef"
+                                      className="px-6"
+                                    />
                                   </div>
                                 )}
                               </TableCell>
