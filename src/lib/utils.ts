@@ -47,7 +47,8 @@ export interface EconomicsResult {
   commissionAmount: number;
   stopajAmount: number;
   netProfit: number;
-  profitPercentage: number;
+  profitPercentage: number;          // Revenue-based (Ciroya göre)
+  profitOverCostPercentage: number;  // Cost-based (Maliyete göre)
   isCalculable: boolean;
 }
 
@@ -67,6 +68,7 @@ export function calculateEconomicsFromPrice(
       stopajAmount: 0,
       netProfit: -cost,
       profitPercentage: 0,
+      profitOverCostPercentage: 0,
       isCalculable: false
     };
   }
@@ -76,7 +78,9 @@ export function calculateEconomicsFromPrice(
   const commissionAmount = price * (commissionRate / 100);
   const stopajAmount = revenueExVat * (stopajRate / 100);
   const netProfit = revenueExVat - commissionAmount - stopajAmount - cost;
+  
   const profitPercentage = (netProfit / price) * 100;
+  const profitOverCostPercentage = cost > 0 ? (netProfit / cost) * 100 : 0;
 
   return {
     sellingPrice: price,
@@ -86,6 +90,7 @@ export function calculateEconomicsFromPrice(
     stopajAmount,
     netProfit,
     profitPercentage,
+    profitOverCostPercentage,
     isCalculable: true
   };
 }
@@ -98,8 +103,10 @@ export function calculateEconomicsFromMargin(
   stopajRate: number = 0
 ): EconomicsResult {
   const revenueFactor = (1 - stopajRate / 100) / (1 + kdvRate / 100);
-  const divisor = revenueFactor - (commissionRate / 100) - (targetMarginPercentage / 100);
-  const sellingPrice = divisor > 0 ? cost / divisor : Infinity;
+  const divisor = revenueFactor - (commissionRate / 100);
+  
+  // New Formula: SellingPrice = [ cost * (1 + TargetMargin / 100) ] / [ (1 - Stopaj/100) / (1 + KDV/100) - Commission/100 ]
+  const sellingPrice = divisor > 0 ? (cost * (1 + targetMarginPercentage / 100)) / divisor : Infinity;
   
   if (!isFinite(sellingPrice) || sellingPrice <= 0) {
     return {
@@ -110,6 +117,7 @@ export function calculateEconomicsFromMargin(
       stopajAmount: 0,
       netProfit: 0,
       profitPercentage: 0,
+      profitOverCostPercentage: 0,
       isCalculable: false
     };
   }
@@ -119,8 +127,9 @@ export function calculateEconomicsFromMargin(
   const commissionAmount = sellingPrice * (commissionRate / 100);
   const stopajAmount = revenueExVat * (stopajRate / 100);
   const netProfit = revenueExVat - commissionAmount - stopajAmount - cost;
-  // Account for floating point inaccuracies
+  
   const profitPercentage = (netProfit / sellingPrice) * 100;
+  const profitOverCostPercentage = cost > 0 ? (netProfit / cost) * 100 : 0;
 
   return {
     sellingPrice,
@@ -130,6 +139,7 @@ export function calculateEconomicsFromMargin(
     stopajAmount,
     netProfit,
     profitPercentage,
+    profitOverCostPercentage,
     isCalculable: true
   };
 }

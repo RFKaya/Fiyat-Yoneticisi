@@ -121,7 +121,8 @@ function EconomicsTooltipContent({
   stopajRate,
   cost,
   netProfit,
-  percentage,
+  profitPercentage,
+  profitOverCostPercentage,
   kdvRate,
   isCalculable = true,
   headerLabel
@@ -135,7 +136,8 @@ function EconomicsTooltipContent({
   stopajRate?: number;
   cost: number;
   netProfit: number;
-  percentage: number;
+  profitPercentage: number;
+  profitOverCostPercentage: number;
   kdvRate?: number;
   isCalculable?: boolean;
   headerLabel?: string;
@@ -168,9 +170,19 @@ function EconomicsTooltipContent({
             <span>Ürün Maliyeti</span>
             <span className="text-destructive">- {formatCurrency(cost)}</span>
           </div>
-          <div className="border-t border-border/50 pt-1 mt-1 flex justify-between font-bold">
-            <span>Net Kâr</span>
-            <span className="text-green-500">{formatCurrency(netProfit)} ({percentage.toFixed(1)}%)</span>
+          <div className="border-t border-border/50 pt-1 mt-1 space-y-0.5">
+            <div className="flex justify-between font-bold">
+              <span>Net Kâr</span>
+              <span className="text-green-500">{formatCurrency(netProfit)}</span>
+            </div>
+            <div className="flex justify-between text-[10px] text-muted-foreground italic">
+              <span>Maliyete Göre Kâr:</span>
+              <span>%{profitOverCostPercentage.toFixed(1)}</span>
+            </div>
+            <div className="flex justify-between text-[10px] text-muted-foreground italic">
+              <span>Ciroya Göre Kâr:</span>
+              <span>%{profitPercentage.toFixed(1)}</span>
+            </div>
           </div>
         </div>
       ) : (
@@ -199,7 +211,8 @@ function MarginDisplay({ marginData, colorStyle }: { marginData: { percentage: n
           stopaj={marginData.totalStopaj}
           cost={marginData.totalCost}
           netProfit={marginData.totalProfit}
-          percentage={marginData.percentage}
+          profitOverCostPercentage={marginData.percentage}
+          profitPercentage={(marginData.totalProfit / marginData.totalRevenue) * 100}
           headerLabel="Ciroya Göre Hesaplanmıştır"
         />
       </Tooltip>
@@ -263,7 +276,8 @@ const EconomicsCells = React.memo(({
                   stopajRate={stopajRate > 0 ? stopajRate : undefined}
                   cost={cost}
                   netProfit={mEcon.netProfit}
-                  percentage={mEcon.profitPercentage}
+                  profitOverCostPercentage={mEcon.profitOverCostPercentage}
+                  profitPercentage={mEcon.profitPercentage}
                   headerLabel={`${cell.name} (%${cell.targetMargin} Hedef)`}
                 />
               </Tooltip>
@@ -414,7 +428,7 @@ const SortableProductRow = React.memo(({
                     <div>{formatCurrency(product.storePrice)}</div>
                     {showNetStoreProfit && (
                       <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                        {formatCurrency(storeEconomics.netProfit)} ({storeEconomics.profitPercentage.toFixed(1)}%)
+                        {formatCurrency(storeEconomics.netProfit)} ({storeEconomics.profitOverCostPercentage.toFixed(1)}%)
                       </div>
                     )}
                   </div>
@@ -431,7 +445,8 @@ const SortableProductRow = React.memo(({
                   stopaj={storeEconomics.stopajAmount}
                   cost={cost}
                   netProfit={storeEconomics.netProfit}
-                  percentage={storeEconomics.profitPercentage}
+                  profitOverCostPercentage={storeEconomics.profitOverCostPercentage}
+                  profitPercentage={storeEconomics.profitPercentage}
                 />
               )}
             </Tooltip>
@@ -470,7 +485,7 @@ const SortableProductRow = React.memo(({
                     <div>{formatCurrency(product.onlinePrice)}</div>
                     {showNetOnlineProfit && (
                       <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                        {formatCurrency(onlineEconomics.netProfit)} ({onlineEconomics.profitPercentage.toFixed(1)}%)
+                        {formatCurrency(onlineEconomics.netProfit)} ({onlineEconomics.profitOverCostPercentage.toFixed(1)}%)
                       </div>
                     )}
                   </div>
@@ -488,7 +503,8 @@ const SortableProductRow = React.memo(({
                   stopajRate={stopajRate}
                   cost={cost}
                   netProfit={onlineEconomics.netProfit}
-                  percentage={onlineEconomics.profitPercentage}
+                  profitOverCostPercentage={onlineEconomics.profitOverCostPercentage}
+                  profitPercentage={onlineEconomics.profitPercentage}
                 />
               )}
             </Tooltip>
@@ -996,7 +1012,7 @@ export default function Home() {
       });
 
       return totalRevenue > 0 ? {
-        percentage: (totalProfit / totalRevenue) * 100,
+        percentage: (totalProfit / totalCost) * 100,
         totalRevenue,
         totalProfit,
         totalCost,
