@@ -360,10 +360,9 @@ const SortableProductRow = React.memo(({
   const onlineEconomics = calculateEconomicsFromPrice(product.onlinePrice, cost, kdvRate, platformCommissionRate, stopajRate);
   const showNetOnlineProfit = product.onlinePrice > 0;
 
-  // Prepare store dynamic margin cells
-  const categoryStoreMarginCells = storeMargins.map(m => {
+  const categoryMarginCells = storeMargins.map(m => {
     // Find the specific margin value for this category and margin column
-    const mv = category?.storeMarginValues?.find(v => v.marginId === m.id);
+    const mv = category?.categoryMargins?.find(v => v.marginId === m.id);
     const targetVal = mv?.value || 0;
     const comm = bankCommissionRate;
     return { name: m.name || `%${targetVal} Marj`, commission: comm, targetMargin: targetVal };
@@ -456,7 +455,7 @@ const SortableProductRow = React.memo(({
         cost={cost}
         kdvRate={kdvRate}
         stopajRate={0}
-        cells={categoryStoreMarginCells}
+        cells={categoryMarginCells}
       />
 
       <TableCell className="text-left px-0 w-[40px] py-1" />
@@ -517,7 +516,7 @@ const SortableProductRow = React.memo(({
         cells={platforms.map(p => ({
           name: p.name,
           commission: p.commission,
-          targetMargin: category?.targetOnlineMargin ?? 0
+          targetMargin: category?.categoryMargins?.find(v => v.marginId === 'online-target')?.value ?? 0
         }))}
       />
       <TableCell className="text-right w-[80px] px-4 py-1">
@@ -748,20 +747,19 @@ export default function Home() {
     isDirtyRef.current = true;
     setCategories(prev => prev.map(c => {
       if (c.id === categoryId) {
-        if (type === 'online') {
-          return { ...c, targetOnlineMargin: value };
-        } else if (type === 'store' && marginId) {
-          const existingValues = c.storeMarginValues || [];
-          const index = existingValues.findIndex(v => v.marginId === marginId);
-          let newValues;
-          if (index >= 0) {
-            newValues = [...existingValues];
-            newValues[index] = { ...newValues[index], value };
-          } else {
-            newValues = [...existingValues, { id: generateId(), categoryId, marginId, value }];
-          }
-          return { ...c, storeMarginValues: newValues };
+        const targetMarginId = type === 'online' ? 'online-target' : marginId;
+        if (!targetMarginId) return c;
+
+        const existingValues = c.categoryMargins || [];
+        const index = existingValues.findIndex(v => v.marginId === targetMarginId);
+        let newValues;
+        if (index >= 0) {
+          newValues = [...existingValues];
+          newValues[index] = { ...newValues[index], value };
+        } else {
+          newValues = [...existingValues, { id: generateId(), categoryId, marginId: targetMarginId, value }];
         }
+        return { ...c, categoryMargins: newValues };
       }
       return c;
     }));
@@ -1311,9 +1309,9 @@ export default function Home() {
                                 </div>
                               </TableCell>
 
-                              {/* Store Dynamic Margin Inputs for Category */}
+                              {/* Category Specific Margin Inputs */}
                               {storeMargins.map(m => {
-                                const mv = category?.storeMarginValues?.find(v => v.marginId === m.id);
+                                const mv = category?.categoryMargins?.find(v => v.marginId === m.id);
                                 const currentVal = mv?.value || 0;
                                 return (
                                   <TableCell key={m.id} className="px-2 py-2">
@@ -1347,7 +1345,7 @@ export default function Home() {
                                     <CategoryMarginBadge
                                       title={category.name}
                                       description="Online Kâr Marjı Hedefi (%)"
-                                      value={category.targetOnlineMargin || 0}
+                                      value={category?.categoryMargins?.find(v => v.marginId === 'online-target')?.value || 0}
                                       onSave={(val) => updateCategoryMargin(category.id, 'online', val)}
                                       label="Hedef"
                                       className="px-6"

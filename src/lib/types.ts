@@ -11,12 +11,10 @@ export type Category = {
   name: string;
   color: string;
   order: number;
-  targetStoreMargin?: number;
-  targetOnlineMargin?: number;
-  storeMarginValues?: CategoryStoreMargin[];
+  categoryMargins?: CategoryMargin[];
 };
 
-export type CategoryStoreMargin = {
+export type CategoryMargin = {
   id: string;
   categoryId: string;
   marginId: string;
@@ -39,7 +37,7 @@ export type Margin = {
   type: 'store' | 'online';
   commissionRate?: number | null;
   name?: string;
-  categorySpecifics?: CategoryStoreMargin[];
+  categorySpecifics?: CategoryMargin[];
 };
 
 export type Product = {

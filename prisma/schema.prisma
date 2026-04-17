@@ -20,10 +20,8 @@ model Category {
   name               String
   color              String?
   order              Int                   @default(0)
-  targetOnlineMargin Float?                @map("target_online_margin")
-  targetStoreMargin  Float?                @map("target_store_margin")
-  storeMarginValues  CategoryStoreMargin[]
-  products           Product[]
+  categoryMargins   CategoryMargin[]
+  products          Product[]
 
   @@map("categories")
 }
@@ -69,13 +67,13 @@ model Margin {
   name              String?
   value             Float
   type              String
-  commissionRate    Float?                @map("commission_rate")
-  categorySpecifics CategoryStoreMargin[]
+  commissionRate    Float?           @map("commission_rate")
+  categorySpecifics CategoryMargin[]
 
   @@map("margins")
 }
 
-model CategoryStoreMargin {
+model CategoryMargin {
   id         String   @id @default(cuid())
   categoryId String   @map("category_id")
   marginId   String   @map("margin_id")
@@ -84,7 +82,7 @@ model CategoryStoreMargin {
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([categoryId, marginId])
-  @@map("category_store_margins")
+  @@map("category_margins")
 }
 
 model GlobalSettings {

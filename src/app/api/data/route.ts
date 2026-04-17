@@ -15,7 +15,7 @@ export async function GET() {
   try {
     // Fetch categories with their specific margin values
     const categoriesRaw = await prisma.category.findMany({
-      include: { storeMarginValues: true },
+      include: { categoryMargins: true },
       orderBy: { order: 'asc' }
     });
 
@@ -24,9 +24,7 @@ export async function GET() {
       name: c.name,
       color: c.color,
       order: c.order,
-      targetStoreMargin: c.targetStoreMargin,
-      targetOnlineMargin: c.targetOnlineMargin,
-      storeMarginValues: c.storeMarginValues.map(mv => ({
+      categoryMargins: c.categoryMargins.map(mv => ({
         id: mv.id,
         categoryId: mv.categoryId,
         marginId: mv.marginId,
@@ -65,7 +63,7 @@ export async function GET() {
 
     log.debug('GET /api/data returning', {
       categoriesCount: categories.length,
-      categoriesWithMargins: categories.filter(c => c.storeMarginValues.length > 0).length,
+      categoriesWithMargins: categories.filter(c => (c.categoryMargins?.length ?? 0) > 0).length,
       marginsCount: margins.length
     });
 
@@ -111,17 +109,13 @@ export async function POST(request: Request) {
             update: {
               name: cat.name,
               color: cat.color || '',
-              order: cat.order || 0,
-              targetStoreMargin: safeFloat(cat.targetStoreMargin),
-              targetOnlineMargin: safeFloat(cat.targetOnlineMargin)
+              order: cat.order || 0
             },
             create: {
               id: cat.id,
               name: cat.name,
               color: cat.color || '',
-              order: cat.order || 0,
-              targetStoreMargin: safeFloat(cat.targetStoreMargin),
-              targetOnlineMargin: safeFloat(cat.targetOnlineMargin)
+              order: cat.order || 0
             }
           });
         }
@@ -204,14 +198,12 @@ export async function POST(request: Request) {
       // Handle Category Margin Values
       if (data.categories) {
         for (const cat of data.categories) {
-          if (cat.storeMarginValues) {
-            // Delete existing and re-create for this category
-            await tx.categoryStoreMargin.deleteMany({ where: { categoryId: cat.id } });
-            for (const mv of cat.storeMarginValues) {
-              // Ensure margin exists before creating link
+          if (cat.categoryMargins) {
+            await tx.categoryMargin.deleteMany({ where: { categoryId: cat.id } });
+            for (const mv of cat.categoryMargins) {
               const mCount = await tx.margin.count({ where: { id: mv.marginId } });
               if (mCount > 0) {
-                await tx.categoryStoreMargin.create({
+                await tx.categoryMargin.create({
                   data: {
                     categoryId: cat.id,
                     marginId: mv.marginId,
