@@ -304,7 +304,6 @@ const SortableProductRow = React.memo(({
   isExpanded,
   onToggleExpand,
   updateIngredientPrice,
-  onlineTargetMargin,
   platforms,
   category
 }: {
@@ -321,7 +320,6 @@ const SortableProductRow = React.memo(({
   isExpanded: boolean,
   onToggleExpand: (id: string) => void,
   updateIngredientPrice: (ingredientId: string, newPrice: number) => void;
-  onlineTargetMargin: number;
   platforms: { name: string, commission: number }[];
   category?: Category;
 }) => {
@@ -519,7 +517,7 @@ const SortableProductRow = React.memo(({
         cells={platforms.map(p => ({
           name: p.name,
           commission: p.commission,
-          targetMargin: category?.targetOnlineMargin ?? onlineTargetMargin
+          targetMargin: category?.targetOnlineMargin ?? 0
         }))}
       />
       <TableCell className="text-right w-[80px] px-4 py-1">
@@ -700,7 +698,6 @@ export default function Home() {
   const [bankCommissionRate, setBankCommissionRate] = useState(2.5);
   const [kdvRate, setKdvRate] = useState(10);
   const [stopajRate, setStopajRate] = useState(1);
-  const [onlineTargetMargin, setOnlineTargetMargin] = useState(30);
   const [migrosCommission, setMigrosCommission] = useState(15);
   const [getirCommission, setGetirCommission] = useState(15);
   const [yemeksepetiCommission, setYemeksepetiCommission] = useState(15);
@@ -904,7 +901,6 @@ export default function Home() {
         setBankCommissionRate(data.bankCommissionRate ?? 2.5);
         setKdvRate(data.kdvRate ?? 10);
         setStopajRate(data.stopajRate ?? 1);
-        setOnlineTargetMargin(data.onlineTargetMargin ?? 30);
         setMigrosCommission(data.migrosCommission ?? 15);
         setGetirCommission(data.getirCommission ?? 15);
         setYemeksepetiCommission(data.yemeksepetiCommission ?? 15);
@@ -920,7 +916,6 @@ export default function Home() {
             banka: data.bankCommissionRate ?? 2.5,
             kdv: data.kdvRate ?? 10,
             stopaj: data.stopajRate ?? 1,
-            onlineTarget: data.onlineTargetMargin ?? 30,
           },
         });
 
@@ -967,7 +962,6 @@ export default function Home() {
           kdvRate,
           bankCommissionRate,
           stopajRate,
-          onlineTargetMargin,
           migrosCommission,
           getirCommission,
           yemeksepetiCommission,
@@ -992,7 +986,7 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     products, ingredients, margins, categories, platformCommissionRate,
-    kdvRate, bankCommissionRate, stopajRate, onlineTargetMargin,
+    kdvRate, bankCommissionRate, stopajRate,
     migrosCommission, getirCommission, yemeksepetiCommission, trendyolCommission,
     isLoading
   ]);
@@ -1190,8 +1184,6 @@ export default function Home() {
               <RatePopover title="Platform Komisyonu" label="Platform:" rate={platformCommissionRate} onSave={(val) => { isDirtyRef.current = true; setPlatformCommissionRate(val); }} maxLimit={100} />
               <Separator orientation="vertical" className="h-4" />
               <RatePopover title="Stopaj Oranı" label="Stopaj:" rate={stopajRate} onSave={(val) => { isDirtyRef.current = true; setStopajRate(val); }} maxLimit={100} />
-              <Separator orientation="vertical" className="h-4" />
-              <RatePopover title="Online Hedef Kâr Marjı" label="Online Hedef:" rate={onlineTargetMargin} onSave={(val) => { isDirtyRef.current = true; setOnlineTargetMargin(val); }} maxLimit={100} />
             </div>
 
             <Button onClick={() => setCategoryDialogOpen(true)} variant="outline" className="glass-panel border-dashed h-11 px-5">
@@ -1355,7 +1347,7 @@ export default function Home() {
                                     <CategoryMarginBadge
                                       title={category.name}
                                       description="Online Kâr Marjı Hedefi (%)"
-                                      value={category.targetOnlineMargin || onlineTargetMargin}
+                                      value={category.targetOnlineMargin || 0}
                                       onSave={(val) => updateCategoryMargin(category.id, 'online', val)}
                                       label="Hedef"
                                       className="px-6"
@@ -1388,7 +1380,6 @@ export default function Home() {
                                   isExpanded={expandedProductIds.includes(product.id)}
                                   onToggleExpand={toggleProductExpansion}
                                   updateIngredientPrice={updateIngredientPrice}
-                                  onlineTargetMargin={onlineTargetMargin}
                                   platforms={platforms}
                                   category={category}
                                 />

@@ -78,7 +78,6 @@ export async function GET() {
       kdvRate: settings?.kdvRate ?? 10,
       bankCommissionRate: settings?.bankCommissionRate ?? 2.5,
       stopajRate: settings?.stopajRate ?? 1,
-      onlineTargetMargin: settings?.onlineTargetMargin ?? 30,
       migrosCommission: settings?.migrosCommission ?? 15,
       getirCommission: settings?.getirCommission ?? 15,
       yemeksepetiCommission: settings?.yemeksepetiCommission ?? 15,
@@ -228,7 +227,7 @@ export async function POST(request: Request) {
       // 5. UPDATE SETTINGS (USING STABLE ID "default")
       const settingsFields = [
         'platformCommissionRate', 'kdvRate', 'bankCommissionRate', 'stopajRate',
-        'onlineTargetMargin', 'migrosCommission', 'getirCommission',
+        'migrosCommission', 'getirCommission',
         'yemeksepetiCommission', 'trendyolCommission'
       ];
 
@@ -245,7 +244,6 @@ export async function POST(request: Request) {
             kdvRate: data.kdvRate !== undefined ? (safeFloat(data.kdvRate) ?? 10) : undefined,
             bankCommissionRate: data.bankCommissionRate !== undefined ? (safeFloat(data.bankCommissionRate) ?? 2.5) : undefined,
             stopajRate: data.stopajRate !== undefined ? (safeFloat(data.stopajRate) ?? 1) : undefined,
-            onlineTargetMargin: data.onlineTargetMargin !== undefined ? (safeFloat(data.onlineTargetMargin) ?? 30) : undefined,
             migrosCommission: data.migrosCommission !== undefined ? (safeFloat(data.migrosCommission) ?? 15) : undefined,
             getirCommission: data.getirCommission !== undefined ? (safeFloat(data.getirCommission) ?? 15) : undefined,
             yemeksepetiCommission: data.yemeksepetiCommission !== undefined ? (safeFloat(data.yemeksepetiCommission) ?? 15) : undefined,
@@ -257,7 +255,6 @@ export async function POST(request: Request) {
             kdvRate: safeFloat(data.kdvRate) ?? 10,
             bankCommissionRate: safeFloat(data.bankCommissionRate) ?? 2.5,
             stopajRate: safeFloat(data.stopajRate) ?? 1,
-            onlineTargetMargin: safeFloat(data.onlineTargetMargin) ?? 30,
             migrosCommission: safeFloat(data.migrosCommission) ?? 15,
             getirCommission: safeFloat(data.getirCommission) ?? 15,
             yemeksepetiCommission: safeFloat(data.yemeksepetiCommission) ?? 15,

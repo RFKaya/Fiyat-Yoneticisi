@@ -93,7 +93,6 @@ model GlobalSettings {
   kdvRate               Float  @default(10) @map("kdv_rate")
   bankCommissionRate    Float  @default(2.5) @map("bank_commission_rate")
   stopajRate            Float  @default(1) @map("stopaj_rate")
-  onlineTargetMargin    Float  @default(20) @map("online_target_margin")
   migrosCommission      Float  @default(40) @map("migros_commission")
   getirCommission       Float  @default(40) @map("getir_commission")
   yemeksepetiCommission Float  @default(40) @map("yemeksepeti_commission")

@@ -59,7 +59,6 @@ export type GlobalSettings = {
   kdvRate: number;
   bankCommissionRate: number;
   stopajRate: number;
-  onlineTargetMargin: number;
   migrosCommission: number;
   getirCommission: number;
   yemeksepetiCommission: number;
