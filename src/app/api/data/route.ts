@@ -197,6 +197,13 @@ export async function POST(request: Request) {
 
       // Handle Category Margin Values
       if (data.categories) {
+        // Ensure online-target margin exists in the database
+        await tx.margin.upsert({
+          where: { id: 'online-target' },
+          update: { name: 'Online Hedefi', type: 'online', value: 0 },
+          create: { id: 'online-target', name: 'Online Hedefi', type: 'online', value: 0 }
+        });
+
         for (const cat of data.categories) {
           if (cat.categoryMargins) {
             await tx.categoryMargin.deleteMany({ where: { categoryId: cat.id } });
@@ -273,7 +280,15 @@ export async function POST(request: Request) {
 
       if (data.margins) {
         const incomingMarIds = data.margins.map((m: any) => m.id);
-        await tx.margin.deleteMany({ where: { id: { notIn: incomingMarIds } } });
+        // Do not delete the system-level online-target margin
+        await tx.margin.deleteMany({ 
+          where: { 
+            id: { 
+              notIn: incomingMarIds,
+              not: 'online-target'
+            } 
+          } 
+        });
       }
     });
 
