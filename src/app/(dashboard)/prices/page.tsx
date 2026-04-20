@@ -587,7 +587,7 @@ function SortableCategoryItem({ category, onDelete }: { category: Category; onDe
   );
 }
 
-function RatePopover({ title, label, description, rate, onSave, maxLimit = 100, trigger, placeholder = "Örn: 30" }: { title: string, label?: string, description?: string, rate: number, onSave: (r: number) => void, maxLimit?: number, trigger?: React.ReactNode, placeholder?: string }) {
+function RatePopover({ title, label, description, rate, onSave, maxLimit = 10000, trigger, placeholder = "Örn: 30" }: { title: string, label?: string, description?: string, rate: number, onSave: (r: number) => void, maxLimit?: number, trigger?: React.ReactNode, placeholder?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState(String(rate));
 
@@ -1266,6 +1266,7 @@ export default function Home() {
                             title={`${p.name} Komisyonu`}
                             rate={p.commission}
                             onSave={(val) => updatePlatformCommission(p.key, val)}
+                            maxLimit={100}
                             trigger={
                               <HeaderColumnLabel
                                 title={p.name}
