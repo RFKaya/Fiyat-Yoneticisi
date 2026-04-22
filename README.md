@@ -1,40 +1,58 @@
-# FiyatVizyon - Ürün Fiyatlandırma ve Kâr Analiz Uygulaması
+# FiyatVizyon - Profesyonel Ürün Maliyet ve Fiyat Yönetim Paneli
 
-FiyatVizyon, restoran, kafe veya küçük işletme sahiplerinin ürün maliyetlerini hesaplamalarına, fiyatlarını belirlemelerine ve farklı satış kanalları (mağaza, online platformlar) için kâr marjlarını analiz etmelerine yardımcı olan bir web uygulamasıdır.
+FiyatVizyon; restoran, kafe ve perakende işletmelerinin karmaşık maliyet yapılarını basitleştiren, kâr marjlarını optimize eden ve tüm satış kanallarında (mağaza, online platformlar) fiyat istikrarı sağlayan kapsamlı bir yönetim aracıdır.
 
-Bu proje [Firebase Studio](https://firebase.google.com/studio) kullanılarak geliştirilmiştir.
+Artık Excel tabloları arasında kaybolmaya son! FiyatVizyon ile her bir malzemenin gramajından, platform komisyonlarına kadar her detayı tek bir merkezden yönetebilirsiniz.
 
-## Özellikler
+## 🚀 Öne Çıkan Özellikler
 
-- **Ürün ve Malzeme Yönetimi:** Ürünlerinizi ve bu ürünleri oluşturan malzemeleri (içerikleri) kolayca ekleyin, düzenleyin ve sıralayın.
-- **Dinamik Reçete Oluşturma:** Her ürün için detaylı reçeteler oluşturun. Malzeme miktarlarını belirterek ürün maliyetlerini otomatik olarak hesaplayın.
-- **Kâr Marjı Analizi:** Farklı kâr marjı yüzdelerine göre mağaza ve online satış fiyatlarınızı anında görün.
-- **Esnek Komisyon ve KDV Hesaplamaları:** Mağaza satışları için banka komisyonu, online satışlar için platform komisyonu ve genel KDV oranlarını belirleyerek tüm hesaplamaların bu oranlara göre yapılmasını sağlayın.
-- **Veri Kalıcılığı:** Tüm ürün, malzeme ve ayar verileriniz sunucu tarafında bir JSON dosyasında saklanır.
+### 📦 Birleşik Ürün ve Malzeme Yönetimi
+*   **Merkezi Kontrol:** Malzemelerinizi (hammadde) ve ürünlerinizi aynı arayüz üzerinden yönetin.
+*   **Dinamik Güncelleme:** Bir malzemenin fiyatı değiştiğinde, o malzemeyi kullanan tüm ürünlerin maliyetleri ve kâr analizleri anında güncellenir.
+*   **Hızlı Düzenleme:** Satır içi (inline) düzenleme özelliği sayesinde sayfalar arasında geçiş yapmadan isim, fiyat ve kategori güncellemelerini saniyeler içinde tamamlayın.
 
-## Teknolojiler
+### 🍳 Akıllı Reçete Sistemi
+*   **Detaylı Maliyetlendirme:** Ürünlerinize ait reçeteleri gramaj bazlı oluşturun.
+*   **Gerçek Zamanlı Hesaplama:** Malzeme miktarlarını değiştirdiğiniz anda ürün maliyetinin nasıl etkilendiğini görün.
+*   **Görsel Hiyerarşi:** Genişletilebilir satır yapısı ile reçete detaylarını ihtiyaç duyduğunuzda görüntüleyin, ekran karmaşasından kurtulun.
 
-- **Next.js:** Sunucu tarafı render ve statik site oluşturma özelliklerine sahip React framework'ü.
-- **React:** Kullanıcı arayüzü oluşturmak için kullanılan JavaScript kütüphanesi.
-- **TypeScript:** JavaScript'e statik tipler ekleyen dil.
-- **Tailwind CSS:** Hızlı UI geliştirme için kullanılan bir CSS framework'ü.
-- **ShadCN UI:** Tailwind CSS üzerine inşa edilmiş, yeniden kullanılabilir UI bileşenleri koleksiyonu.
+### 📊 Gelişmiş Kâr ve Finans Analizi
+*   **Maliyet Odaklı Analiz:** Kâr oranlarını sadece ciro üzerinden değil, maliyet üzerinden de hesaplayarak gerçek kârlılığınızı ölçün.
+*   **Platform Bazlı Marjlar:** Mağaza içi satışlar ile online platformlar (Getir, Yemeksepeti, Trendyol, Migros Yemek vb.) için ayrı kâr hedefleri belirleyin.
+*   **Komisyon ve KDV Yönetimi:** Banka komisyonu, platform hizmet bedelleri, KDV ve stopaj oranlarını otomatik hesaplamalara dahil edin.
+*   **Akıllı İpuçları (Tooltips):** Her fiyatın arkasındaki gizli maliyetleri (KDV tutarı, komisyon miktarı, net kâr) detaylı tooltipler ile anında inceleyin.
 
-## Başlarken
+### 📝 Sipariş ve Operasyon Takibi
+*   **Sipariş Yönetimi:** Gelen siparişlerinizi modern bir tabloda takip edin.
+*   **Detaylı Görünüm:** Her siparişin içeriğini, birim fiyatlarını ve toplam maliyetlerini tek tıkla açılan detay panellerinde görün.
 
-Projeyi yerel makinenizde çalıştırmak için aşağıdaki adımları izleyin.
+### 🛡️ Güvenlik ve Performans
+*   **Otomatik Yedekleme:** Verileriniz her 24 saatte bir otomatik olarak yedeklenir, veri kaybı riski minimize edilir.
+*   **Premium Arayüz:** Glassmorphism (cam efekti) tasarımı, yumuşak geçişler ve optimize edilmiş yükleme ekranları ile modern bir kullanıcı deneyimi.
+*   **Hızlı ve Esnek:** React Memo ve gelişmiş state yönetimi sayesinde binlerce ürün arasında bile kasmayan, akıcı bir arayüz.
+
+## 🛠️ Teknoloji Yığını
+
+*   **Framework:** [Next.js](https://nextjs.org/) (App Router)
+*   **Dil:** [TypeScript](https://www.typescriptlang.org/)
+*   **Veritabanı & ORM:** [Prisma](https://www.prisma.io/) ile SQLite/PostgreSQL
+*   **Styling:** [Tailwind CSS](https://tailwindcss.com/) & [ShadCN UI](https://ui.shadcn.com/)
+*   **İkonlar:** [Lucide React](https://lucide.dev/)
+*   **Sürükle-Bırak:** [@dnd-kit](https://dndkit.com/) (Kategori ve ürün sıralama için)
+
+## 🏁 Başlarken
 
 ### Gereksinimler
 
-- Node.js (v18 veya üstü)
-- npm veya yarn
+*   Node.js (v18.x veya üstü)
+*   npm / yarn / pnpm
 
 ### Kurulum
 
 1.  **Projeyi klonlayın:**
     ```bash
-    git clone https://github.com/KULLANICI_ADINIZ/PROJE_ADINIZ.git
-    cd PROJE_ADINIZ
+    git clone https://github.com/RFKaya/Fiyat-Yoneticisi.git
+    cd Fiyat-Yoneticisi
     ```
 
 2.  **Bağımlılıkları yükleyin:**
@@ -42,9 +60,19 @@ Projeyi yerel makinenizde çalıştırmak için aşağıdaki adımları izleyin.
     npm install
     ```
 
-3.  **Uygulamayı başlatın:**
+3.  **Veritabanını hazırlayın:**
+    ```bash
+    npx prisma generate
+    npx prisma db push
+    ```
+
+4.  **Uygulamayı başlatın:**
     ```bash
     npm run dev
     ```
 
-    Uygulama varsayılan olarak `http://localhost:9002` adresinde çalışmaya başlayacaktır.
+Uygulama varsayılan olarak `http://localhost:3000` (veya yapılandırılmış port) üzerinde çalışacaktır.
+
+---
+
+**FiyatVizyon** ile işletmenizin finansal kontrolünü elinize alın! 🚀
