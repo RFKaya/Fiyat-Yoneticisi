@@ -51,7 +51,8 @@ export async function GET() {
       onlinePrice: p.onlinePrice,
       order: p.order,
       recipe: p.recipe.map(r => ({
-        ingredientId: r.ingredientId,
+        ingredientId: r.ingredientId || undefined,
+        subProductId: r.subProductId || undefined,
         quantity: r.quantity
       }))
     }));
@@ -158,12 +159,22 @@ export async function POST(request: Request) {
 
           await tx.recipeItem.deleteMany({ where: { productId: prod.id } });
           for (const rec of prod.recipe || []) {
-            // make sure ingredient exists
-            const ingCount = await tx.ingredient.count({ where: { id: rec.ingredientId } });
-            if (ingCount > 0) {
-              await tx.recipeItem.create({
-                data: { productId: prod.id, ingredientId: rec.ingredientId, quantity: safeFloat(rec.quantity) ?? 1 }
-              });
+            if (rec.ingredientId) {
+              // Ingredient-based recipe item
+              const ingCount = await tx.ingredient.count({ where: { id: rec.ingredientId } });
+              if (ingCount > 0) {
+                await tx.recipeItem.create({
+                  data: { productId: prod.id, ingredientId: rec.ingredientId, quantity: safeFloat(rec.quantity) ?? 1 }
+                });
+              }
+            } else if (rec.subProductId) {
+              // Sub-product reference recipe item
+              const prodCount = await tx.product.count({ where: { id: rec.subProductId } });
+              if (prodCount > 0) {
+                await tx.recipeItem.create({
+                  data: { productId: prod.id, subProductId: rec.subProductId, quantity: safeFloat(rec.quantity) ?? 1 }
+                });
+              }
             }
           }
         }

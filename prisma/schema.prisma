@@ -38,26 +38,29 @@ model Ingredient {
 }
 
 model Product {
-  id          String       @id @default(cuid())
-  name        String
-  manualCost  Float        @default(0) @map("manual_cost")
-  storePrice  Float        @default(0) @map("store_price")
-  onlinePrice Float        @default(0) @map("online_price")
-  order       Int          @default(0)
-  categoryId  String?      @map("category_id")
-  category    Category?    @relation(fields: [categoryId], references: [id])
-  recipe      RecipeItem[]
+  id             String       @id @default(cuid())
+  name           String
+  manualCost     Float        @default(0) @map("manual_cost")
+  storePrice     Float        @default(0) @map("store_price")
+  onlinePrice    Float        @default(0) @map("online_price")
+  order          Int          @default(0)
+  categoryId     String?      @map("category_id")
+  category       Category?    @relation(fields: [categoryId], references: [id])
+  recipe         RecipeItem[]
+  usedInRecipes  RecipeItem[] @relation("SubProductRecipes")
 
   @@map("products")
 }
 
 model RecipeItem {
-  id           String     @id @default(cuid())
-  productId    String     @map("product_id")
-  ingredientId String     @map("ingredient_id")
+  id           String      @id @default(cuid())
+  productId    String      @map("product_id")
+  ingredientId String?     @map("ingredient_id")
+  subProductId String?     @map("sub_product_id")
   quantity     Float
-  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
-  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  subProduct   Product?    @relation("SubProductRecipes", fields: [subProductId], references: [id], onDelete: Cascade)
+  product      Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("recipe_items")
 }

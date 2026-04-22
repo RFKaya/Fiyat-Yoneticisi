@@ -1,7 +1,9 @@
 export type RecipeItem = {
-  ingredientId: string;
-  // Quantity of the ingredient used in the product.
-  // The unit depends on the ingredient's unit (e.g. grams for 'kg'/'gram', count for 'adet')
+  ingredientId?: string;
+  subProductId?: string;
+  // Quantity of the ingredient/sub-product used in the product.
+  // For ingredients: unit depends on ingredient's unit (e.g. grams for 'kg'/'gram', count for 'adet')
+  // For sub-products: always in 'adet' (count)
   // If ingredient has no unit, this is the cost in TL.
   quantity: number;
 };

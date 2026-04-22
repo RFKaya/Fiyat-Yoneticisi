@@ -1,39 +1,63 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { RecipeItem, Ingredient } from '@/lib/types';
+import type { RecipeItem, Ingredient, Product } from '@/lib/types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function calculateCost(recipe: RecipeItem[], ingredients: Ingredient[]): number {
+/**
+ * Calculates the total cost of a recipe.
+ * Supports both ingredient references and sub-product references (recursive).
+ * Cycle protection via a visited set prevents infinite loops.
+ */
+export function calculateCost(
+  recipe: RecipeItem[],
+  ingredients: Ingredient[],
+  allProducts?: Product[],
+  _visited?: Set<string>
+): number {
   if (!recipe || !ingredients) return 0;
 
-  return recipe.reduce((total, item) => {
-    const ingredient = ingredients.find((i) => i.id === item.ingredientId);
-    if (!ingredient) {
-      return total;
-    }
+  const visited = _visited || new Set<string>();
 
+  return recipe.reduce((total, item) => {
     let itemCost = 0;
-    // If ingredient has no unit or price, the quantity is the direct cost in TL.
-    if (ingredient.unit == null || ingredient.price == null) {
+
+    if (item.ingredientId) {
+      // Standard ingredient-based cost
+      const ingredient = ingredients.find((i) => i.id === item.ingredientId);
+      if (!ingredient) return total;
+
+      if (ingredient.unit == null || ingredient.price == null) {
         itemCost = item.quantity || 0;
-    } else {
+      } else {
         switch (ingredient.unit) {
           case 'kg':
-            // ingredient.price is per kg, recipe item.quantity is in grams
             itemCost = (ingredient.price / 1000) * item.quantity;
             break;
           case 'gram':
-            // ingredient.price is per gram, recipe item.quantity is in grams
             itemCost = ingredient.price * item.quantity;
             break;
           case 'adet':
-             // ingredient.price is per adet, recipe item.quantity is in adets
             itemCost = ingredient.price * item.quantity;
             break;
         }
+      }
+    } else if (item.subProductId && allProducts) {
+      // Sub-product reference — recursive cost calculation
+      if (visited.has(item.subProductId)) {
+        // Cycle detected, skip to prevent infinite loop
+        return total;
+      }
+      const subProduct = allProducts.find((p) => p.id === item.subProductId);
+      if (!subProduct) return total;
+
+      visited.add(subProduct.id);
+      const subCost = subProduct.recipe && subProduct.recipe.length > 0
+        ? calculateCost(subProduct.recipe, ingredients, allProducts, visited)
+        : subProduct.manualCost;
+      itemCost = subCost * (item.quantity || 0);
     }
 
     return total + (itemCost || 0);

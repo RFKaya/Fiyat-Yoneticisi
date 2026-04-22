@@ -294,6 +294,7 @@ EconomicsCells.displayName = 'EconomicsCells';
 const SortableProductRow = React.memo(({
   product,
   ingredients,
+  allProducts,
   storeMargins,
   categories,
   platformCommissionRate,
@@ -310,6 +311,7 @@ const SortableProductRow = React.memo(({
 }: {
   product: Product,
   ingredients: Ingredient[],
+  allProducts: Product[],
   storeMargins: Margin[],
   categories: Category[],
   platformCommissionRate: number,
@@ -329,7 +331,7 @@ const SortableProductRow = React.memo(({
   const [editingField, setEditingField] = useState<'name' | 'storePrice' | 'onlinePrice' | null>(null);
 
   const hasRecipe = product.recipe && product.recipe.length > 0;
-  const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
+  const cost = hasRecipe ? calculateCost(product.recipe, ingredients, allProducts) : product.manualCost;
   // Use product category for coloring, but the passed category is more reliable for target calculations
   const displayCategory = categories.find(c => c.id === product.categoryId);
 
@@ -745,7 +747,15 @@ export default function Home() {
   const deleteProduct = React.useCallback((id: string) => {
     isDirtyRef.current = true;
     log.warn('Ürün siliniyor', { productId: id });
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+    setProducts((prev) => {
+      // 1. Remove the product itself
+      const filtered = prev.filter((p) => p.id !== id);
+      // 2. Remove this product from any other product's recipe where it was a sub-product
+      return filtered.map(p => ({
+        ...p,
+        recipe: p.recipe.filter(r => r.subProductId !== id)
+      }));
+    });
   }, []);
 
   const updateCategoryMargin = React.useCallback((categoryId: string, type: 'store' | 'online', value: number, marginId?: string) => {
@@ -1076,7 +1086,7 @@ export default function Home() {
 
       prods.forEach(product => {
         const hasRecipe = product.recipe && product.recipe.length > 0;
-        const cost = hasRecipe ? calculateCost(product.recipe, ingredients) : product.manualCost;
+        const cost = hasRecipe ? calculateCost(product.recipe, ingredients, products) : product.manualCost;
 
         if (type === 'store' && product.storePrice > 0) {
           const econ = calculateEconomicsFromPrice(product.storePrice, cost, kdvRate, bankCommissionRate, 0);
@@ -1441,6 +1451,7 @@ export default function Home() {
                                 <SortableProductRow
                                   product={product}
                                   ingredients={ingredients}
+                                  allProducts={products}
                                   storeMargins={storeMargins}
                                   categories={categories}
                                   platformCommissionRate={platformCommissionRate}
