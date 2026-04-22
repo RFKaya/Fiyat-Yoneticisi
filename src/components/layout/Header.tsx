@@ -31,19 +31,13 @@ export default function Header() {
             <Button asChild variant={pathname === '/prices' || pathname === '/' ? 'default' : 'ghost'} size="sm">
               <Link href="/prices">
                 <Home className="mr-2 h-4 w-4" />
-                Fiyatlar
+                Menü & Fiyatlar
               </Link>
             </Button>
             <Button asChild variant={pathname === '/ledger' ? 'default' : 'ghost'} size="sm">
               <Link href="/ledger">
                 <PiggyBank className="mr-2 h-4 w-4" />
                 Hesap Defteri
-              </Link>
-            </Button>
-            <Button asChild variant={pathname === '/materials' ? 'default' : 'ghost'} size="sm">
-              <Link href="/materials">
-                <Sprout className="mr-2 h-4 w-4" />
-                Malzemeler
               </Link>
             </Button>
             <Button asChild variant={pathname === '/calculator' ? 'default' : 'ghost'} size="sm">

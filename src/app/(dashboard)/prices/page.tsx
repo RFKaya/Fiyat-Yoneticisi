@@ -11,6 +11,7 @@ import { CSS } from '@dnd-kit/utilities';
 import LoadingState from '@/components/layout/LoadingState';
 import ProductForm from './components/ProductForm';
 import InlineRecipeEditor from './components/InlineRecipeEditor';
+import { IngredientForm, SortableIngredientRow } from './components/IngredientComponents';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -692,6 +693,10 @@ export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
   const isInitialMount = React.useRef(true);
 
+  // Ingredient Management States
+  const [isIngredientDialogOpen, setIngredientDialogOpen] = useState(false);
+  const [editingIngredient, setEditingIngredient] = useState<Ingredient | undefined>(undefined);
+
   // Rate states
   const [platformCommissionRate, setPlatformCommissionRate] = useState(15);
   const [bankCommissionRate, setBankCommissionRate] = useState(2.5);
@@ -807,6 +812,45 @@ export default function Home() {
     );
   }, []);
 
+  const handleSaveIngredient = React.useCallback((data: Omit<Ingredient, 'id' | 'order'>) => {
+    isDirtyRef.current = true;
+    setIngredients((prev) => {
+      if (editingIngredient) {
+        log.info('Malzeme güncelleniyor', { id: editingIngredient.id, name: data.name });
+        return prev.map((i) =>
+          i.id === editingIngredient.id ? { ...editingIngredient, ...data } as Ingredient : i
+        );
+      } else {
+        log.info('Yeni malzeme ekleniyor', { name: data.name });
+        const newOrder = prev.length > 0 ? Math.max(...prev.map(i => i.order ?? -1)) + 1 : 0;
+        return [...prev, { ...data, id: generateId(), order: newOrder } as Ingredient];
+      }
+    });
+    setIngredientDialogOpen(false);
+    setEditingIngredient(undefined);
+  }, [editingIngredient]);
+
+  const deleteIngredient = React.useCallback((id: string) => {
+    isDirtyRef.current = true;
+    log.warn('Malzeme siliniyor', { id });
+    setIngredients((prev) => prev.filter((i) => i.id !== id));
+    // Also remove from all recipes
+    setProducts(prev => prev.map(p => ({
+      ...p,
+      recipe: p.recipe.filter(r => r.ingredientId !== id)
+    })));
+  }, []);
+
+  const handleOpenIngredientForm = React.useCallback((ingredient?: Ingredient) => {
+    setEditingIngredient(ingredient);
+    setIngredientDialogOpen(true);
+  }, []);
+
+  const handleCloseIngredientForm = React.useCallback(() => {
+    setEditingIngredient(undefined);
+    setIngredientDialogOpen(false);
+  }, []);
+
   const handleUpdateMarginDetails = React.useCallback((id: string, marginData: Partial<Margin>) => {
     isDirtyRef.current = true;
     setMargins(prev => prev.map(m => m.id === id ? { ...m, ...marginData } : m));
@@ -865,6 +909,7 @@ export default function Home() {
 
   useEffect(() => {
     setIsMounted(true);
+    document.title = 'Menü & Fiyatlar | FiyatVizyon';
   }, []);
 
   // Data Fetching and Saving
@@ -1115,12 +1160,33 @@ export default function Home() {
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
+    if (!over || active.id === over.id) return;
+
+    // Check if we are dragging a product or an ingredient
+    const isActiveProduct = products.some(p => p.id === active.id);
+    const isOverProduct = products.some(p => p.id === over.id);
+
+    if (isActiveProduct && isOverProduct) {
       setProducts((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
 
         const reordered = arrayMove(items, oldIndex, newIndex);
+        isDirtyRef.current = true;
+        return reordered.map((item, index) => ({ ...item, order: index }));
+      });
+      return;
+    }
+
+    const isActiveIngredient = ingredients.some(i => i.id === active.id);
+    const isOverIngredient = ingredients.some(i => i.id === over.id);
+
+    if (isActiveIngredient && isOverIngredient) {
+      setIngredients((prev) => {
+        const oldIndex = prev.findIndex((item) => item.id === active.id);
+        const newIndex = prev.findIndex((item) => item.id === over.id);
+
+        const reordered = arrayMove(prev, oldIndex, newIndex);
         isDirtyRef.current = true;
         return reordered.map((item, index) => ({ ...item, order: index }));
       });
@@ -1144,7 +1210,8 @@ export default function Home() {
   const totalColumns = 7 + storeMargins.length + platforms.length;
   const productIds = useMemo(() => products.map(p => p.id), [products]);
   const categoryIds = useMemo(() => categories.map(c => c.id), [categories]);
-  const pricedIngredients = useMemo(() => ingredients.filter(ing => ing.price !== undefined && ing.unit !== undefined), [ingredients]);
+  const sortedIngredients = useMemo(() => [...ingredients].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [ingredients]);
+  const ingredientIds = useMemo(() => sortedIngredients.map(i => i.id), [sortedIngredients]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -1155,7 +1222,7 @@ export default function Home() {
           <div>
             <div className="flex items-center gap-3 mb-2 h-6">
               <h2 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-primary to-indigo-500">
-                Ürün ve Kâr Analizi
+                Menü & Fiyatlar
               </h2>
               <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full transition-all duration-300 ${saveStatus === 'saving' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20 animate-pulse' :
                 saveStatus === 'saved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
@@ -1385,7 +1452,6 @@ export default function Home() {
                                 {expandedProductIds.includes(product.id) && (
                                   <TableRow className="bg-primary/5 hover:bg-primary/5">
                                     <TableCell colSpan={totalColumns} className="p-0 border-b border-primary/10">
-                                      <div className="p-4 md:p-6">
                                         <InlineRecipeEditor
                                           product={product}
                                           ingredients={ingredients}
@@ -1394,7 +1460,6 @@ export default function Home() {
                                           updateProduct={updateProduct}
                                           updateIngredientPrice={updateIngredientPrice}
                                         />
-                                      </div>
                                     </TableCell>
                                   </TableRow>
                                 )}
@@ -1435,70 +1500,71 @@ export default function Home() {
           </DialogContent>
         </Dialog>
 
-        {/* Dynamic Ingredient Price Update Section */}
-        {pricedIngredients.length > 0 && (
-          <div className="glass-panel p-8 mt-12 overflow-hidden relative border-none shadow-2xl">
-            <div className="absolute top-0 right-0 p-8 opacity-[0.03]">
-              <Tags size={180} />
-            </div>
-
-            <div className="relative z-10">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
-                <div>
-                  <h3 className="text-3xl font-black tracking-tight text-foreground">Hızlı Malzeme Güncelleme</h3>
-                  <p className="text-muted-foreground text-lg mt-1">Birim fiyatı tanımlı malzemeleri anında güncelleyin.</p>
-                </div>
-                <div className="bg-primary/10 border border-primary/20 px-4 py-2 rounded-xl">
-                  <span className="text-xs font-bold text-primary uppercase tracking-widest">Anlık Otomatik Hesaplama</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-                {pricedIngredients.map((ing) => (
-                  <div key={ing.id} className="group relative bg-muted/40 dark:bg-muted/20 hover:bg-card transition-all duration-300 p-5 rounded-2xl border border-border/50 hover:border-primary/50 hover:shadow-xl hover:-translate-y-1 overflow-hidden">
-                    <div className="absolute inset-y-0 left-0 w-1 bg-primary/30 group-hover:bg-primary transition-colors" />
-                    <div className="flex flex-col space-y-3 relative z-10 pl-2">
-                      <Label
-                        htmlFor={`price-${ing.id}`}
-                        className="text-xs font-bold uppercase tracking-wider text-muted-foreground group-hover:text-primary transition-colors truncate"
-                        title={ing.name}
-                      >
-                        {ing.name}
-                      </Label>
-
-                      <div className="flex items-end gap-2">
-                        <div className="relative flex-grow">
-                          <Input
-                            id={`price-${ing.id}`}
-                            type="number"
-                            className="w-full text-2xl font-black pr-8 bg-transparent border-none p-0 h-auto focus-visible:ring-0 text-foreground"
-                            key={ing.id + (ing.price || 0)}
-                            defaultValue={ing.price}
-                            onBlur={(e) => {
-                              const newPrice = parseFloat(e.target.value.replace(',', '.'));
-                              if (!isNaN(newPrice) && newPrice >= 0 && newPrice !== ing.price) {
-                                updateIngredientPrice(ing.id, newPrice);
-                              } else {
-                                e.target.value = String(ing.price || '');
-                              }
-                            }}
-                            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                          />
-                          <span className="absolute right-0 bottom-1 font-black text-xl text-primary/30 group-hover:text-primary transition-opacity">₺</span>
-                        </div>
-                        <div className="pb-1">
-                          <span className="text-[10px] font-black bg-muted px-2 py-0.5 rounded text-muted-foreground uppercase tracking-tighter border border-border/50">
-                            / {ing.unit}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        {/* Material Management Section */}
+        <div className="glass-panel p-8 mt-12 overflow-hidden relative border-none shadow-2xl">
+          <div className="absolute top-0 right-0 p-8 opacity-[0.03]">
+            <Tags size={180} />
           </div>
-        )}
+
+          <div className="relative z-10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+              <div>
+                <h3 className="text-3xl font-black tracking-tight text-foreground">Malzeme Yönetimi</h3>
+                <p className="text-muted-foreground text-lg mt-1">Tüm malzemeleri yönetin, fiyatlarını güncelleyin ve hangi ürünlerde kullanıldığını görün.</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <Button onClick={() => handleOpenIngredientForm()} className="h-11 px-6 font-bold shadow-indigo-500/20">
+                  <PlusCircle className="mr-2 h-5 w-5" /> Yeni Malzeme
+                </Button>
+              </div>
+            </div>
+
+            {ingredients.length > 0 ? (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={ingredientIds} strategy={verticalListSortingStrategy}>
+                  <div className="grid grid-cols-1 gap-4">
+                    {sortedIngredients.map((ing) => (
+                      <SortableIngredientRow
+                        key={ing.id}
+                        ingredient={ing}
+                        products={products}
+                        onRecipeChange={updateProductRecipe}
+                        deleteIngredient={deleteIngredient}
+                        handleOpenForm={handleOpenIngredientForm}
+                        updateIngredientPrice={updateIngredientPrice}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            ) : (
+              <div className="h-48 flex flex-col items-center justify-center text-center glass-panel border-dashed p-8">
+                <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                  <Tags className="h-8 w-8 text-muted-foreground/50" />
+                </div>
+                <p className="text-lg font-medium text-muted-foreground">Henüz malzeme eklenmemiş.</p>
+                <Button variant="link" onClick={() => handleOpenIngredientForm()} className="text-primary font-bold mt-1">
+                  İlk malzemeyi hemen ekleyin
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Ingredient Form Dialog */}
+        <Dialog open={isIngredientDialogOpen} onOpenChange={setIngredientDialogOpen}>
+          <DialogContent onInteractOutside={handleCloseIngredientForm} className="max-w-2xl glass-panel border-none shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">{editingIngredient ? 'Malzemeyi Düzenle' : 'Yeni Malzeme Ekle'}</DialogTitle>
+              <DialogDescription>Malzeme bilgilerini güncelleyin veya yeni bir tane ekleyin.</DialogDescription>
+            </DialogHeader>
+            <IngredientForm
+              onSave={handleSaveIngredient}
+              closeDialog={handleCloseIngredientForm}
+              initialData={editingIngredient}
+            />
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

@@ -49,7 +49,6 @@ const MODULE_COLORS: Record<string, string> = {
   'API:Auth':     '#ec4899', // Pink
   'Auth':         '#ec4899', // Pink
   'Page:Home':    '#10b981', // Emerald
-  'Page:Materials': '#f59e0b', // Amber
   'Page:Ledger':  '#06b6d4', // Cyan
   'Hook:Storage': '#8b5cf6', // Purple
   'Utils':        '#6366f1', // Indigo
@@ -123,7 +122,6 @@ const MODULE_ANSI: Record<string, string> = {
   'API:Auth':     ANSI.magenta,
   'Auth':         ANSI.magenta,
   'Page:Home':    ANSI.green,
-  'Page:Materials': ANSI.yellow,
   'Page:Ledger':  ANSI.cyan,
   'Hook:Storage': ANSI.magenta,
   'Utils':        ANSI.blue,
@@ -293,6 +291,5 @@ export const apiLedgerLogger   = createLogger('API:Ledger');
 export const apiShopsLogger    = createLogger('API:Shops');
 export const apiAuthLogger     = createLogger('API:Auth');
 export const pageHomeLogger    = createLogger('Page:Home');
-export const pageMaterialsLogger = createLogger('Page:Materials');
 export const pageLedgerLogger  = createLogger('Page:Ledger');
 export const authLogger        = createLogger('Auth');
