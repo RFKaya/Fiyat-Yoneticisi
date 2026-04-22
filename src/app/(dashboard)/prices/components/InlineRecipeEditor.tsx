@@ -114,8 +114,9 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                             id={`manual-cost-${product.id}`}
                             type="number"
                             placeholder="0.00"
-                            value={product.manualCost || ''}
-                            onChange={(e) => updateProduct(product.id, 'manualCost', e.target.value)}
+                            defaultValue={product.manualCost || ''}
+                            onBlur={(e) => updateProduct(product.id, 'manualCost', e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                         />
                     </div>
                 </div>

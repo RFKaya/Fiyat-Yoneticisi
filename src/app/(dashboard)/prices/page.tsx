@@ -984,47 +984,53 @@ export default function Home() {
     }
 
     if (!isLoading && isDirtyRef.current) {
-      isDirtyRef.current = false;
-      setSaveStatus('saving');
-      log.debug('Otomatik kayıt başlatılıyor...', {
-        products: products.length,
-        margins: margins.length,
-      });
-
-      const saveTimer = log.time('Otomatik kayıt süresi');
-
-      fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          products,
-          ingredients,
-          margins,
-          categories,
-          platformCommissionRate,
-          kdvRate,
-          bankCommissionRate,
-          stopajRate,
-          migrosCommission,
-          getirCommission,
-          yemeksepetiCommission,
-          trendyolCommission
-        }),
-      })
-        .then((res) => {
-          saveTimer.end();
-          if (!res.ok) throw new Error('Kayıt başarısız');
-          setSaveStatus('saved');
-          log.success('Veriler otomatik kaydedildi ✓');
-          setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 2000);
-        })
-        .catch(error => {
-          saveTimer.end();
-          setSaveStatus('error');
-          log.error('Otomatik kayıt hatası!', { message: error.message });
-          window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Yaptığınız değişiklikler kaydedilemedi!' }));
+      saveTimeoutRef.current = setTimeout(() => {
+        isDirtyRef.current = false;
+        setSaveStatus('saving');
+        log.debug('Otomatik kayıt başlatılıyor...', {
+          products: products.length,
+          margins: margins.length,
         });
+
+        const saveTimer = log.time('Otomatik kayıt süresi');
+
+        fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            products,
+            ingredients,
+            margins,
+            categories,
+            platformCommissionRate,
+            kdvRate,
+            bankCommissionRate,
+            stopajRate,
+            migrosCommission,
+            getirCommission,
+            yemeksepetiCommission,
+            trendyolCommission
+          }),
+        })
+          .then((res) => {
+            saveTimer.end();
+            if (!res.ok) throw new Error('Kayıt başarısız');
+            setSaveStatus('saved');
+            log.success('Veriler otomatik kaydedildi ✓');
+            setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 2000);
+          })
+          .catch(error => {
+            saveTimer.end();
+            setSaveStatus('error');
+            log.error('Otomatik kayıt hatası!', { message: error.message });
+            window.dispatchEvent(new CustomEvent('app-fetch-error', { detail: 'Yaptığınız değişiklikler kaydedilemedi!' }));
+          });
+      }, 500);
     }
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
