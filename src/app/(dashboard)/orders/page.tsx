@@ -12,13 +12,24 @@ import {
   Info,
   LayoutList,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Platform, ParsedOrder } from '@/lib/orders/types';
 import { parseOrderFile } from '@/lib/orders';
+import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function OrdersPage() {
   const [platform, setPlatform] = useState<Platform>('TRENDYOL');
@@ -26,6 +37,7 @@ export default function OrdersPage() {
   const [isParsing, setIsParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleOrderExpansion = (orderNo: string) => {
@@ -45,6 +57,7 @@ export default function OrdersPage() {
     try {
       const parsedOrders = await parseOrderFile(file, platform);
       setOrders(parsedOrders);
+      setIsUploadModalOpen(false); // Close modal on success
     } catch (err) {
       console.error(err);
       setError('Dosya ayrıştırılırken bir hata oluştu. Lütfen doğru platformu seçtiğinizden ve dosyanın geçerli bir Excel olduğundan emin olun.');
@@ -79,33 +92,85 @@ export default function OrdersPage() {
           <p className="text-muted-foreground mt-1">Platformlardan dışa aktarılan siparişleri test edin ve yönetin.</p>
         </div>
         <div className="flex items-center gap-3">
-          <Select value={platform} onValueChange={(v) => setPlatform(v as Platform)}>
-            <SelectTrigger className="w-[180px] glass-panel">
-              <SelectValue placeholder="Platform Seçin" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="TRENDYOL">Trendyol</SelectItem>
-              <SelectItem value="YEMEKSEPETI">Yemeksepeti</SelectItem>
-              <SelectItem value="MIGROS">Migros Yemek</SelectItem>
-              <SelectItem value="GETIR">Getir Yemek</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Button 
-            className="relative overflow-hidden group" 
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isParsing}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            {isParsing ? 'Ayrıştırılıyor...' : 'Excel Yükle'}
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept=".xlsx,.xls" 
-              onChange={handleFileUpload}
-            />
-          </Button>
+          <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                className="relative overflow-hidden group shadow-lg shadow-primary/20" 
+                disabled={isParsing}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {isParsing ? 'Ayrıştırılıyor...' : 'Sipariş Yükle'}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] glass-panel border-none shadow-2xl p-0 overflow-hidden">
+              <DialogHeader className="p-6 pb-0">
+                <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                  <FileSpreadsheet className="h-6 w-6 text-primary" />
+                  Sipariş Dosyası Yükle
+                </DialogTitle>
+                <DialogDescription>
+                  {platform} platformundan aldığınız Excel dosyasını buraya yükleyin.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-muted-foreground ml-1">Platform Seçin</label>
+                  <Select value={platform} onValueChange={(v) => setPlatform(v as Platform)}>
+                    <SelectTrigger className="w-full h-12 glass-panel border-muted hover:border-primary/50 transition-colors">
+                      <SelectValue placeholder="Platform Seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TRENDYOL">Trendyol</SelectItem>
+                      <SelectItem value="YEMEKSEPETI">Yemeksepeti</SelectItem>
+                      <SelectItem value="MIGROS">Migros Yemek</SelectItem>
+                      <SelectItem value="GETIR">Getir Yemek</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div
+                  className={cn(
+                    "border-2 border-dashed rounded-2xl p-12 flex flex-col items-center justify-center gap-4 transition-all text-center",
+                    "border-muted-foreground/20 bg-muted/5 hover:border-primary/50 hover:bg-primary/5 cursor-pointer group"
+                  )}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary transition-transform group-hover:scale-110">
+                    <Upload className="h-8 w-8" />
+                  </div>
+                  <div>
+                    <p className="font-bold">Excel Dosyası Seçin</p>
+                    <p className="text-xs text-muted-foreground mt-1">Sürükleyip bırakın veya tıklayın (.xlsx, .xls)</p>
+                  </div>
+                  <Input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileUpload}
+                  />
+                </div>
+
+                <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/10 flex gap-3">
+                  <Info className="h-5 w-5 text-blue-500 shrink-0" />
+                  <div className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
+                    <p className="font-bold underline">Nasıl Yüklenir?</p>
+                    <p>{platform} satıcı panelinden sipariş listesini Excel olarak dışa aktarın ve buraya yükleyin.</p>
+                  </div>
+                </div>
+
+                {(platform === 'MIGROS' || platform === 'GETIR') && (
+                  <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 flex gap-3 animate-in fade-in slide-in-from-top-2">
+                    <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
+                    <div className="text-xs text-amber-700 dark:text-amber-400">
+                      <strong>Not:</strong> Bu platform Excel çıktısında ürün detaylarını vermemektedir. Siparişler genel tutar olarak görünecektir.
+                    </div>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
