@@ -191,7 +191,7 @@ export default function OrdersPage() {
                 sub: `KDV: ${formatCurrency(totals.vat)} · Kom: ${formatCurrency(totals.commission)}`
               },
               {
-                label: 'Net Kâr', value: formatCurrency(totals.netProfit),
+                label: 'Tahmini Kâr', value: formatCurrency(totals.netProfit),
                 icon: totals.netProfit >= 0 ? TrendingUp : TrendingDown,
                 color: totals.netProfit >= 0 ? 'text-emerald-400' : 'text-red-400',
                 bg: totals.netProfit >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10',
@@ -204,7 +204,7 @@ export default function OrdersPage() {
                 color: totals.margin >= 20 ? 'text-violet-400' : totals.margin >= 0 ? 'text-amber-400' : 'text-red-400',
                 bg: totals.margin >= 20 ? 'bg-violet-500/10' : 'bg-amber-500/10',
                 border: totals.margin >= 20 ? 'border-violet-500/20' : 'border-amber-500/20',
-                sub: 'Ciroya göre net kâr'
+                sub: 'Ciroya göre tahmini kâr'
               }
             ].map(({ label, value, icon: Icon, color, bg, border, sub }) => (
               <div key={label} className={cn('glass-panel p-5 border', border)}>
@@ -244,7 +244,7 @@ export default function OrdersPage() {
                 <TableHead className="w-[120px] px-4 font-bold">Platform</TableHead>
                 <TableHead className="w-[120px] px-4 font-bold">Ödeme</TableHead>
                 <TableHead className="w-[120px] px-4 font-bold text-right">Ciro</TableHead>
-                <TableHead className="w-[120px] px-4 font-bold text-right">Net Kâr</TableHead>
+                <TableHead className="w-[120px] px-4 font-bold text-right">Tahmini Kâr</TableHead>
                 <TableHead className="w-[80px] px-4 font-bold">Durum</TableHead>
                 <TableHead className="w-[60px] px-4 font-bold text-center">Detay</TableHead>
               </TableRow>
@@ -302,111 +302,128 @@ export default function OrdersPage() {
                           <TableCell colSpan={8} className="p-0 border-b border-primary/10">
                             <div className="p-6 animate-in slide-in-from-top-2 duration-300">
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                {/* Sol Kolon: Sipariş İçeriği */}
-                                <div className="space-y-4">
-                                  <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-wider">
-                                    <LayoutList className="h-4 w-4" />
-                                    Sipariş İçeriği
-                                  </div>
-
-                                  {analysis && analysis.matchedItems.length > 0 ? (
-                                    <div className="rounded-xl border border-border/50 overflow-hidden bg-card/50">
-                                      <table className="w-full text-sm">
-                                        <thead className="bg-muted/40">
-                                          <tr>
-                                            <th className="text-left px-4 py-2 font-semibold text-xs">Ürün</th>
-                                            <th className="text-center px-4 py-2 font-semibold text-xs">Adet</th>
-                                            <th className="text-right px-4 py-2 font-semibold text-xs">Birim Maliyet</th>
-                                            <th className="text-right px-4 py-2 font-semibold text-xs">Toplam</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {analysis.matchedItems.map((item, i) => (
-                                            <tr key={i} className="border-t border-border/30 hover:bg-muted/20">
-                                              <td className="px-4 py-2 font-medium">{item.matchedProductName}</td>
-                                              <td className="px-4 py-2 text-center">{item.quantity}</td>
-                                              <td className="px-4 py-2 text-right text-muted-foreground text-xs">{formatCurrency(item.unitCost)}</td>
-                                              <td className="px-4 py-2 text-right font-semibold text-amber-500">{formatCurrency(item.totalCost)}</td>
-                                            </tr>
-                                          ))}
-                                          {analysis.unmatchedItems.map((item, i) => (
-                                            <tr key={`u${i}`} className="border-t border-border/30 hover:bg-muted/20 opacity-60">
-                                              <td className="px-4 py-2 font-medium text-muted-foreground italic">{item.name}</td>
-                                              <td className="px-4 py-2 text-center">{item.quantity}</td>
-                                              <td className="px-4 py-2 text-right">-</td>
-                                              <td className="px-4 py-2 text-right text-red-400">
-                                                <XCircle className="h-3 w-3 inline mr-1" />
-                                                Eşleşmedi
-                                              </td>
-                                            </tr>
-                                          ))}
-                                        </tbody>
-                                      </table>
-                                    </div>
-                                  ) : order.raw?.content ? (
-                                    <div className="p-4 rounded-xl bg-card border border-border/50 font-mono text-xs leading-relaxed">
-                                      {order.raw.content}
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col items-center p-12 text-muted-foreground opacity-60">
-                                      <Ghost className="h-10 w-10 mb-2" />
-                                      <p>Bu platform için ürün detayı bulunamadı.</p>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Sağ Kolon: Finansal Veriler & Ham Veri */}
+                                {/* Sol Kolon: Sipariş İçeriği & Ham Veri */}
                                 <div className="space-y-6">
                                   <div className="space-y-4">
                                     <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-wider">
-                                      <TrendingUp className="h-4 w-4" />
-                                      Finansal Analiz
+                                      <LayoutList className="h-4 w-4" />
+                                      Sipariş İçeriği
                                     </div>
 
-                                    {analysis && (
-                                      <div className="grid grid-cols-1 gap-2">
-                                        {[
-                                          { label: 'Brüt Ciro', val: analysis.revenue, color: 'text-blue-500', icon: DollarSign },
-                                          { label: 'KDV Tutarı', val: analysis.economics.vatAmount, color: 'text-muted-foreground', icon: Receipt, subtract: true },
-                                          { label: 'Platform Komisyonu', val: analysis.economics.commissionAmount, color: 'text-muted-foreground', icon: Percent, subtract: true },
-                                          { label: 'Stopaj Vergisi', val: analysis.economics.stopajAmount, color: 'text-muted-foreground', icon: ShieldCheck, subtract: true },
-                                          { label: 'Ürün Maliyetleri', val: analysis.totalCost, color: 'text-amber-500', icon: Package, subtract: true },
-                                          {
-                                            label: 'Net Kâr',
-                                            val: analysis.economics.netProfit,
-                                            color: analysis.economics.netProfit >= 0 ? 'text-emerald-500' : 'text-red-500',
-                                            icon: analysis.economics.netProfit >= 0 ? TrendingUp : TrendingDown,
-                                            highlight: true
-                                          },
-                                        ].map((item, i) => (
-                                          <div key={i} className={cn(
-                                            "flex items-center justify-between p-3 rounded-xl border transition-colors",
-                                            item.highlight ? "bg-primary/10 border-primary/20 shadow-sm" : "bg-card/50 border-border/50"
-                                          )}>
-                                            <div className="flex items-center gap-3">
-                                              <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", item.highlight ? "bg-primary/20" : "bg-muted/50")}>
-                                                <item.icon className={cn("h-4 w-4", item.highlight ? "text-primary" : "text-muted-foreground")} />
-                                              </div>
-                                              <span className={cn("text-sm font-medium", item.highlight ? "text-primary" : "text-foreground")}>{item.label}</span>
-                                            </div>
-                                            <span className={cn("font-bold text-sm", item.color)}>
-                                              {item.subtract ? '-' : ''} {formatCurrency(item.val)}
-                                            </span>
-                                          </div>
-                                        ))}
+                                    {analysis && analysis.matchedItems.length > 0 ? (
+                                      <div className="rounded-xl border border-border/50 overflow-hidden bg-card/50">
+                                        <table className="w-full text-sm">
+                                          <thead className="bg-muted/40">
+                                            <tr>
+                                              <th className="text-center px-4 py-2 font-semibold text-xs w-16">Adet</th>
+                                              <th className="text-left px-4 py-2 font-semibold text-xs">Ürün</th>
+                                              <th className="text-right px-4 py-2 font-semibold text-xs">Birim Maliyet</th>
+                                              <th className="text-right px-4 py-2 font-semibold text-xs">Toplam</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {analysis.matchedItems.map((item, i) => (
+                                              <tr key={i} className="border-t border-border/30 hover:bg-muted/20">
+                                                <td className="px-4 py-2 text-center font-bold text-primary">{item.quantity}</td>
+                                                <td className="px-4 py-2 font-medium">{item.matchedProductName}</td>
+                                                <td className="px-4 py-2 text-right text-muted-foreground text-xs">{formatCurrency(item.unitCost)}</td>
+                                                <td className="px-4 py-2 text-right font-semibold text-amber-500">{formatCurrency(item.totalCost)}</td>
+                                              </tr>
+                                            ))}
+                                            {analysis.unmatchedItems.map((item, i) => (
+                                              <tr key={`u${i}`} className="border-t border-border/30 hover:bg-muted/20 opacity-60">
+                                                <td className="px-4 py-2 text-center font-bold">{item.quantity}</td>
+                                                <td className="px-4 py-2 font-medium text-muted-foreground italic">{item.name}</td>
+                                                <td className="px-4 py-2 text-right">-</td>
+                                                <td className="px-4 py-2 text-right text-red-400">
+                                                  <XCircle className="h-3 w-3 inline mr-1" />
+                                                  Eşleşmedi
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    ) : order.raw?.content ? (
+                                      <div className="p-4 rounded-xl bg-card border border-border/50 font-mono text-xs leading-relaxed">
+                                        {order.raw.content}
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center p-12 text-muted-foreground opacity-60">
+                                        <Ghost className="h-10 w-10 mb-2" />
+                                        <p>Bu platform için ürün detayı bulunamadı.</p>
                                       </div>
                                     )}
                                   </div>
 
-                                  {/* Ham Veri */}
+                                  {/* Ham Veri - Artık Sipariş İçeriğinin altında */}
                                   {order.raw?.content && (
                                     <div className="space-y-2">
                                       <div className="flex items-center gap-2 text-muted-foreground font-bold text-[10px] uppercase tracking-wider">
                                         <FileJson className="h-3 w-3" />
                                         Ham Sipariş Verisi
                                       </div>
-                                      <div className="p-3 rounded-lg bg-muted/20 border border-border/30 font-mono text-[10px] leading-relaxed break-words text-muted-foreground/80 italic">
+                                      <div className="p-3 rounded-lg bg-muted/10 border border-border/20 font-mono text-[10px] leading-relaxed break-words text-muted-foreground/60 italic">
                                         {order.raw.content}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Sağ Kolon: Finansal Veriler */}
+                                <div className="space-y-4">
+                                  <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-wider">
+                                    <TrendingUp className="h-4 w-4" />
+                                    Finansal Analiz
+                                  </div>
+
+                                  {analysis && (
+                                    <div className="space-y-3">
+                                      {/* Brüt Ciro */}
+                                      <div className="flex items-center justify-between p-3 rounded-xl border bg-card/50 border-border/50">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-muted/50">
+                                            <DollarSign className="h-4 w-4 text-blue-500" />
+                                          </div>
+                                          <span className="text-sm font-medium">Brüt Ciro</span>
+                                        </div>
+                                        <span className="font-bold text-sm text-blue-500">{formatCurrency(analysis.revenue)}</span>
+                                      </div>
+
+                                      {/* Giderler Grubu */}
+                                      <div className="rounded-xl border border-border/50 bg-muted/20 overflow-hidden">
+                                        <div className="px-3 py-2 border-b border-border/50 bg-muted/30">
+                                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Giderler & Kesintiler</p>
+                                        </div>
+                                        <div className="p-1 space-y-1">
+                                          {[
+                                            { label: 'KDV Tutarı', val: analysis.economics.vatAmount, icon: Receipt },
+                                            { label: 'Platform Komisyonu', val: analysis.economics.commissionAmount, icon: Percent },
+                                            { label: 'Stopaj Vergisi', val: analysis.economics.stopajAmount, icon: ShieldCheck },
+                                            { label: 'Ürün Maliyetleri', val: analysis.totalCost, icon: Package, color: 'text-amber-500' },
+                                          ].map((item, i) => (
+                                            <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors">
+                                              <div className="flex items-center gap-2.5">
+                                                <item.icon className={cn("h-3.5 w-3.5", item.color || "text-muted-foreground")} />
+                                                <span className="text-xs text-muted-foreground">{item.label}</span>
+                                              </div>
+                                              <span className="text-xs font-semibold text-muted-foreground">- {formatCurrency(item.val)}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      {/* Tahmini Kâr */}
+                                      <div className="flex items-center justify-between p-4 rounded-xl border bg-primary/10 border-primary/20 shadow-sm">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary/20">
+                                            {analysis.economics.netProfit >= 0 ? <TrendingUp className="h-5 w-5 text-primary" /> : <TrendingDown className="h-5 w-5 text-red-500" />}
+                                          </div>
+                                          <span className="font-bold text-primary">Tahmini Kâr</span>
+                                        </div>
+                                        <span className={cn("text-lg font-black", analysis.economics.netProfit >= 0 ? "text-emerald-500" : "text-red-500")}>
+                                          {formatCurrency(analysis.economics.netProfit)}
+                                        </span>
                                       </div>
                                     </div>
                                   )}
