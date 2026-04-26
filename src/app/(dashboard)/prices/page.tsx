@@ -22,6 +22,7 @@ import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, Chevron
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { SaveStatus } from '@/components/ui/save-status';
 import { PLATFORMS } from '@/lib/platforms';
 
 
@@ -680,7 +681,7 @@ export default function Home() {
   const [margins, setMargins] = useState<Margin[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
 
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'waiting' | 'saving' | 'saved' | 'error'>('idle');
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isDirtyRef = useRef(false);
 
@@ -998,6 +999,7 @@ export default function Home() {
     }
 
     if (!isLoading && isDirtyRef.current) {
+      setSaveStatus('waiting');
       saveTimeoutRef.current = setTimeout(() => {
         isDirtyRef.current = false;
         setSaveStatus('saving');
@@ -1244,15 +1246,7 @@ export default function Home() {
               <h2 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-primary to-indigo-500">
                 Menü & Fiyatlar
               </h2>
-              <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full transition-all duration-300 ${saveStatus === 'saving' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20 animate-pulse' :
-                saveStatus === 'saved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                  saveStatus === 'error' ? 'bg-destructive/10 text-destructive border border-destructive/20' :
-                    'opacity-0'
-                }`}>
-                {saveStatus === 'saving' && '🔄 Kaydediliyor'}
-                {saveStatus === 'saved' && '✅ Kaydedildi'}
-                {saveStatus === 'error' && '❌ Hata!'}
-              </div>
+              <SaveStatus status={saveStatus as any} />
             </div>
             <p className="text-muted-foreground mt-2 text-lg">
               Maliyetlerinizi ve kâr marjlarınızı modern bir arayüzle takip edin.

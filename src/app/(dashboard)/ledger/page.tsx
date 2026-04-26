@@ -8,6 +8,7 @@ import { LedgerTable } from './components/LedgerTable';
 import { LedgerSummary } from './components/LedgerSummary';
 import { PlatformSection } from './components/PlatformSection';
 import { PLATFORM_IDS } from '@/lib/platforms';
+import { SaveStatus } from '@/components/ui/save-status';
 
 type PlatformData = { count: number | string; rev: number | string };
 type DayData = {
@@ -349,12 +350,7 @@ export default function LedgerPage() {
                 <h2 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.025em' }}>
                   {shopData.shopName || shops.find(s => s.id === currentShopId)?.name || 'İşyeri'}
                 </h2>
-                <div className={`ledger-save-indicator status-${saveStatus}`}>
-                  {saveStatus === 'waiting' && <span className="status-waiting">🕒 Kayıt bekliyor...</span>}
-                  {saveStatus === 'saving' && <span className="status-saving animate-pulse">🔄 Kaydediliyor...</span>}
-                  {saveStatus === 'saved' && <span className="status-saved">✅ Kaydedildi</span>}
-                  {saveStatus === 'error' && <span className="status-error">❌ Kayıt hatası!</span>}
-                </div>
+                <SaveStatus status={saveStatus as any} />
               </div>
               <LedgerTable days={monthData.days} onUpdateDay={updateDay} parseNumber={parseNumber} fmt={fmt} />
             </div>

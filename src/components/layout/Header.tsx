@@ -1,6 +1,6 @@
 'use client';
 
-import { PiggyBank, Sprout, Home, Sun, Moon, Calculator, ShoppingBag } from 'lucide-react';
+import { PiggyBank, Sprout, Home, Sun, Moon, Calculator, ShoppingBag, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -50,6 +50,12 @@ export default function Header() {
               <Link href="/orders">
                 <ShoppingBag className="mr-2 h-4 w-4" />
                 Siparişler
+              </Link>
+            </Button>
+            <Button asChild variant={pathname === '/settings' ? 'default' : 'ghost'} size="sm">
+              <Link href="/settings">
+                <Settings className="mr-2 h-4 w-4" />
+                Ayarlar
               </Link>
             </Button>
           </div>
