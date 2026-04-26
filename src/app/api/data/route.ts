@@ -80,7 +80,11 @@ export async function GET() {
       migrosCommission: settings?.migrosCommission ?? 15,
       getirCommission: settings?.getirCommission ?? 15,
       yemeksepetiCommission: settings?.yemeksepetiCommission ?? 15,
-      trendyolCommission: settings?.trendyolCommission ?? 15,
+      trendyolCommission: settings?.trendyolCommission ?? 40,
+      pricesMigrosCommission: settings?.pricesMigrosCommission ?? null,
+      pricesGetirCommission: settings?.pricesGetirCommission ?? null,
+      pricesYemeksepetiCommission: settings?.pricesYemeksepetiCommission ?? null,
+      pricesTrendyolCommission: settings?.pricesTrendyolCommission ?? null,
     });
   } catch (error) {
     log.error('API /data GET Error', error);
@@ -238,7 +242,9 @@ export async function POST(request: Request) {
       const settingsFields = [
         'platformCommissionRate', 'kdvRate', 'bankCommissionRate', 'stopajRate',
         'migrosCommission', 'getirCommission',
-        'yemeksepetiCommission', 'trendyolCommission'
+        'yemeksepetiCommission', 'trendyolCommission',
+        'pricesMigrosCommission',
+        'pricesGetirCommission', 'pricesYemeksepetiCommission', 'pricesTrendyolCommission'
       ];
 
       if (settingsFields.some(f => data[f] !== undefined)) {
@@ -258,6 +264,10 @@ export async function POST(request: Request) {
             getirCommission: data.getirCommission !== undefined ? (safeFloat(data.getirCommission) ?? 15) : undefined,
             yemeksepetiCommission: data.yemeksepetiCommission !== undefined ? (safeFloat(data.yemeksepetiCommission) ?? 15) : undefined,
             trendyolCommission: data.trendyolCommission !== undefined ? (safeFloat(data.trendyolCommission) ?? 15) : undefined,
+            pricesMigrosCommission: data.pricesMigrosCommission !== undefined ? safeFloat(data.pricesMigrosCommission) : undefined,
+            pricesGetirCommission: data.pricesGetirCommission !== undefined ? safeFloat(data.pricesGetirCommission) : undefined,
+            pricesYemeksepetiCommission: data.pricesYemeksepetiCommission !== undefined ? safeFloat(data.pricesYemeksepetiCommission) : undefined,
+            pricesTrendyolCommission: data.pricesTrendyolCommission !== undefined ? safeFloat(data.pricesTrendyolCommission) : undefined,
           },
           create: {
             id: 'default',
@@ -269,6 +279,10 @@ export async function POST(request: Request) {
             getirCommission: safeFloat(data.getirCommission) ?? 15,
             yemeksepetiCommission: safeFloat(data.yemeksepetiCommission) ?? 15,
             trendyolCommission: safeFloat(data.trendyolCommission) ?? 15,
+            pricesMigrosCommission: safeFloat(data.pricesMigrosCommission),
+            pricesGetirCommission: safeFloat(data.pricesGetirCommission),
+            pricesYemeksepetiCommission: safeFloat(data.pricesYemeksepetiCommission),
+            pricesTrendyolCommission: safeFloat(data.pricesTrendyolCommission),
           }
         });
       }

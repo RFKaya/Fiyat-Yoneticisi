@@ -592,7 +592,27 @@ function SortableCategoryItem({ category, onDelete }: { category: Category; onDe
   );
 }
 
-function RatePopover({ title, label, description, rate, onSave, maxLimit = 10000, trigger, placeholder = "Örn: 30" }: { title: string, label?: string, description?: string, rate: number, onSave: (r: number) => void, maxLimit?: number, trigger?: React.ReactNode, placeholder?: string }) {
+function RatePopover({
+  title,
+  label,
+  description,
+  rate,
+  globalRate,
+  onSave,
+  maxLimit = 10000,
+  trigger,
+  placeholder = "Örn: 30"
+}: {
+  title: string,
+  label?: string,
+  description?: string,
+  rate: number,
+  globalRate?: number,
+  onSave: (r: number) => void,
+  maxLimit?: number,
+  trigger?: React.ReactNode,
+  placeholder?: string
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState(String(rate));
 
@@ -618,6 +638,11 @@ function RatePopover({ title, label, description, rate, onSave, maxLimit = 10000
           <div className="space-y-1">
             <h4 className="font-bold">{title}</h4>
             {description && <p className="text-xs text-muted-foreground">{description}</p>}
+            {(globalRate !== undefined && globalRate !== null) && (
+              <p className="text-[10px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-full w-fit">
+                Gerçek Oran: %{globalRate}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Input type="number" placeholder={placeholder} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSave()} />
@@ -711,24 +736,30 @@ export default function Home() {
   const [yemeksepetiCommission, setYemeksepetiCommission] = useState(15);
   const [trendyolCommission, setTrendyolCommission] = useState(15);
 
+  // Prices page specific commissions
+  const [pricesMigrosCommission, setPricesMigrosCommission] = useState<number | null>(null);
+  const [pricesGetirCommission, setPricesGetirCommission] = useState<number | null>(null);
+  const [pricesYemeksepetiCommission, setPricesYemeksepetiCommission] = useState<number | null>(null);
+  const [pricesTrendyolCommission, setPricesTrendyolCommission] = useState<number | null>(null);
+
   const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a, b) => (a.name || '').localeCompare(b.name || '')), [margins]);
 
   const platforms = useMemo(() => PLATFORMS.map(p => {
     const commMap: Record<string, number> = {
-      migros: migrosCommission,
-      getir: getirCommission,
-      yemeksepeti: yemeksepetiCommission,
-      trendyol: trendyolCommission,
+      migros: pricesMigrosCommission ?? migrosCommission,
+      getir: pricesGetirCommission ?? getirCommission,
+      yemeksepeti: pricesYemeksepetiCommission ?? yemeksepetiCommission,
+      trendyol: pricesTrendyolCommission ?? trendyolCommission,
     };
     return { key: p.id, name: p.displayName, commission: commMap[p.id] };
-  }), [migrosCommission, getirCommission, yemeksepetiCommission, trendyolCommission]);
+  }), [migrosCommission, getirCommission, yemeksepetiCommission, trendyolCommission, pricesMigrosCommission, pricesGetirCommission, pricesYemeksepetiCommission, pricesTrendyolCommission]);
 
   const updatePlatformCommission = (key: string, val: number) => {
     isDirtyRef.current = true;
-    if (key === 'migros') setMigrosCommission(val);
-    else if (key === 'getir') setGetirCommission(val);
-    else if (key === 'yemeksepeti') setYemeksepetiCommission(val);
-    else if (key === 'trendyol') setTrendyolCommission(val);
+    if (key === 'migros') setPricesMigrosCommission(val);
+    else if (key === 'getir') setPricesGetirCommission(val);
+    else if (key === 'yemeksepeti') setPricesYemeksepetiCommission(val);
+    else if (key === 'trendyol') setPricesTrendyolCommission(val);
   };
 
   const toggleProductExpansion = React.useCallback((productId: string) => {
@@ -964,6 +995,11 @@ export default function Home() {
         setYemeksepetiCommission(data.yemeksepetiCommission ?? 15);
         setTrendyolCommission(data.trendyolCommission ?? 15);
 
+        setPricesMigrosCommission(data.pricesMigrosCommission);
+        setPricesGetirCommission(data.pricesGetirCommission);
+        setPricesYemeksepetiCommission(data.pricesYemeksepetiCommission);
+        setPricesTrendyolCommission(data.pricesTrendyolCommission);
+
         log.success('Veriler başarıyla yüklendi', {
           products: sortedProducts.length,
           ingredients: sortedIngredients.length,
@@ -1025,7 +1061,11 @@ export default function Home() {
             migrosCommission,
             getirCommission,
             yemeksepetiCommission,
-            trendyolCommission
+            trendyolCommission,
+            pricesMigrosCommission,
+            pricesGetirCommission,
+            pricesYemeksepetiCommission,
+            pricesTrendyolCommission
           }),
         })
           .then((res) => {
@@ -1053,6 +1093,7 @@ export default function Home() {
     products, ingredients, margins, categories, platformCommissionRate,
     kdvRate, bankCommissionRate, stopajRate,
     migrosCommission, getirCommission, yemeksepetiCommission, trendyolCommission,
+    pricesMigrosCommission, pricesGetirCommission, pricesYemeksepetiCommission, pricesTrendyolCommission,
     isLoading
   ]);
 
@@ -1260,7 +1301,7 @@ export default function Home() {
               <Separator orientation="vertical" className="h-4" />
               <RatePopover title="Banka Komisyonu" label="Banka:" rate={bankCommissionRate} onSave={(val) => { isDirtyRef.current = true; setBankCommissionRate(val); }} maxLimit={100} />
               <Separator orientation="vertical" className="h-4" />
-              <RatePopover title="Platform Komisyonu" label="Platform:" rate={platformCommissionRate} onSave={(val) => { isDirtyRef.current = true; setPlatformCommissionRate(val); }} maxLimit={100} />
+              <RatePopover title="Ort. Platform Komisyonu" label="Platform:" rate={platformCommissionRate} onSave={(val) => { isDirtyRef.current = true; setPlatformCommissionRate(val); }} maxLimit={100} />
               <Separator orientation="vertical" className="h-4" />
               <RatePopover title="Stopaj Oranı" label="Stopaj:" rate={stopajRate} onSave={(val) => { isDirtyRef.current = true; setStopajRate(val); }} maxLimit={100} />
             </div>
@@ -1346,6 +1387,7 @@ export default function Home() {
                           <RatePopover
                             title={`${p.name} Komisyonu`}
                             rate={p.commission}
+                            globalRate={p.key === 'migros' ? migrosCommission : p.key === 'getir' ? getirCommission : p.key === 'yemeksepeti' ? yemeksepetiCommission : trendyolCommission}
                             onSave={(val) => updatePlatformCommission(p.key, val)}
                             maxLimit={100}
                             trigger={
@@ -1467,14 +1509,14 @@ export default function Home() {
                                 {expandedProductIds.includes(product.id) && (
                                   <TableRow className="bg-primary/5 hover:bg-primary/5">
                                     <TableCell colSpan={totalColumns} className="p-0 border-b border-primary/10">
-                                        <InlineRecipeEditor
-                                          product={product}
-                                          ingredients={ingredients}
-                                          allProducts={products}
-                                          onSave={(newRecipe) => updateProductRecipe(product.id, newRecipe)}
-                                          updateProduct={updateProduct}
-                                          updateIngredientPrice={updateIngredientPrice}
-                                        />
+                                      <InlineRecipeEditor
+                                        product={product}
+                                        ingredients={ingredients}
+                                        allProducts={products}
+                                        onSave={(newRecipe) => updateProductRecipe(product.id, newRecipe)}
+                                        updateProduct={updateProduct}
+                                        updateIngredientPrice={updateIngredientPrice}
+                                      />
                                     </TableCell>
                                   </TableRow>
                                 )}

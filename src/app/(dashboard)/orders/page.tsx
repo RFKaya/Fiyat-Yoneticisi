@@ -357,11 +357,23 @@ export default function OrdersPage() {
                         <TableCell className="text-sm text-muted-foreground px-4">{fmt(order.orderDate)}</TableCell>
                         <TableCell className="font-mono text-xs px-4">{order.orderNumber}</TableCell>
                         <TableCell className="px-4">
-                          <span className="text-xs font-semibold px-2 py-1 rounded bg-secondary text-secondary-foreground">
-                            {order.platform}
-                          </span>
+                          {(() => {
+                            const pConfig = getPlatform(order.platform);
+                            return (
+                              <span 
+                                className="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-sm inline-flex items-center whitespace-nowrap"
+                                style={{ 
+                                  backgroundColor: `${pConfig?.color ?? '#888'}15`,
+                                  color: pConfig?.color ?? '#888',
+                                  borderColor: `${pConfig?.color ?? '#888'}30` 
+                                }}
+                              >
+                                {pConfig?.displayName ?? order.platform}
+                              </span>
+                            );
+                          })()}
                         </TableCell>
-                        <TableCell className="px-4 text-xs font-medium text-muted-foreground italic">
+                        <TableCell className="px-4 text-xs font-medium text-muted-foreground">
                           {order.paymentMethod || '-'}
                         </TableCell>
                         <TableCell className="text-right font-bold px-4">{formatCurrency(order.totalAmount)}</TableCell>
@@ -484,7 +496,7 @@ export default function OrdersPage() {
                                         <div className="p-1 space-y-1">
                                           {[
                                             { label: `KDV Tutarı (%${rates.kdvRate})`, val: analysis.economics.vatAmount, icon: Receipt },
-                                            { label: `Platform Komisyonu (%${getPlatformCommission(order.platform, rates)})`, val: analysis.economics.commissionAmount, icon: Percent },
+                                            { label: `${getPlatform(order.platform)?.displayName ?? order.platform} Komisyonu (%${getPlatformCommission(order.platform, rates)})`, val: analysis.economics.commissionAmount, icon: Percent },
                                             { label: `Stopaj Vergisi (%${rates.stopajRate})`, val: analysis.economics.stopajAmount, icon: ShieldCheck },
                                             { label: 'Ürün Maliyetleri', val: analysis.totalCost, icon: Package, color: 'text-amber-500' },
                                             ...(analysis.isYemekKarti ? [{ label: 'Yemek Kartı Kesintisi (%10)', val: analysis.yemekKartiDeduction, icon: Receipt, color: 'text-orange-500' }] : []),

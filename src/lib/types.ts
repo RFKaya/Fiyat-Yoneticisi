@@ -63,4 +63,10 @@ export type GlobalSettings = {
   getirCommission: number;
   yemeksepetiCommission: number;
   trendyolCommission: number;
+
+  // Prices page simulated commissions
+  pricesMigrosCommission?: number | null;
+  pricesGetirCommission?: number | null;
+  pricesYemeksepetiCommission?: number | null;
+  pricesTrendyolCommission?: number | null;
 };
