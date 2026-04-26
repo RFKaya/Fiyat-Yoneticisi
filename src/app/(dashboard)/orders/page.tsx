@@ -350,7 +350,7 @@ export default function OrdersPage() {
 
                     {details && (
                       <div className="mt-3 space-y-1 pt-3 border-t border-border/50">
-                        {details.map((d, i) => (
+                        {details.map((d: { label: string; val: number; color?: string }, i: number) => (
                           <div key={i} className="flex justify-between text-[10px]">
                             <span className="text-muted-foreground">{d.label}</span>
                             <span className="font-medium">{formatCurrency(d.val)}</span>
