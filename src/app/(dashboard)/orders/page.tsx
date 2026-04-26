@@ -111,8 +111,11 @@ export default function OrdersPage() {
     setError(null);
     try {
       const parsed = await parseOrderFile(file, platform);
-      const sorted = [...parsed].sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime());
-      setOrders(sorted);
+      setOrders(prevOrders => {
+        const existingOrderNumbers = new Set(prevOrders.map(o => o.orderNumber));
+        const newOrders = parsed.filter(o => !existingOrderNumbers.has(o.orderNumber));
+        return [...prevOrders, ...newOrders].sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime());
+      });
       setIsUploadModalOpen(false);
     } catch {
       setError('Dosya ayrıştırılırken hata oluştu. Doğru platformu seçtiğinizden ve geçerli bir Excel dosyası olduğundan emin olun.');
@@ -125,6 +128,19 @@ export default function OrdersPage() {
   const fmt = (d: Date) => new Intl.DateTimeFormat('tr-TR', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
   }).format(d);
+
+  const fmtDateOnly = (d: Date) => new Intl.DateTimeFormat('tr-TR', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
+  }).format(d);
+
+  const overallDateRange = useMemo(() => {
+    if (orders.length === 0) return null;
+    const times = orders.map(o => o.orderDate.getTime());
+    return {
+      min: new Date(Math.min(...times)),
+      max: new Date(Math.max(...times))
+    };
+  }, [orders]);
 
   const hasAnalytics = analyses.length > 0;
 
@@ -194,29 +210,42 @@ export default function OrdersPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Date Filter & Info */}
         <div className="lg:col-span-4 flex flex-col gap-4 glass-panel p-5 rounded-2xl border-primary/10">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary w-fit">
-            <Calendar className="h-4 w-4" />
-            <span className="text-sm font-bold">Tarih Filtresi</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary w-fit">
+              <Calendar className="h-4 w-4" />
+              <span className="text-sm font-bold">Tarih Filtresi</span>
+            </div>
+            {overallDateRange && (
+              <span className="text-[10px] text-muted-foreground bg-muted/30 px-2 py-0.5 rounded-full border border-border/50">
+                {fmtDateOnly(overallDateRange.min)} - {fmtDateOnly(overallDateRange.max)}
+              </span>
+            )}
           </div>
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <div className="flex-1">
                 <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 ml-1">Başlangıç</p>
-                <Input
-                  type="date"
-                  className="w-full h-10 bg-background/50 border-muted focus:ring-primary"
-                  value={dateRange.start}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                />
+                <div className="relative cursor-pointer" onClick={(e) => e.currentTarget.querySelector('input')?.showPicker()}>
+                  <Input
+                    type="date"
+                    className="w-full h-10 bg-background/50 border-muted focus:ring-0 cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden select-none caret-transparent pointer-events-none"
+                    value={dateRange.start}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                    onKeyDown={(e) => e.preventDefault()}
+                  />
+                </div>
               </div>
               <div className="flex-1">
                 <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 ml-1">Bitiş</p>
-                <Input
-                  type="date"
-                  className="w-full h-10 bg-background/50 border-muted focus:ring-primary"
-                  value={dateRange.end}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                />
+                <div className="relative cursor-pointer" onClick={(e) => e.currentTarget.querySelector('input')?.showPicker()}>
+                  <Input
+                    type="date"
+                    className="w-full h-10 bg-background/50 border-muted focus:ring-0 cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden select-none caret-transparent pointer-events-none"
+                    value={dateRange.end}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                    onKeyDown={(e) => e.preventDefault()}
+                  />
+                </div>
               </div>
             </div>
             {(dateRange.start || dateRange.end) && (
