@@ -33,6 +33,8 @@ export interface OrderAnalysis {
   isYemekKarti: boolean;
   /** Yemek kartı kesinti tutarı (%10 × brüt ciro). Normal ödemede 0. */
   yemekKartiDeduction: number;
+  /** Kupon maliyeti (özellikle Yemeksepeti için). */
+  couponDiscount: number;
 }
 
 export interface ProductSalesStats {
@@ -162,10 +164,14 @@ export function analyzeOrder(
   const isYemekKarti = (order.paymentMethod ?? '').trim() === 'Yemek Kartı';
   const yemekKartiDeduction = isYemekKarti ? order.totalAmount * 0.10 : 0;
 
-  // Yemek kartı kesintisini net kârdan düş
-  const economics: EconomicsResult = isYemekKarti
-    ? { ...baseEconomics, netProfit: baseEconomics.netProfit - yemekKartiDeduction }
-    : baseEconomics;
+  // Kupon maliyetini dahil et
+  const couponDiscount = order.couponDiscount || 0;
+
+  // Yemek kartı kesintisini ve kupon maliyetini net kârdan düş
+  const economics: EconomicsResult = {
+    ...baseEconomics,
+    netProfit: baseEconomics.netProfit - yemekKartiDeduction - couponDiscount
+  };
 
   return {
     orderNumber: order.orderNumber,
@@ -177,6 +183,7 @@ export function analyzeOrder(
     unmatchedItems,
     isYemekKarti,
     yemekKartiDeduction,
+    couponDiscount,
   };
 }
 

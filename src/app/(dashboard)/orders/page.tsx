@@ -97,8 +97,9 @@ export default function OrdersPage() {
     const commission = analyses.reduce((s, a) => s + a.economics.commissionAmount, 0);
     const stopaj = analyses.reduce((s, a) => s + a.economics.stopajAmount, 0);
     const yemekKarti = analyses.reduce((s, a) => s + a.yemekKartiDeduction, 0);
+    const couponDiscount = analyses.reduce((s, a) => s + a.couponDiscount, 0);
     const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
-    return { revenue, cost, netProfit, vat, commission, stopaj, yemekKarti, margin };
+    return { revenue, cost, netProfit, vat, commission, stopaj, yemekKarti, couponDiscount, margin };
   }, [analyses]);
 
   const toggleExpand = (id: string) =>
@@ -285,6 +286,7 @@ export default function OrdersPage() {
                     { label: 'KDV', val: totals.vat },
                     { label: 'Stopaj', val: totals.stopaj },
                     ...(totals.yemekKarti > 0 ? [{ label: 'Yemek Kartı', val: totals.yemekKarti }] : []),
+                    ...(totals.couponDiscount > 0 ? [{ label: 'Kupon Maliyeti', val: totals.couponDiscount }] : []),
                   ]
                 },
                 {
@@ -529,6 +531,7 @@ export default function OrdersPage() {
                                             { label: `Stopaj Vergisi (%${rates.stopajRate})`, val: analysis.economics.stopajAmount, icon: ShieldCheck },
                                             { label: 'Ürün Maliyetleri', val: analysis.totalCost, icon: Package, color: 'text-amber-500' },
                                             ...(analysis.isYemekKarti ? [{ label: 'Yemek Kartı Kesintisi (%10)', val: analysis.yemekKartiDeduction, icon: Receipt, color: 'text-orange-500' }] : []),
+                                            ...(analysis.couponDiscount > 0 ? [{ label: 'Kupon Maliyeti', val: analysis.couponDiscount, icon: Receipt, color: 'text-purple-500' }] : []),
                                           ].map((item, i) => (
                                             <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors">
                                               <div className="flex items-center gap-2.5">

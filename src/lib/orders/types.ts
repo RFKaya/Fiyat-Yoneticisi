@@ -18,6 +18,7 @@ export interface ParsedOrder {
   totalAmount: number;
   status?: string;
   items: ParsedOrderItem[];
+  couponDiscount?: number;
   raw?: any; // For debugging
 }
 

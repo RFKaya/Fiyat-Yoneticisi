@@ -44,6 +44,8 @@ export function parseYemeksepeti(buffer: ArrayBuffer): ParsedOrder[] {
       })(),
       // Column V (21): Total Amount
       totalAmount: typeof row[21] === 'number' ? row[21] : parseFloat(String(row[21] || '0').replace(',', '.')),
+      // Column AD (29): Coupon Discount / Kupon Maliyeti
+      couponDiscount: typeof row[29] === 'number' ? Math.abs(row[29]) : Math.abs(parseFloat(String(row[29] || '0').replace(',', '.'))),
       // Column H (7): Status
       status: String(row[7] || ''),
       // Column AV (47): Sipariş içeriği — parse edilmiş ürün listesi
@@ -58,6 +60,7 @@ export function parseYemeksepeti(buffer: ArrayBuffer): ParsedOrder[] {
       })(),
       raw: {
         paymentMethod: row[5],
+        couponDiscount: row[29],
         content: row[47], // Column AV (47)
         fullRow: row
       }
