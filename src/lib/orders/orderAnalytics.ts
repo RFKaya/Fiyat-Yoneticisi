@@ -29,6 +29,10 @@ export interface OrderAnalysis {
   economics: EconomicsResult;
   matchedItems: MatchedItem[];
   unmatchedItems: ParsedContentItem[];
+  /** Ödeme yöntemi Yemek Kartı mı? */
+  isYemekKarti: boolean;
+  /** Yemek kartı kesinti tutarı (%10 × brüt ciro). Normal ödemede 0. */
+  yemekKartiDeduction: number;
 }
 
 export interface ProductSalesStats {
@@ -146,13 +150,22 @@ export function analyzeOrder(
   const commissionRate = getPlatformCommission(order.platform, rates);
 
   // Merkezi hesaplama fonksiyonunu kullan — prices sayfasıyla aynı formül
-  const economics = calculateEconomicsFromPrice(
+  const baseEconomics = calculateEconomicsFromPrice(
     order.totalAmount,
     totalCost,
     rates.kdvRate,
     commissionRate,
     rates.stopajRate
   );
+
+  // Yemek kartı tespiti: ödeme yöntemi "Yemek Kartı" ise %10 ciro kesintisi uygulanır
+  const isYemekKarti = (order.paymentMethod ?? '').trim() === 'Yemek Kartı';
+  const yemekKartiDeduction = isYemekKarti ? order.totalAmount * 0.10 : 0;
+
+  // Yemek kartı kesintisini net kârdan düş
+  const economics: EconomicsResult = isYemekKarti
+    ? { ...baseEconomics, netProfit: baseEconomics.netProfit - yemekKartiDeduction }
+    : baseEconomics;
 
   return {
     orderNumber: order.orderNumber,
@@ -162,6 +175,8 @@ export function analyzeOrder(
     economics,
     matchedItems,
     unmatchedItems,
+    isYemekKarti,
+    yemekKartiDeduction,
   };
 }
 

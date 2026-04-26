@@ -5,7 +5,8 @@ import {
   ShoppingBag, Upload, AlertCircle, FileJson, Info,
   LayoutList, ChevronDown, ChevronUp, FileSpreadsheet,
   TrendingUp, TrendingDown, DollarSign, Package, BarChart3,
-  CheckCircle2, XCircle, Ghost, Receipt, Percent, ShieldCheck
+  CheckCircle2, XCircle, Ghost, Receipt, Percent, ShieldCheck,
+  Calendar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,7 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Menu data for matching
@@ -61,10 +63,29 @@ export default function OrdersPage() {
       .catch(() => { });
   }, []);
 
+  const filteredOrders = useMemo(() => {
+    if (!dateRange.start && !dateRange.end) return orders;
+    return orders.filter(order => {
+      const orderDate = new Date(order.orderDate);
+      const start = dateRange.start ? new Date(dateRange.start) : null;
+      const end = dateRange.end ? new Date(dateRange.end) : null;
+      
+      if (start) {
+        start.setHours(0, 0, 0, 0);
+        if (orderDate < start) return false;
+      }
+      if (end) {
+        end.setHours(23, 59, 59, 999);
+        if (orderDate > end) return false;
+      }
+      return true;
+    });
+  }, [orders, dateRange]);
+
   const analyses = useMemo<OrderAnalysis[]>(() => {
-    if (!orders.length || !products.length) return [];
-    return analyzeAllOrders(orders, products, ingredients, rates);
-  }, [orders, products, ingredients, rates]);
+    if (!filteredOrders.length || !products.length) return [];
+    return analyzeAllOrders(filteredOrders, products, ingredients, rates);
+  }, [filteredOrders, products, ingredients, rates]);
 
   const productStats = useMemo(() => aggregateProductStats(analyses), [analyses]);
 
@@ -75,8 +96,9 @@ export default function OrdersPage() {
     const vat = analyses.reduce((s, a) => s + a.economics.vatAmount, 0);
     const commission = analyses.reduce((s, a) => s + a.economics.commissionAmount, 0);
     const stopaj = analyses.reduce((s, a) => s + a.economics.stopajAmount, 0);
+    const yemekKarti = analyses.reduce((s, a) => s + a.yemekKartiDeduction, 0);
     const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
-    return { revenue, cost, netProfit, vat, commission, stopaj, margin };
+    return { revenue, cost, netProfit, vat, commission, stopaj, yemekKarti, margin };
   }, [analyses]);
 
   const toggleExpand = (id: string) =>
@@ -169,58 +191,104 @@ export default function OrdersPage() {
         </Dialog>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Date Filter & Info */}
+        <div className="lg:col-span-4 flex flex-col gap-4 glass-panel p-5 rounded-2xl border-primary/10">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary w-fit">
+            <Calendar className="h-4 w-4" />
+            <span className="text-sm font-bold">Tarih Filtresi</span>
+          </div>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 ml-1">Başlangıç</p>
+                <Input
+                  type="date"
+                  className="w-full h-10 bg-background/50 border-muted focus:ring-primary"
+                  value={dateRange.start}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                />
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1 ml-1">Bitiş</p>
+                <Input
+                  type="date"
+                  className="w-full h-10 bg-background/50 border-muted focus:ring-primary"
+                  value={dateRange.end}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                />
+              </div>
+            </div>
+            {(dateRange.start || dateRange.end) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDateRange({ start: '', end: '' })}
+                className="h-9 w-full text-xs hover:bg-destructive/10 hover:text-destructive transition-colors border border-dashed border-destructive/20"
+              >
+                Filtreyi Sıfırla
+              </Button>
+            )}
+          </div>
+          {orders.length > 0 && (
+            <div className="text-[11px] text-muted-foreground italic mt-2 pt-3 border-t border-border/50">
+              Toplam {orders.length} siparişten <span className="text-primary font-bold">{filteredOrders.length}</span> tanesi gösteriliyor.
+            </div>
+          )}
+        </div>
+
+        {/* Analytics Dashboard */}
+        <div className="lg:col-span-8">
+          {hasAnalytics ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full">
+              {[
+                {
+                  label: 'Toplam Ciro', value: formatCurrency(totals.revenue),
+                  icon: DollarSign, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20',
+                  sub: `${filteredOrders.length} sipariş`
+                },
+                {
+                  label: 'Toplam Maliyet', value: formatCurrency(totals.cost),
+                  icon: Package, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20',
+                  sub: `KDV + Kom + Mal`
+                },
+                {
+                  label: 'Tahmini Kâr', value: formatCurrency(totals.netProfit),
+                  icon: totals.netProfit >= 0 ? TrendingUp : TrendingDown,
+                  color: totals.netProfit >= 0 ? 'text-emerald-400' : 'text-red-400',
+                  bg: totals.netProfit >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10',
+                  border: totals.netProfit >= 0 ? 'border-emerald-500/20' : 'border-red-500/20',
+                  sub: `Kâr Marjı: %${totals.margin.toFixed(1)}`
+                }
+              ].map(({ label, value, icon: Icon, color, bg, border, sub }) => (
+                <div key={label} className={cn('glass-panel p-4 border flex flex-col justify-between h-full', border)}>
+                  <div>
+                    <div className="flex items-start justify-between mb-2">
+                      <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">{label}</p>
+                      <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', bg)}>
+                        <Icon className={cn('h-4 w-4', color)} />
+                      </div>
+                    </div>
+                    <p className={cn('text-xl font-black tracking-tight', color)}>{value}</p>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2 truncate opacity-70 italic">{sub}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center glass-panel border-dashed border-2 opacity-50 bg-muted/5">
+              <BarChart3 className="h-10 w-10 mb-2 text-muted-foreground" />
+              <p className="text-sm font-medium">Veri Bekleniyor...</p>
+            </div>
+          )}
+        </div>
+      </div>
+
       {error && (
         <div className="glass-panel border-destructive/50 bg-destructive/10 p-4 flex items-start gap-3 rounded-2xl">
           <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
           <div className="text-sm font-medium text-destructive">{error}</div>
         </div>
-      )}
-
-      {/* Analytics Dashboard */}
-      {hasAnalytics && (
-        <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              {
-                label: 'Toplam Ciro', value: formatCurrency(totals.revenue),
-                icon: DollarSign, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20',
-                sub: `${orders.length} sipariş`
-              },
-              {
-                label: 'Toplam Maliyet', value: formatCurrency(totals.cost),
-                icon: Package, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20',
-                sub: `KDV: ${formatCurrency(totals.vat)} · Kom: ${formatCurrency(totals.commission)}`
-              },
-              {
-                label: 'Tahmini Kâr', value: formatCurrency(totals.netProfit),
-                icon: totals.netProfit >= 0 ? TrendingUp : TrendingDown,
-                color: totals.netProfit >= 0 ? 'text-emerald-400' : 'text-red-400',
-                bg: totals.netProfit >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10',
-                border: totals.netProfit >= 0 ? 'border-emerald-500/20' : 'border-red-500/20',
-                sub: `Stopaj: ${formatCurrency(totals.stopaj)}`
-              },
-              {
-                label: 'Kâr Marjı', value: `%${totals.margin.toFixed(1)}`,
-                icon: BarChart3,
-                color: totals.margin >= 20 ? 'text-violet-400' : totals.margin >= 0 ? 'text-amber-400' : 'text-red-400',
-                bg: totals.margin >= 20 ? 'bg-violet-500/10' : 'bg-amber-500/10',
-                border: totals.margin >= 20 ? 'border-violet-500/20' : 'border-amber-500/20',
-                sub: 'Ciroya göre tahmini kâr'
-              }
-            ].map(({ label, value, icon: Icon, color, bg, border, sub }) => (
-              <div key={label} className={cn('glass-panel p-5 border', border)}>
-                <div className="flex items-start justify-between mb-3">
-                  <p className="text-sm font-medium text-muted-foreground">{label}</p>
-                  <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', bg)}>
-                    <Icon className={cn('h-5 w-5', color)} />
-                  </div>
-                </div>
-                <p className={cn('text-2xl font-bold', color)}>{value}</p>
-                <p className="text-[11px] text-muted-foreground mt-1 truncate">{sub}</p>
-              </div>
-            ))}
-          </div>
-        </>
       )}
 
       {/* Orders Table */}
@@ -251,18 +319,18 @@ export default function OrdersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.length === 0 ? (
+              {filteredOrders.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center text-muted-foreground gap-2">
                       <FileJson className="h-12 w-12 opacity-20" />
-                      <p>Henüz veri yüklenmedi.</p>
-                      <p className="text-xs">Sipariş Yükle butonuna tıklayın.</p>
+                      <p>{orders.length > 0 ? 'Bu tarih aralığında sipariş bulunamadı.' : 'Henüz veri yüklenmedi.'}</p>
+                      <p className="text-xs">{orders.length > 0 ? 'Filtreleri temizlemeyi deneyin.' : 'Sipariş Yükle butonuna tıklayın.'}</p>
                     </div>
                   </TableCell>
                 </TableRow>
               ) : (
-                orders.map((order, idx) => {
+                filteredOrders.map((order, idx) => {
                   const analysis = analyses[idx];
                   const isExpanded = expandedOrderIds.includes(order.orderNumber + idx);
                   const profit = analysis?.economics.netProfit ?? 0;
@@ -402,6 +470,7 @@ export default function OrdersPage() {
                                             { label: 'Platform Komisyonu', val: analysis.economics.commissionAmount, icon: Percent },
                                             { label: 'Stopaj Vergisi', val: analysis.economics.stopajAmount, icon: ShieldCheck },
                                             { label: 'Ürün Maliyetleri', val: analysis.totalCost, icon: Package, color: 'text-amber-500' },
+                                            ...(analysis.isYemekKarti ? [{ label: 'Yemek Kartı Kesintisi (%10)', val: analysis.yemekKartiDeduction, icon: Receipt, color: 'text-orange-500' }] : []),
                                           ].map((item, i) => (
                                             <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors">
                                               <div className="flex items-center gap-2.5">
