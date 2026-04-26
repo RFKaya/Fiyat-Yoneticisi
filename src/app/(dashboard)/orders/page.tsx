@@ -5,7 +5,7 @@ import {
   ShoppingBag, Upload, AlertCircle, FileJson, Info,
   LayoutList, ChevronDown, ChevronUp, FileSpreadsheet,
   TrendingUp, TrendingDown, DollarSign, Package, BarChart3,
-  CheckCircle2, XCircle, Ghost
+  CheckCircle2, XCircle, Ghost, Receipt, Percent, ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,7 +58,7 @@ export default function OrdersPage() {
           stopajRate: data.stopajRate ?? 1,
         });
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const analyses = useMemo<OrderAnalysis[]>(() => {
@@ -300,90 +300,118 @@ export default function OrdersPage() {
                       {isExpanded && (
                         <TableRow className="bg-primary/5 hover:bg-primary/5">
                           <TableCell colSpan={8} className="p-0 border-b border-primary/10">
-                            <div className="p-6 animate-in slide-in-from-top-2 duration-300 space-y-4">
-                              <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-wider">
-                                <LayoutList className="h-4 w-4" />
-                                Sipariş İçeriği
-                              </div>
-                              {analysis && analysis.matchedItems.length > 0 ? (
-                                <div className="rounded-xl border border-border/50 overflow-hidden">
-                                  <table className="w-full text-sm">
-                                    <thead className="bg-muted/40">
-                                      <tr>
-                                        <th className="text-left px-4 py-2 font-semibold">Ürün</th>
-                                        <th className="text-center px-4 py-2 font-semibold">Adet</th>
-                                        <th className="text-right px-4 py-2 font-semibold">Birim Maliyet</th>
-                                        <th className="text-right px-4 py-2 font-semibold">Toplam Maliyet</th>
-                                        <th className="text-center px-4 py-2 font-semibold">Eşleşme</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {analysis.matchedItems.map((item, i) => (
-                                        <tr key={i} className="border-t border-border/30 hover:bg-muted/20">
-                                          <td className="px-4 py-2 font-medium">{item.matchedProductName}</td>
-                                          <td className="px-4 py-2 text-center">{item.quantity}</td>
-                                          <td className="px-4 py-2 text-right text-muted-foreground">{formatCurrency(item.unitCost)}</td>
-                                          <td className="px-4 py-2 text-right font-semibold text-amber-500">{formatCurrency(item.totalCost)}</td>
-                                          <td className="px-4 py-2 text-center">
-                                            <CheckCircle2 className="h-4 w-4 text-emerald-500 inline" />
-                                          </td>
-                                        </tr>
-                                      ))}
-                                      {analysis.unmatchedItems.map((item, i) => (
-                                        <tr key={`u${i}`} className="border-t border-border/30 hover:bg-muted/20 opacity-60">
-                                          <td className="px-4 py-2 font-medium text-muted-foreground">{item.name}</td>
-                                          <td className="px-4 py-2 text-center">{item.quantity}</td>
-                                          <td className="px-4 py-2 text-right">-</td>
-                                          <td className="px-4 py-2 text-right">-</td>
-                                          <td className="px-4 py-2 text-center">
-                                            <XCircle className="h-4 w-4 text-red-400 inline" />
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              ) : order.raw?.content ? (
-                                <div className="p-4 rounded-xl bg-card border border-border/50 font-mono text-xs leading-relaxed">
-                                  {order.raw.content}
-                                </div>
-                              ) : (
-                                <div className="flex flex-col items-center p-12 text-muted-foreground opacity-60">
-                                  <Ghost className="h-10 w-10 mb-2" />
-                                  <p>Bu platform için ürün detayı bulunamadı.</p>
-                                </div>
-                              )}
-                              {/* Economics breakdown */}
-                              {analysis && (
-                                <div className="grid grid-cols-3 md:grid-cols-6 gap-2 pt-2">
-                                  {[
-                                    { label: 'Ciro', val: formatCurrency(analysis.revenue), cls: 'text-blue-400' },
-                                    { label: 'KDV', val: `- ${formatCurrency(analysis.economics.vatAmount)}`, cls: 'text-muted-foreground' },
-                                    { label: 'Komisyon', val: `- ${formatCurrency(analysis.economics.commissionAmount)}`, cls: 'text-muted-foreground' },
-                                    { label: 'Stopaj', val: `- ${formatCurrency(analysis.economics.stopajAmount)}`, cls: 'text-muted-foreground' },
-                                    { label: 'Maliyet', val: `- ${formatCurrency(analysis.totalCost)}`, cls: 'text-amber-400' },
-                                    { label: 'Net Kâr', val: formatCurrency(analysis.economics.netProfit), cls: analysis.economics.netProfit >= 0 ? 'text-emerald-400' : 'text-red-400' },
-                                  ].map(({ label, val, cls }) => (
-                                    <div key={label} className="bg-muted/30 rounded-lg p-3 text-center">
-                                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">{label}</p>
-                                      <p className={cn('text-sm font-bold', cls)}>{val}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                            <div className="p-6 animate-in slide-in-from-top-2 duration-300">
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* Sol Kolon: Sipariş İçeriği */}
+                                <div className="space-y-4">
+                                  <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-wider">
+                                    <LayoutList className="h-4 w-4" />
+                                    Sipariş İçeriği
+                                  </div>
 
-                              {/* Ham Veri (Raw Data) - Always visible if content exists */}
-                              {order.raw?.content && (
-                                <div className="space-y-2 pt-2">
-                                  <div className="flex items-center gap-2 text-muted-foreground font-bold text-[10px] uppercase tracking-wider">
-                                    <FileJson className="h-3 w-3" />
-                                    Ham Sipariş Verisi
-                                  </div>
-                                  <div className="p-3 rounded-lg bg-muted/20 border border-border/30 font-mono text-[10px] leading-relaxed break-words text-muted-foreground/80 italic">
-                                    {order.raw.content}
-                                  </div>
+                                  {analysis && analysis.matchedItems.length > 0 ? (
+                                    <div className="rounded-xl border border-border/50 overflow-hidden bg-card/50">
+                                      <table className="w-full text-sm">
+                                        <thead className="bg-muted/40">
+                                          <tr>
+                                            <th className="text-left px-4 py-2 font-semibold text-xs">Ürün</th>
+                                            <th className="text-center px-4 py-2 font-semibold text-xs">Adet</th>
+                                            <th className="text-right px-4 py-2 font-semibold text-xs">Birim Maliyet</th>
+                                            <th className="text-right px-4 py-2 font-semibold text-xs">Toplam</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {analysis.matchedItems.map((item, i) => (
+                                            <tr key={i} className="border-t border-border/30 hover:bg-muted/20">
+                                              <td className="px-4 py-2 font-medium">{item.matchedProductName}</td>
+                                              <td className="px-4 py-2 text-center">{item.quantity}</td>
+                                              <td className="px-4 py-2 text-right text-muted-foreground text-xs">{formatCurrency(item.unitCost)}</td>
+                                              <td className="px-4 py-2 text-right font-semibold text-amber-500">{formatCurrency(item.totalCost)}</td>
+                                            </tr>
+                                          ))}
+                                          {analysis.unmatchedItems.map((item, i) => (
+                                            <tr key={`u${i}`} className="border-t border-border/30 hover:bg-muted/20 opacity-60">
+                                              <td className="px-4 py-2 font-medium text-muted-foreground italic">{item.name}</td>
+                                              <td className="px-4 py-2 text-center">{item.quantity}</td>
+                                              <td className="px-4 py-2 text-right">-</td>
+                                              <td className="px-4 py-2 text-right text-red-400">
+                                                <XCircle className="h-3 w-3 inline mr-1" />
+                                                Eşleşmedi
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  ) : order.raw?.content ? (
+                                    <div className="p-4 rounded-xl bg-card border border-border/50 font-mono text-xs leading-relaxed">
+                                      {order.raw.content}
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center p-12 text-muted-foreground opacity-60">
+                                      <Ghost className="h-10 w-10 mb-2" />
+                                      <p>Bu platform için ürün detayı bulunamadı.</p>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
+
+                                {/* Sağ Kolon: Finansal Veriler & Ham Veri */}
+                                <div className="space-y-6">
+                                  <div className="space-y-4">
+                                    <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-wider">
+                                      <TrendingUp className="h-4 w-4" />
+                                      Finansal Analiz
+                                    </div>
+
+                                    {analysis && (
+                                      <div className="grid grid-cols-1 gap-2">
+                                        {[
+                                          { label: 'Brüt Ciro', val: analysis.revenue, color: 'text-blue-500', icon: DollarSign },
+                                          { label: 'KDV Tutarı', val: analysis.economics.vatAmount, color: 'text-muted-foreground', icon: Receipt, subtract: true },
+                                          { label: 'Platform Komisyonu', val: analysis.economics.commissionAmount, color: 'text-muted-foreground', icon: Percent, subtract: true },
+                                          { label: 'Stopaj Vergisi', val: analysis.economics.stopajAmount, color: 'text-muted-foreground', icon: ShieldCheck, subtract: true },
+                                          { label: 'Ürün Maliyetleri', val: analysis.totalCost, color: 'text-amber-500', icon: Package, subtract: true },
+                                          {
+                                            label: 'Net Kâr',
+                                            val: analysis.economics.netProfit,
+                                            color: analysis.economics.netProfit >= 0 ? 'text-emerald-500' : 'text-red-500',
+                                            icon: analysis.economics.netProfit >= 0 ? TrendingUp : TrendingDown,
+                                            highlight: true
+                                          },
+                                        ].map((item, i) => (
+                                          <div key={i} className={cn(
+                                            "flex items-center justify-between p-3 rounded-xl border transition-colors",
+                                            item.highlight ? "bg-primary/10 border-primary/20 shadow-sm" : "bg-card/50 border-border/50"
+                                          )}>
+                                            <div className="flex items-center gap-3">
+                                              <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", item.highlight ? "bg-primary/20" : "bg-muted/50")}>
+                                                <item.icon className={cn("h-4 w-4", item.highlight ? "text-primary" : "text-muted-foreground")} />
+                                              </div>
+                                              <span className={cn("text-sm font-medium", item.highlight ? "text-primary" : "text-foreground")}>{item.label}</span>
+                                            </div>
+                                            <span className={cn("font-bold text-sm", item.color)}>
+                                              {item.subtract ? '-' : ''} {formatCurrency(item.val)}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Ham Veri */}
+                                  {order.raw?.content && (
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2 text-muted-foreground font-bold text-[10px] uppercase tracking-wider">
+                                        <FileJson className="h-3 w-3" />
+                                        Ham Sipariş Verisi
+                                      </div>
+                                      <div className="p-3 rounded-lg bg-muted/20 border border-border/30 font-mono text-[10px] leading-relaxed break-words text-muted-foreground/80 italic">
+                                        {order.raw.content}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>
