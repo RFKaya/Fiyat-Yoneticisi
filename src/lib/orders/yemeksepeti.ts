@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
-import { ParsedOrder, Platform } from './types';
+import { ParsedOrder } from './types';
+import { parseOrderContentString } from './orderContentParser';
 
 export function parseYemeksepeti(buffer: ArrayBuffer): ParsedOrder[] {
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
@@ -14,7 +15,7 @@ export function parseYemeksepeti(buffer: ArrayBuffer): ParsedOrder[] {
     .filter(row => row[1]) // Ensure order number exists
     .map((row) => ({
       orderNumber: String(row[1] || ''),
-      platform: 'YEMEKSEPETI' as Platform,
+      platform: 'yemeksepeti' as const,
       // Column I (8): Date
       orderDate: (() => {
         const val = row[8];
@@ -37,8 +38,16 @@ export function parseYemeksepeti(buffer: ArrayBuffer): ParsedOrder[] {
       totalAmount: typeof row[21] === 'number' ? row[21] : parseFloat(String(row[21] || '0').replace(',', '.')),
       // Column H (7): Status
       status: String(row[7] || ''),
-      items: [], 
-      hasDetails: true,
+      // Column AV (47): Sipariş içeriği — parse edilmiş ürün listesi
+      items: (() => {
+        const content = String(row[47] || '');
+        if (!content) return [];
+        return parseOrderContentString(content).map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: 0  // Yemeksepeti content'te birim fiyat bilgisi yok
+        }));
+      })(),
       raw: {
         paymentMethod: row[5],
         content: row[47], // Column AV (47)
@@ -46,4 +55,3 @@ export function parseYemeksepeti(buffer: ArrayBuffer): ParsedOrder[] {
       }
     }));
 }
-

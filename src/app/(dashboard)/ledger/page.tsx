@@ -7,6 +7,7 @@ import './ledger.css';
 import { LedgerTable } from './components/LedgerTable';
 import { LedgerSummary } from './components/LedgerSummary';
 import { PlatformSection } from './components/PlatformSection';
+import { PLATFORM_IDS } from '@/lib/platforms';
 
 type PlatformData = { count: number | string; rev: number | string };
 type DayData = {
@@ -209,7 +210,8 @@ export default function LedgerPage() {
 
   const totals = useMemo(() => {
     const res = { shop: 0, online: 0, onlineCount: 0, kg: 0, grand: 0, costs: 0, commissions: 0 };
-    const comms = monthData.commissions || { migros: 0, getir: 0, yemeksepeti: 0, trendyol: 0 };
+    const defaultComms = Object.fromEntries(PLATFORM_IDS.map(id => [id, 0])) as Record<string, number>;
+    const comms = monthData.commissions || defaultComms;
 
     monthData.days.forEach(d => {
       const shopRow = parseNumber(d.cash) + parseNumber(d.pos) + parseNumber(d.mealCard);
@@ -294,7 +296,8 @@ export default function LedgerPage() {
       setShopData(prev => {
         const currentMonths = prev.months || {};
         const currentMonthData = currentMonths[currentMonthKey] || monthData;
-        const commissions = { ...(currentMonthData.commissions || { migros: 0, getir: 0, yemeksepeti: 0, trendyol: 0 }), [platform]: parseFloat(value) || 0 };
+        const defaultComms = Object.fromEntries(PLATFORM_IDS.map(id => [id, 0])) as { migros: number; getir: number; yemeksepeti: number; trendyol: number };
+        const commissions = { ...(currentMonthData.commissions || defaultComms), [platform]: parseFloat(value) || 0 };
         return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, commissions } } };
       });
     },
@@ -303,7 +306,8 @@ export default function LedgerPage() {
       setShopData(prev => {
         const currentMonths = prev.months || {};
         const currentMonthData = currentMonths[currentMonthKey] || monthData;
-        const platformAds = { ...(currentMonthData.platformAds || { migros: 0, getir: 0, yemeksepeti: 0, trendyol: 0 }), [platform]: parseFloat(value) || 0 };
+        const defaultAds = Object.fromEntries(PLATFORM_IDS.map(id => [id, 0])) as { migros: number; getir: number; yemeksepeti: number; trendyol: number };
+        const platformAds = { ...(currentMonthData.platformAds || defaultAds), [platform]: parseFloat(value) || 0 };
         return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, platformAds } } };
       });
     }
@@ -362,7 +366,7 @@ export default function LedgerPage() {
                 isEditingOnlineMargin={isEditingOnlineMargin} setIsEditingOnlineMargin={setIsEditingOnlineMargin}
               />
 
-              {['migros', 'getir', 'yemeksepeti', 'trendyol'].map(p => (
+              {PLATFORM_IDS.map(p => (
                 <PlatformSection
                   key={p} platform={p} rev={parseNumber((monthData.days.reduce((acc, d: any) => acc + parseNumber(d.platforms[p].rev), 0)))}
                   commRate={(monthData.commissions as any)?.[p] || 0} adVal={(monthData.platformAds as any)?.[p] || 0}

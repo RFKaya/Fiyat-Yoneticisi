@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { ParsedOrder, Platform } from './types';
+import { ParsedOrder } from './types';
 
 export function parseGetir(buffer: ArrayBuffer): ParsedOrder[] {
   const workbook = XLSX.read(buffer, { type: 'array' });
@@ -9,12 +9,11 @@ export function parseGetir(buffer: ArrayBuffer): ParsedOrder[] {
 
   return data.map((row) => ({
     orderNumber: String(row['Sipariş No'] || row['Checkout ID'] || ''),
-    platform: 'GETIR' as Platform,
+    platform: 'getir' as const,
     orderDate: row['Tarih'] ? new Date(row['Tarih']) : new Date(),
     paymentMethod: 'Platform Ödemesi',
     totalAmount: parseFloat(String(row['Ödenen Tutar'] || row['Tutar'] || '0').replace(',', '.')),
     items: [],
-    hasDetails: false, // Getir provides limited info
     raw: row
   }));
 }

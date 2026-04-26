@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { ParsedOrder, Platform } from './types';
+import { ParsedOrder } from './types';
 
 export function parseMigros(buffer: ArrayBuffer): ParsedOrder[] {
   const workbook = XLSX.read(buffer, { type: 'array' });
@@ -9,12 +9,11 @@ export function parseMigros(buffer: ArrayBuffer): ParsedOrder[] {
 
   return data.map((row) => ({
     orderNumber: String(row['Sipariş No'] || row['ID'] || ''),
-    platform: 'MIGROS' as Platform,
+    platform: 'migros' as const,
     orderDate: row['Tarih'] ? new Date(row['Tarih']) : new Date(),
     paymentMethod: 'Platform Ödemesi',
     totalAmount: parseFloat(String(row['Net Tutar'] || row['Tutar'] || '0').replace(',', '.')),
     items: [],
-    hasDetails: false, // Migros provides limited info
     raw: row
   }));
 }

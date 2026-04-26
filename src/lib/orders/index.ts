@@ -1,25 +1,26 @@
-import { Platform, ParsedOrder } from './types';
+import type { PlatformId } from '@/lib/platforms';
+import { ParsedOrder } from './types';
 import { parseTrendyol } from './trendyol';
 import { parseYemeksepeti } from './yemeksepeti';
 import { parseMigros } from './migros';
 import { parseGetir } from './getir';
 
+// Parser map — switch-case yerine registry-based dispatch
+const PARSERS: Record<PlatformId, (buffer: ArrayBuffer) => ParsedOrder[]> = {
+  trendyol: parseTrendyol,
+  yemeksepeti: parseYemeksepeti,
+  migros: parseMigros,
+  getir: parseGetir,
+};
+
 export async function parseOrderFile(
   file: File,
-  platform: Platform
+  platform: PlatformId
 ): Promise<ParsedOrder[]> {
   const buffer = await file.arrayBuffer();
-  
-  switch (platform) {
-    case 'TRENDYOL':
-      return parseTrendyol(buffer);
-    case 'YEMEKSEPETI':
-      return parseYemeksepeti(buffer);
-    case 'MIGROS':
-      return parseMigros(buffer);
-    case 'GETIR':
-      return parseGetir(buffer);
-    default:
-      throw new Error('Geçersiz platform seçildi');
-  }
+
+  const parser = PARSERS[platform];
+  if (!parser) throw new Error(`"${platform}" için parser tanımlı değil`);
+
+  return parser(buffer);
 }

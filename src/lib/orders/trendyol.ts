@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { ParsedOrder, Platform, ParsedOrderItem } from './types';
+import { ParsedOrder } from './types';
 
 export function parseTrendyol(buffer: ArrayBuffer): ParsedOrder[] {
   const workbook = XLSX.read(buffer, { type: 'array' });
@@ -9,12 +9,11 @@ export function parseTrendyol(buffer: ArrayBuffer): ParsedOrder[] {
 
   return data.map((row) => ({
     orderNumber: String(row['Sipariş No'] || row['Sipariş Numarası'] || ''),
-    platform: 'TRENDYOL' as Platform,
+    platform: 'trendyol' as const,
     orderDate: row['Sipariş Tarihi'] ? new Date(row['Sipariş Tarihi']) : new Date(),
     paymentMethod: row['Ödeme Yöntemi'] || 'Online Ödeme',
     totalAmount: parseFloat(String(row['Toplam Tutar'] || row['Tutar'] || '0').replace(',', '.')),
     items: [], // Trendyol items usually in a separate sheet or nested, placeholder for now
-    hasDetails: true,
     raw: row
   }));
 }

@@ -22,6 +22,7 @@ import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, Chevron
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { PLATFORMS } from '@/lib/platforms';
 
 
 
@@ -711,12 +712,15 @@ export default function Home() {
 
   const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a, b) => (a.name || '').localeCompare(b.name || '')), [margins]);
 
-  const platforms = useMemo(() => [
-    { key: 'migros', name: 'Migros', commission: migrosCommission },
-    { key: 'getir', name: 'Getir', commission: getirCommission },
-    { key: 'yemeksepeti', name: 'Yemeksepeti', commission: yemeksepetiCommission },
-    { key: 'trendyol', name: 'Trendyol', commission: trendyolCommission },
-  ], [migrosCommission, getirCommission, yemeksepetiCommission, trendyolCommission]);
+  const platforms = useMemo(() => PLATFORMS.map(p => {
+    const commMap: Record<string, number> = {
+      migros: migrosCommission,
+      getir: getirCommission,
+      yemeksepeti: yemeksepetiCommission,
+      trendyol: trendyolCommission,
+    };
+    return { key: p.id, name: p.displayName, commission: commMap[p.id] };
+  }), [migrosCommission, getirCommission, yemeksepetiCommission, trendyolCommission]);
 
   const updatePlatformCommission = (key: string, val: number) => {
     isDirtyRef.current = true;

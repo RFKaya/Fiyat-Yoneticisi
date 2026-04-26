@@ -1,4 +1,7 @@
-export type Platform = 'TRENDYOL' | 'YEMEKSEPETI' | 'MIGROS' | 'GETIR';
+import type { PlatformId } from '@/lib/platforms';
+
+// Backward compat: Platform artık PlatformId'nin alias'ı
+export type Platform = PlatformId;
 
 export interface ParsedOrderItem {
   name: string;
@@ -16,7 +19,6 @@ export interface ParsedOrder {
   status?: string;
   items: ParsedOrderItem[];
   raw?: any; // For debugging
-  hasDetails: boolean; // False for Migros/Getir
 }
 
 export interface ParsingResult {

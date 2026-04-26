@@ -28,24 +28,7 @@ export function LedgerTable({ days, onUpdateDay, parseNumber, fmt }: LedgerTable
     <div className="ledger-table-responsive">
       <table className="ledger-modern-table">
         <colgroup>
-          <col style={{ width: '80px' }} /> {/* Tarih */}
-          <col style={{ width: '65px' }} /> {/* Nakit */}
-          <col style={{ width: '65px' }} /> {/* POS */}
-          <col style={{ width: '65px' }} /> {/* Yemek Kartı */}
-          <col style={{ width: '50px' }} /> {/* Kg */}
-          <col style={{ width: '40px' }} /> {/* Migros Adet */}
-          <col style={{ width: '65px' }} /> {/* Migros ₺ */}
-          <col style={{ width: '40px' }} /> {/* Getir Adet */}
-          <col style={{ width: '65px' }} /> {/* Getir ₺ */}
-          <col style={{ width: '40px' }} /> {/* Yemeksepeti Adet */}
-          <col style={{ width: '65px' }} /> {/* Yemeksepeti ₺ */}
-          <col style={{ width: '40px' }} /> {/* Trendyol Adet */}
-          <col style={{ width: '65px' }} /> {/* Trendyol ₺ */}
-          <col style={{ width: '65px' }} /> {/* Dükkan Ciro */}
-          <col style={{ width: '50px' }} /> {/* Online Adet */}
-          <col style={{ width: '65px' }} /> {/* Online Ciro */}
-          <col style={{ width: '60px' }} /> {/* Ort.₺/Kg */}
-          <col style={{ width: '70px' }} /> {/* Toplam Ciro */}
+          <col style={{ width: '80px' }} /><col style={{ width: '65px' }} /><col style={{ width: '65px' }} /><col style={{ width: '65px' }} /><col style={{ width: '50px' }} /><col style={{ width: '40px' }} /><col style={{ width: '65px' }} /><col style={{ width: '40px' }} /><col style={{ width: '65px' }} /><col style={{ width: '40px' }} /><col style={{ width: '65px' }} /><col style={{ width: '40px' }} /><col style={{ width: '65px' }} /><col style={{ width: '65px' }} /><col style={{ width: '50px' }} /><col style={{ width: '65px' }} /><col style={{ width: '60px' }} /><col style={{ width: '70px' }} />
         </colgroup>
         <thead>
           <tr>

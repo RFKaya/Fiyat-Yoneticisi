@@ -1,4 +1,5 @@
 import React from 'react';
+import { getPlatformColor, type PlatformId } from '@/lib/platforms';
 
 interface PlatformSectionProps {
   platform: string;
@@ -19,10 +20,10 @@ export function PlatformSection({
 }: PlatformSectionProps) {
   const pCommVal = rev * (commRate / 100);
   const adWeightedComm = rev > 0 ? ((pCommVal + adVal) / rev) * 100 : 0;
-  const pColors: any = { migros: '#f6821f', getir: '#5d3ebc', yemeksepeti: '#fa0050', trendyol: '#ff5a01' };
+  const borderColor = getPlatformColor(platform as PlatformId);
 
   return (
-    <div className="ledger-glass-panel" style={{ borderLeft: `4px solid ${pColors[platform] || '#ccc'}` }}>
+    <div className="ledger-glass-panel" style={{ borderLeft: `4px solid ${borderColor}` }}>
       <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', textTransform: 'capitalize' }}>{platform}</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
