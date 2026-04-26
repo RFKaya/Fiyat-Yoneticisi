@@ -89,7 +89,8 @@ export default function OrdersPage() {
     setError(null);
     try {
       const parsed = await parseOrderFile(file, platform);
-      setOrders(parsed);
+      const sorted = [...parsed].sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime());
+      setOrders(sorted);
       setIsUploadModalOpen(false);
     } catch {
       setError('Dosya ayrıştırılırken hata oluştu. Doğru platformu seçtiğinizden ve geçerli bir Excel dosyası olduğundan emin olun.');
