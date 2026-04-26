@@ -81,7 +81,8 @@ export function calculateEconomicsFromPrice(
   cost: number,
   kdvRate: number,
   commissionRate: number,
-  stopajRate: number = 0
+  stopajRate: number = 0,
+  overrideCommissionAmount?: number
 ): EconomicsResult {
   if (!price || price <= 0) {
     return {
@@ -99,7 +100,9 @@ export function calculateEconomicsFromPrice(
 
   const revenueExVat = price / (1 + kdvRate / 100);
   const vatAmount = price - revenueExVat;
-  const commissionAmount = price * (commissionRate / 100);
+  const commissionAmount = overrideCommissionAmount !== undefined 
+    ? overrideCommissionAmount 
+    : price * (commissionRate / 100);
   const stopajAmount = revenueExVat * (stopajRate / 100);
   const netProfit = revenueExVat - commissionAmount - stopajAmount - cost;
   

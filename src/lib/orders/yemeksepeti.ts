@@ -46,6 +46,21 @@ export function parseYemeksepeti(buffer: ArrayBuffer): ParsedOrder[] {
       totalAmount: typeof row[21] === 'number' ? row[21] : parseFloat(String(row[21] || '0').replace(',', '.')),
       // Column AD (29): Coupon Discount / Kupon Maliyeti
       couponDiscount: typeof row[29] === 'number' ? Math.abs(row[29]) : Math.abs(parseFloat(String(row[29] || '0').replace(',', '.'))),
+      // Platform Commission: AA (26) + AB (27) + AF (31)
+      platformCommission: (() => {
+        const raw26 = row[26];
+        const raw27 = row[27];
+        const raw31 = row[31];
+
+        // Eğer sütunlar hiç yoksa undefined dön ki sistem varsayılan oranı kullansın
+        if (raw26 === undefined && raw27 === undefined && raw31 === undefined) return undefined;
+
+        const val26 = typeof raw26 === 'number' ? raw26 : parseFloat(String(raw26 || '0').replace(',', '.'));
+        const val27 = typeof raw27 === 'number' ? raw27 : parseFloat(String(raw27 || '0').replace(',', '.'));
+        const val31 = typeof raw31 === 'number' ? raw31 : parseFloat(String(raw31 || '0').replace(',', '.'));
+
+        return Math.abs(val26) + Math.abs(val27) + Math.abs(val31);
+      })(),
       // Column H (7): Status
       status: String(row[7] || ''),
       // Column AV (47): Sipariş içeriği — parse edilmiş ürün listesi

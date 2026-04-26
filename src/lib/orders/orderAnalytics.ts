@@ -8,7 +8,7 @@ import type { Product, Ingredient } from '@/lib/types';
 import { calculateCost, calculateEconomicsFromPrice, type EconomicsResult } from '@/lib/utils';
 import type { ParsedOrder } from './types';
 import type { PlatformId } from '@/lib/platforms';
-import { parseOrderContentString, normalizeWeightUnit, type ParsedContentItem } from './orderContentParser';
+import { parseOrderContentString, normalizeWeightUnit, stripCommonSuffixes, stripFillerWords, type ParsedContentItem } from './orderContentParser';
 
 // ── Tip Tanımları ──────────────────────────────────────────
 
@@ -35,6 +35,10 @@ export interface OrderAnalysis {
   yemekKartiDeduction: number;
   /** Kupon maliyeti (özellikle Yemeksepeti için). */
   couponDiscount: number;
+  /** Gerçekleşen komisyon oranı (Eğer platformdan geldiyse farklı olabilir) */
+  actualCommissionRate: number;
+  /** Komisyon platformdan mı geldi? */
+  isCommissionOverridden: boolean;
 }
 
 export interface ProductSalesStats {
@@ -58,11 +62,21 @@ export interface PlatformRates {
 // ── Yardımcı Fonksiyonlar ──────────────────────────────────
 
 /**
- * Ürün isimlerini normalize ederek karşılaştırma yapar.
- * Case-insensitive, trimmed, gramaj normalize edilmiş.
+ * Ürün isimlerini basitçe normalize eder (Sadece birim, küçük harf ve boşluk).
+ */
+function simpleNormalize(name: string): string {
+  return normalizeWeightUnit(name).toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * Ürün isimlerini agresif normalize ederek karşılaştırma yapar.
+ * Filler kelimeler silinmiş ve kelimeler alfabetik sıralanmış.
  */
 function normalizeForMatch(name: string): string {
-  return normalizeWeightUnit(name).toLowerCase().trim().replace(/\s+/g, ' ');
+  let n = normalizeWeightUnit(name).toLowerCase().trim();
+  n = stripCommonSuffixes(n);
+  n = stripFillerWords(n);
+  return n.split(' ').filter(Boolean).sort().join(' ');
 }
 
 /**
@@ -99,10 +113,13 @@ export function analyzeOrder(
       ? parseOrderContentString(order.raw.content)
       : [];
 
-  // 2. Normalize edilmiş isim → product map'i oluştur
-  const productMap = new Map<string, Product>();
+  // 2. Map'leri oluştur (Hızlı erişim için)
+  const simpleProductMap = new Map<string, Product>();
+  const advancedProductMap = new Map<string, Product>();
+  
   for (const p of products) {
-    productMap.set(normalizeForMatch(p.name), p);
+    simpleProductMap.set(simpleNormalize(p.name), p);
+    advancedProductMap.set(normalizeForMatch(p.name), p);
   }
 
   // 3. Her ürünü eşleştir
@@ -110,21 +127,26 @@ export function analyzeOrder(
   const unmatchedItems: ParsedContentItem[] = [];
 
   for (const item of contentItems) {
-    const normalizedName = normalizeForMatch(item.name);
-    let product = productMap.get(normalizedName);
+    // AŞAMA 1: Tam/Basit Eşleşme (Standart Çiğ Köfte Dürüm gibi durumlar için)
+    const simpleName = simpleNormalize(item.name);
+    let product = simpleProductMap.get(simpleName);
 
-    // Fallback Matching: Tam eşleşme yoksa parantezleri sondan silerek dene
-    if (!product && normalizedName.includes('(')) {
-      let tempName = normalizedName;
+    // AŞAMA 2: Agresif Eşleşme (Filler temizleme + Kelime sıralama)
+    if (!product) {
+      const advancedName = normalizeForMatch(item.name);
+      product = advancedProductMap.get(advancedName);
+    }
+
+    // AŞAMA 3: Fallback Matching (Parantezleri silerek dene)
+    if (!product && simpleName.includes('(')) {
+      let tempName = simpleName;
       while (!product && tempName.includes('(')) {
         const lastParenIndex = tempName.lastIndexOf('(');
         if (lastParenIndex === -1) break;
-        
-        // Gramaj bilgisini korumak için kontrol (isteğe bağlı, ama genel fallback için silebiliriz)
         tempName = tempName.substring(0, lastParenIndex).trim();
         if (!tempName) break;
         
-        product = productMap.get(tempName);
+        product = simpleProductMap.get(tempName) || advancedProductMap.get(normalizeForMatch(tempName));
       }
     }
 
@@ -157,7 +179,8 @@ export function analyzeOrder(
     totalCost,
     rates.kdvRate,
     commissionRate,
-    rates.stopajRate
+    rates.stopajRate,
+    order.platformCommission
   );
 
   // Yemek kartı tespiti: ödeme yöntemi "Yemek Kartı" ise %10 ciro kesintisi uygulanır
@@ -184,6 +207,10 @@ export function analyzeOrder(
     isYemekKarti,
     yemekKartiDeduction,
     couponDiscount,
+    actualCommissionRate: order.totalAmount > 0 
+      ? (baseEconomics.commissionAmount / order.totalAmount) * 100 
+      : commissionRate,
+    isCommissionOverridden: order.platformCommission !== undefined,
   };
 }
 

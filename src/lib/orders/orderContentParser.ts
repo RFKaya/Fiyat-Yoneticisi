@@ -43,6 +43,17 @@ export function stripCommonSuffixes(text: string): string {
 }
 
 /**
+ * Platformlarda kullanılan "Standart", "Özel" gibi eşleşmeyi zorlaştıran 
+ * ancak ana ürünü değiştirmeyen kelimeleri temizler.
+ */
+export function stripFillerWords(text: string): string {
+  return text
+    .replace(/\b(standart|özel|ozel|yeni|popüler|populer)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Köşeli parantez [...] içindeki malzeme detaylarını siler.
  * Örn: "[1 Göbek Marul, 1 Limon]" → ""
  */

@@ -19,6 +19,7 @@ export interface ParsedOrder {
   status?: string;
   items: ParsedOrderItem[];
   couponDiscount?: number;
+  platformCommission?: number;
   raw?: any; // For debugging
 }
 

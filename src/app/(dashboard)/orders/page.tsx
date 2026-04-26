@@ -526,17 +526,30 @@ export default function OrdersPage() {
                                         </div>
                                         <div className="p-1 space-y-1">
                                           {[
-                                            { label: `KDV Tutarı (%${rates.kdvRate})`, val: analysis.economics.vatAmount, icon: Receipt },
-                                            { label: `${getPlatform(order.platform)?.displayName ?? order.platform} Komisyonu (%${getPlatformCommission(order.platform, rates)})`, val: analysis.economics.commissionAmount, icon: Percent },
-                                            { label: `Stopaj Vergisi (%${rates.stopajRate})`, val: analysis.economics.stopajAmount, icon: ShieldCheck },
+                                            { label: 'KDV Tutarı', subLabel: `(%${rates.kdvRate})`, val: analysis.economics.vatAmount, icon: Receipt },
+                                            { 
+                                              label: `${getPlatform(order.platform)?.displayName ?? order.platform} Komisyonu`, 
+                                              subLabel: `(%${analysis.actualCommissionRate.toFixed(1)})`,
+                                              isItalic: analysis.isCommissionOverridden,
+                                              val: analysis.economics.commissionAmount, 
+                                              icon: Percent 
+                                            },
+                                            { label: 'Stopaj Vergisi', subLabel: `(%${rates.stopajRate})`, val: analysis.economics.stopajAmount, icon: ShieldCheck },
                                             { label: 'Ürün Maliyetleri', val: analysis.totalCost, icon: Package, color: 'text-amber-500' },
-                                            ...(analysis.isYemekKarti ? [{ label: 'Yemek Kartı Kesintisi (%10)', val: analysis.yemekKartiDeduction, icon: Receipt, color: 'text-orange-500' }] : []),
+                                            ...(analysis.isYemekKarti ? [{ label: 'Yemek Kartı Kesintisi', subLabel: '(%10)', val: analysis.yemekKartiDeduction, icon: Receipt, color: 'text-orange-500' }] : []),
                                             ...(analysis.couponDiscount > 0 ? [{ label: 'Kupon Maliyeti', val: analysis.couponDiscount, icon: Receipt, color: 'text-purple-500' }] : []),
                                           ].map((item, i) => (
                                             <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors">
                                               <div className="flex items-center gap-2.5">
                                                 <item.icon className={cn("h-3.5 w-3.5", item.color || "text-muted-foreground")} />
-                                                <span className="text-xs text-muted-foreground">{item.label}</span>
+                                                <div className="flex items-center gap-1">
+                                                  <span className="text-xs text-muted-foreground">{item.label}</span>
+                                                  {item.subLabel && (
+                                                    <span className={cn("text-[10px] text-muted-foreground/60", (item as any).isItalic && "italic font-bold")}>
+                                                      {item.subLabel}
+                                                    </span>
+                                                  )}
+                                                </div>
                                               </div>
                                               <span className="text-xs font-semibold text-muted-foreground">- {formatCurrency(item.val)}</span>
                                             </div>
