@@ -248,9 +248,15 @@ export default function OrdersPage() {
                   sub: `${filteredOrders.length} sipariş`
                 },
                 {
-                  label: 'Toplam Maliyet', value: formatCurrency(totals.cost),
+                  label: 'Toplam Gider', value: formatCurrency(totals.vat + totals.commission + totals.stopaj + totals.cost + totals.yemekKarti),
                   icon: Package, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20',
-                  sub: `KDV + Kom + Mal`
+                  details: [
+                    { label: 'Ürün Maliyeti', val: totals.cost },
+                    { label: 'Komisyon', val: totals.commission },
+                    { label: 'KDV', val: totals.vat },
+                    { label: 'Stopaj', val: totals.stopaj },
+                    ...(totals.yemekKarti > 0 ? [{ label: 'Yemek Kartı', val: totals.yemekKarti }] : []),
+                  ]
                 },
                 {
                   label: 'Tahmini Kâr', value: formatCurrency(totals.netProfit),
@@ -260,9 +266,9 @@ export default function OrdersPage() {
                   border: totals.netProfit >= 0 ? 'border-emerald-500/20' : 'border-red-500/20',
                   sub: `Kâr Marjı: %${totals.margin.toFixed(1)}`
                 }
-              ].map(({ label, value, icon: Icon, color, bg, border, sub }) => (
-                <div key={label} className={cn('glass-panel p-4 border flex flex-col justify-between h-full', border)}>
-                  <div>
+              ].map(({ label, value, icon: Icon, color, bg, border, sub, details }) => (
+                <div key={label} className={cn('glass-panel p-4 border flex flex-col h-full', border)}>
+                  <div className="flex-1">
                     <div className="flex items-start justify-between mb-2">
                       <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">{label}</p>
                       <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', bg)}>
@@ -270,8 +276,19 @@ export default function OrdersPage() {
                       </div>
                     </div>
                     <p className={cn('text-xl font-black tracking-tight', color)}>{value}</p>
+                    
+                    {details && (
+                      <div className="mt-3 space-y-1 pt-3 border-t border-border/50">
+                        {details.map((d, i) => (
+                          <div key={i} className="flex justify-between text-[10px]">
+                            <span className="text-muted-foreground">{d.label}</span>
+                            <span className="font-medium">{formatCurrency(d.val)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-2 truncate opacity-70 italic">{sub}</p>
+                  {sub && <p className="text-[10px] text-muted-foreground mt-2 truncate opacity-70 italic">{sub}</p>}
                 </div>
               ))}
             </div>

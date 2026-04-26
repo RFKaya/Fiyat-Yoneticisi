@@ -76,3 +76,9 @@ Uygulama varsayılan olarak `http://localhost:3000` (veya yapılandırılmış p
 ---
 
 **FiyatVizyon** ile işletmenizin finansal kontrolünü elinize alın! 🚀
+
+---
+
+## 📄 Lisans
+
+Bu projenin tüm hakları saklıdır. Bu yazılım **Polyform Noncommercial License 1.0.0** ile lisanslanmıştır. Bu lisans, yazılımın sadece kişisel ve kar amacı gütmeyen kullanımına izin verir; ticari amaçlarla (satış, kiralama, kurumsal operasyonlar vb.) kullanımı kesinlikle yasaktır. Detaylı bilgi için [LICENSE](LICENSE) dosyasına göz atabilirsiniz.
