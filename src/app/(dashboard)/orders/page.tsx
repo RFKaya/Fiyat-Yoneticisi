@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import type { Product, Ingredient } from '@/lib/types';
 import {
   analyzeAllOrders, aggregateProductStats,
-  type OrderAnalysis, type PlatformRates
+  type OrderAnalysis, type PlatformRates, getPlatformCommission
 } from '@/lib/orders/orderAnalytics';
 
 export default function OrdersPage() {
@@ -483,9 +483,9 @@ export default function OrdersPage() {
                                         </div>
                                         <div className="p-1 space-y-1">
                                           {[
-                                            { label: 'KDV Tutarı', val: analysis.economics.vatAmount, icon: Receipt },
-                                            { label: 'Platform Komisyonu', val: analysis.economics.commissionAmount, icon: Percent },
-                                            { label: 'Stopaj Vergisi', val: analysis.economics.stopajAmount, icon: ShieldCheck },
+                                            { label: `KDV Tutarı (%${rates.kdvRate})`, val: analysis.economics.vatAmount, icon: Receipt },
+                                            { label: `Platform Komisyonu (%${getPlatformCommission(order.platform, rates)})`, val: analysis.economics.commissionAmount, icon: Percent },
+                                            { label: `Stopaj Vergisi (%${rates.stopajRate})`, val: analysis.economics.stopajAmount, icon: ShieldCheck },
                                             { label: 'Ürün Maliyetleri', val: analysis.totalCost, icon: Package, color: 'text-amber-500' },
                                             ...(analysis.isYemekKarti ? [{ label: 'Yemek Kartı Kesintisi (%10)', val: analysis.yemekKartiDeduction, icon: Receipt, color: 'text-orange-500' }] : []),
                                           ].map((item, i) => (
