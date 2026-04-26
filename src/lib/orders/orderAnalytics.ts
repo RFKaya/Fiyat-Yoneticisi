@@ -25,6 +25,8 @@ export interface OrderAnalysis {
   orderNumber: string;
   platform: PlatformId;
   revenue: number;
+  /** İndirimli (Net) Ciro */
+  netRevenue: number;
   totalCost: number;
   economics: EconomicsResult;
   matchedItems: MatchedItem[];
@@ -173,9 +175,14 @@ export function analyzeOrder(
   const totalCost = matchedItems.reduce((sum, m) => sum + m.totalCost, 0);
   const commissionRate = getPlatformCommission(order.platform, rates);
 
+  // Kupon maliyetini tespiti
+  const couponDiscount = order.couponDiscount || 0;
+  // KDV ve Komisyon matrahı kupon düşülmüş tutar üzerinden hesaplanmalı
+  const netRevenueForTax = Math.max(0, order.totalAmount - couponDiscount);
+
   // Merkezi hesaplama fonksiyonunu kullan — prices sayfasıyla aynı formül
   const baseEconomics = calculateEconomicsFromPrice(
-    order.totalAmount,
+    netRevenueForTax,
     totalCost,
     rates.kdvRate,
     commissionRate,
@@ -184,22 +191,22 @@ export function analyzeOrder(
   );
 
   // Yemek kartı tespiti: ödeme yöntemi "Yemek Kartı" ise %10 ciro kesintisi uygulanır
-  const isYemekKarti = (order.paymentMethod ?? '').trim() === 'Yemek Kartı';
-  const yemekKartiDeduction = isYemekKarti ? order.totalAmount * 0.10 : 0;
+  // Yemek kartı kesintisi brüt ciro üzerinden mi yoksa net üzerinden mi? 
+  // Genelde brüt üzerinden olur ama net üzerinden hesaplıyoruz kullanıcı talebine istinaden
+  const isYemekKarti = (order.paymentMethod ?? '').trim() === 'Yemek Karti' || (order.paymentMethod ?? '').trim() === 'Yemek Kartı';
+  const yemekKartiDeduction = isYemekKarti ? netRevenueForTax * 0.10 : 0;
 
-  // Kupon maliyetini dahil et
-  const couponDiscount = order.couponDiscount || 0;
-
-  // Yemek kartı kesintisini ve kupon maliyetini net kârdan düş
+  // Yemek kartı kesintisini net kârdan düş (Kupon zaten netRevenueForTax içinde düşüldü)
   const economics: EconomicsResult = {
     ...baseEconomics,
-    netProfit: baseEconomics.netProfit - yemekKartiDeduction - couponDiscount
+    netProfit: baseEconomics.netProfit - yemekKartiDeduction
   };
 
   return {
     orderNumber: order.orderNumber,
     platform: order.platform,
     revenue: order.totalAmount,
+    netRevenue: netRevenueForTax,
     totalCost,
     economics,
     matchedItems,
@@ -207,8 +214,8 @@ export function analyzeOrder(
     isYemekKarti,
     yemekKartiDeduction,
     couponDiscount,
-    actualCommissionRate: order.totalAmount > 0 
-      ? (baseEconomics.commissionAmount / order.totalAmount) * 100 
+    actualCommissionRate: netRevenueForTax > 0 
+      ? (baseEconomics.commissionAmount / netRevenueForTax) * 100 
       : commissionRate,
     isCommissionOverridden: order.platformCommission !== undefined,
   };

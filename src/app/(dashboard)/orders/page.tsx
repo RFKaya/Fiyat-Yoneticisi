@@ -23,6 +23,11 @@ import {
   type OrderAnalysis, type PlatformRates, getPlatformCommission
 } from '@/lib/orders/orderAnalytics';
 
+const isCancelled = (status?: string) => {
+  if (!status) return false;
+  return status.includes('İptal') || status.includes('cancel') || status.includes('reddedildi');
+};
+
 export default function OrdersPage() {
   const [platform, setPlatform] = useState<PlatformId>('yemeksepeti');
   const [orders, setOrders] = useState<ParsedOrder[]>([]);
@@ -69,7 +74,7 @@ export default function OrdersPage() {
       const orderDate = new Date(order.orderDate);
       const start = dateRange.start ? new Date(dateRange.start) : null;
       const end = dateRange.end ? new Date(dateRange.end) : null;
-      
+
       if (start) {
         start.setHours(0, 0, 0, 0);
         if (orderDate < start) return false;
@@ -87,20 +92,48 @@ export default function OrdersPage() {
     return analyzeAllOrders(filteredOrders, products, ingredients, rates);
   }, [filteredOrders, products, ingredients, rates]);
 
-  const productStats = useMemo(() => aggregateProductStats(analyses), [analyses]);
+  const productStats = useMemo(() => {
+    const activeAnalyses = analyses.filter((_, idx) => !isCancelled(filteredOrders[idx].status));
+    return aggregateProductStats(activeAnalyses);
+  }, [analyses, filteredOrders]);
 
   const totals = useMemo(() => {
-    const revenue = analyses.reduce((s, a) => s + a.revenue, 0);
-    const cost = analyses.reduce((s, a) => s + a.totalCost, 0);
-    const netProfit = analyses.reduce((s, a) => s + a.economics.netProfit, 0);
-    const vat = analyses.reduce((s, a) => s + a.economics.vatAmount, 0);
-    const commission = analyses.reduce((s, a) => s + a.economics.commissionAmount, 0);
-    const stopaj = analyses.reduce((s, a) => s + a.economics.stopajAmount, 0);
-    const yemekKarti = analyses.reduce((s, a) => s + a.yemekKartiDeduction, 0);
-    const couponDiscount = analyses.reduce((s, a) => s + a.couponDiscount, 0);
+    const activeAnalyses = analyses.filter((_, idx) => !isCancelled(filteredOrders[idx].status));
+    const cancelledAnalyses = analyses.filter((_, idx) => isCancelled(filteredOrders[idx].status));
+
+    const revenue = activeAnalyses.reduce((s, a) => s + a.revenue, 0);
+    const netRevenueTotal = activeAnalyses.reduce((s, a) => s + a.netRevenue, 0);
+    const cancelledRevenue = cancelledAnalyses.reduce((s, a) => s + a.revenue, 0);
+
+    const cost = activeAnalyses.reduce((s, a) => s + a.totalCost, 0);
+    const netProfit = activeAnalyses.reduce((s, a) => s + a.economics.netProfit, 0);
+    const vat = activeAnalyses.reduce((s, a) => s + a.economics.vatAmount, 0);
+    const commission = activeAnalyses.reduce((s, a) => s + a.economics.commissionAmount, 0);
+    const stopaj = activeAnalyses.reduce((s, a) => s + a.economics.stopajAmount, 0);
+    const yemekKarti = activeAnalyses.reduce((s, a) => s + a.yemekKartiDeduction, 0);
+    const yemekKartiRevenue = activeAnalyses.filter(a => a.isYemekKarti).reduce((s, a) => s + a.revenue, 0);
+    const couponDiscount = activeAnalyses.reduce((s, a) => s + a.couponDiscount, 0);
     const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
-    return { revenue, cost, netProfit, vat, commission, stopaj, yemekKarti, couponDiscount, margin };
-  }, [analyses]);
+    const activeOrderCount = activeAnalyses.length;
+    const cancelledOrderCount = cancelledAnalyses.length;
+
+    return {
+      revenue,
+      netRevenueTotal,
+      cancelledRevenue,
+      cost,
+      netProfit,
+      vat,
+      commission,
+      stopaj,
+      yemekKarti,
+      yemekKartiRevenue,
+      couponDiscount,
+      margin,
+      activeOrderCount,
+      cancelledOrderCount
+    };
+  }, [analyses, filteredOrders]);
 
   const toggleExpand = (id: string) =>
     setExpandedOrderIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -273,9 +306,14 @@ export default function OrdersPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full">
               {[
                 {
-                  label: 'Toplam Ciro', value: formatCurrency(totals.revenue),
+                  label: 'Toplam Satış Tutarı', value: formatCurrency(totals.netRevenueTotal),
+                  subValue: totals.yemekKartiRevenue > 0 ? `(Y. Kartı: ${formatCurrency(totals.yemekKartiRevenue)})` : undefined,
                   icon: DollarSign, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20',
-                  sub: `${filteredOrders.length} sipariş`
+                  sub: `${totals.activeOrderCount} aktif, ${totals.cancelledOrderCount} iptal`,
+                  details: [
+                    { label: 'Brüt (İndirimsiz)', val: totals.revenue },
+                    { label: 'İptal Edilen', val: totals.cancelledRevenue, color: 'text-red-400' },
+                  ]
                 },
                 {
                   label: 'Toplam Gider', value: formatCurrency(totals.vat + totals.commission + totals.stopaj + totals.cost + totals.yemekKarti),
@@ -285,8 +323,7 @@ export default function OrdersPage() {
                     { label: 'Komisyon', val: totals.commission },
                     { label: 'KDV', val: totals.vat },
                     { label: 'Stopaj', val: totals.stopaj },
-                    ...(totals.yemekKarti > 0 ? [{ label: 'Yemek Kartı', val: totals.yemekKarti }] : []),
-                    ...(totals.couponDiscount > 0 ? [{ label: 'Kupon Maliyeti', val: totals.couponDiscount }] : []),
+                    ...(totals.yemekKarti > 0 ? [{ label: 'Yemek Kartı Kesintisi', val: totals.yemekKarti }] : []),
                   ]
                 },
                 {
@@ -297,7 +334,7 @@ export default function OrdersPage() {
                   border: totals.netProfit >= 0 ? 'border-emerald-500/20' : 'border-red-500/20',
                   sub: `Kâr Marjı: %${totals.margin.toFixed(1)}`
                 }
-              ].map(({ label, value, icon: Icon, color, bg, border, sub, details }) => (
+              ].map(({ label, value, subValue, icon: Icon, color, bg, border, sub, details }: any) => (
                 <div key={label} className={cn('glass-panel p-4 border flex flex-col h-full', border)}>
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-2">
@@ -306,8 +343,11 @@ export default function OrdersPage() {
                         <Icon className={cn('h-4 w-4', color)} />
                       </div>
                     </div>
-                    <p className={cn('text-xl font-black tracking-tight', color)}>{value}</p>
-                    
+                    <div className="flex items-baseline gap-2">
+                      <p className={cn('text-xl font-black tracking-tight', color)}>{value}</p>
+                      {subValue && <span className="text-[10px] text-muted-foreground italic font-medium">{subValue}</span>}
+                    </div>
+
                     {details && (
                       <div className="mt-3 space-y-1 pt-3 border-t border-border/50">
                         {details.map((d, i) => (
@@ -360,7 +400,7 @@ export default function OrdersPage() {
                 <TableHead className="w-[140px] px-4 font-bold">Sipariş No</TableHead>
                 <TableHead className="w-[120px] px-4 font-bold">Platform</TableHead>
                 <TableHead className="w-[120px] px-4 font-bold">Ödeme</TableHead>
-                <TableHead className="w-[120px] px-4 font-bold text-right">Ciro</TableHead>
+                <TableHead className="w-[120px] px-4 font-bold text-right">Tutar</TableHead>
                 <TableHead className="w-[120px] px-4 font-bold text-right">Tahmini Kâr</TableHead>
                 <TableHead className="w-[80px] px-4 font-bold">Durum</TableHead>
                 <TableHead className="w-[60px] px-4 font-bold text-center">Detay</TableHead>
@@ -384,19 +424,23 @@ export default function OrdersPage() {
                   const profit = analysis?.economics.netProfit ?? 0;
                   return (
                     <React.Fragment key={order.orderNumber + idx}>
-                      <TableRow className={cn('hover:bg-muted/20 transition-colors', isExpanded && 'bg-primary/5 border-b-0')}>
+                      <TableRow className={cn(
+                        'hover:bg-muted/20 transition-colors',
+                        isExpanded && 'bg-primary/5 border-b-0',
+                        isCancelled(order.status) && 'opacity-40 grayscale-[0.3]'
+                      )}>
                         <TableCell className="text-sm text-muted-foreground px-4">{fmt(order.orderDate)}</TableCell>
                         <TableCell className="font-mono text-xs px-4">{order.orderNumber}</TableCell>
                         <TableCell className="px-4">
                           {(() => {
                             const pConfig = getPlatform(order.platform);
                             return (
-                              <span 
+                              <span
                                 className="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-sm inline-flex items-center whitespace-nowrap"
-                                style={{ 
+                                style={{
                                   backgroundColor: `${pConfig?.color ?? '#888'}15`,
                                   color: pConfig?.color ?? '#888',
-                                  borderColor: `${pConfig?.color ?? '#888'}30` 
+                                  borderColor: `${pConfig?.color ?? '#888'}30`
                                 }}
                               >
                                 {pConfig?.displayName ?? order.platform}
@@ -407,12 +451,17 @@ export default function OrdersPage() {
                         <TableCell className="px-4 text-xs font-medium text-muted-foreground">
                           {order.paymentMethod || '-'}
                         </TableCell>
-                        <TableCell className="text-right font-bold px-4">{formatCurrency(order.totalAmount)}</TableCell>
+                        <TableCell className="text-right font-bold px-4">{formatCurrency(analysis?.netRevenue ?? order.totalAmount)}</TableCell>
                         <TableCell className={cn('text-right px-4 font-bold', profit >= 0 ? 'text-emerald-500' : 'text-red-500')}>
                           {analysis ? formatCurrency(profit) : '-'}
                         </TableCell>
                         <TableCell className="px-4">
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                          <span className={cn(
+                            "text-xs px-2 py-0.5 rounded-full border",
+                            isCancelled(order.status)
+                              ? "bg-red-500/10 text-red-500 border-red-500/20"
+                              : "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                          )}>
                             {order.status || '-'}
                           </span>
                         </TableCell>
@@ -514,9 +563,23 @@ export default function OrdersPage() {
                                           <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-muted/50">
                                             <DollarSign className="h-4 w-4 text-blue-500" />
                                           </div>
-                                          <span className="text-sm font-medium">Brüt Ciro</span>
+                                          <div>
+                                            <span className="text-sm font-medium block">Satış Tutarı</span>
+                                            {analysis.revenue !== analysis.netRevenue && (
+                                              <div className="flex flex-col gap-0.5 mt-0.5">
+                                                <span className="text-[10px] text-muted-foreground italic leading-none">
+                                                  Brüt: {formatCurrency(analysis.revenue)}
+                                                </span>
+                                                {analysis.couponDiscount > 0 && (
+                                                  <span className="text-[10px] text-muted-foreground italic leading-none">
+                                                    Kupon: -{formatCurrency(analysis.couponDiscount)}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
-                                        <span className="font-bold text-sm text-blue-500">{formatCurrency(analysis.revenue)}</span>
+                                        <span className="font-bold text-sm text-blue-500">{formatCurrency(analysis.netRevenue)}</span>
                                       </div>
 
                                       {/* Giderler Grubu */}
@@ -527,17 +590,16 @@ export default function OrdersPage() {
                                         <div className="p-1 space-y-1">
                                           {[
                                             { label: 'KDV Tutarı', subLabel: `(%${rates.kdvRate})`, val: analysis.economics.vatAmount, icon: Receipt },
-                                            { 
-                                              label: `${getPlatform(order.platform)?.displayName ?? order.platform} Komisyonu`, 
+                                            {
+                                              label: `${getPlatform(order.platform)?.displayName ?? order.platform} Komisyonu`,
                                               subLabel: `(%${analysis.actualCommissionRate.toFixed(1)})`,
                                               isItalic: analysis.isCommissionOverridden,
-                                              val: analysis.economics.commissionAmount, 
-                                              icon: Percent 
+                                              val: analysis.economics.commissionAmount,
+                                              icon: Percent
                                             },
                                             { label: 'Stopaj Vergisi', subLabel: `(%${rates.stopajRate})`, val: analysis.economics.stopajAmount, icon: ShieldCheck },
                                             { label: 'Ürün Maliyetleri', val: analysis.totalCost, icon: Package, color: 'text-amber-500' },
                                             ...(analysis.isYemekKarti ? [{ label: 'Yemek Kartı Kesintisi', subLabel: '(%10)', val: analysis.yemekKartiDeduction, icon: Receipt, color: 'text-orange-500' }] : []),
-                                            ...(analysis.couponDiscount > 0 ? [{ label: 'Kupon Maliyeti', val: analysis.couponDiscount, icon: Receipt, color: 'text-purple-500' }] : []),
                                           ].map((item, i) => (
                                             <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors">
                                               <div className="flex items-center gap-2.5">

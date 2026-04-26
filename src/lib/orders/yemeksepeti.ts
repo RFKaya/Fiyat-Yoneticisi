@@ -52,14 +52,15 @@ export function parseYemeksepeti(buffer: ArrayBuffer): ParsedOrder[] {
         const raw27 = row[27];
         const raw31 = row[31];
 
-        // Eğer sütunlar hiç yoksa undefined dön ki sistem varsayılan oranı kullansın
-        if (raw26 === undefined && raw27 === undefined && raw31 === undefined) return undefined;
+        // Sadece üç sütunda da veri varsa hesapla, aksi halde varsayılan oranı kullan
+        if (raw26 == 0 || raw27 == 0 || raw31 == 0) return undefined;
 
         const val26 = typeof raw26 === 'number' ? raw26 : parseFloat(String(raw26 || '0').replace(',', '.'));
         const val27 = typeof raw27 === 'number' ? raw27 : parseFloat(String(raw27 || '0').replace(',', '.'));
         const val31 = typeof raw31 === 'number' ? raw31 : parseFloat(String(raw31 || '0').replace(',', '.'));
 
-        return Math.abs(val26) + Math.abs(val27) + Math.abs(val31);
+        // Hesaplama: (AB + AF) * 1.2
+        return (Math.abs(val27) + Math.abs(val31)) * 1.2;
       })(),
       // Column H (7): Status
       status: String(row[7] || ''),
