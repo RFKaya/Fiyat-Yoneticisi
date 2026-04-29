@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiDataLogger as log } from '@/lib/logger';
 import { GlobalSettings } from '@/lib/types';
+import { calculateCost } from '@/lib/utils';
 
 const safeFloat = (val: any): number | null => {
   if (val === undefined || val === null || val === '') return null;
@@ -36,9 +37,14 @@ export async function GET() {
       orderBy: { order: 'asc' }
     });
 
-    // Fetch products with their recipes
+    // Fetch products with their recipes and cost history
     const productsRaw = await prisma.product.findMany({
-      include: { recipe: true },
+      include: { 
+        recipe: true,
+        costHistory: {
+          orderBy: { dateKey: 'asc' }
+        }
+      },
       orderBy: { order: 'asc' }
     });
 
@@ -54,7 +60,8 @@ export async function GET() {
         ingredientId: r.ingredientId || undefined,
         subProductId: r.subProductId || undefined,
         quantity: r.quantity
-      }))
+      })),
+      costHistory: p.costHistory
     }));
 
     const margins = await prisma.margin.findMany();
@@ -314,6 +321,32 @@ export async function POST(request: Request) {
             } 
           } 
         });
+      }
+
+      // 7. RECORD COST HISTORY FOR TODAY
+      if (data.products && data.ingredients) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        for (const prod of data.products) {
+          const hasRecipe = prod.recipe && prod.recipe.length > 0;
+          const calculatedCost = calculateCost(prod.recipe || [], data.ingredients, data.products);
+          const cost = hasRecipe ? calculatedCost : (safeFloat(prod.manualCost) ?? 0);
+          
+          // CostHistory upsert
+          await tx.productCostHistory.upsert({
+            where: {
+              productId_dateKey: {
+                productId: prod.id,
+                dateKey: todayStr
+              }
+            },
+            update: { cost },
+            create: {
+              productId: prod.id,
+              dateKey: todayStr,
+              cost
+            }
+          });
+        }
       }
     });
 

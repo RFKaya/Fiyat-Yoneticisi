@@ -48,8 +48,20 @@ model Product {
   category       Category?    @relation(fields: [categoryId], references: [id])
   recipe         RecipeItem[]
   usedInRecipes  RecipeItem[] @relation("SubProductRecipes")
+  costHistory    ProductCostHistory[]
 
   @@map("products")
+}
+
+model ProductCostHistory {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  dateKey   String   @map("date_key")
+  cost      Float
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, dateKey])
+  @@map("product_cost_history")
 }
 
 model RecipeItem {
