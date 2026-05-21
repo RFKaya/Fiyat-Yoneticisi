@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import type { Product, Ingredient, RecipeItem } from '@/lib/types';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import type { Product, Ingredient, RecipeItem, ProductCostSource } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { calculateCost, formatCurrency } from '@/lib/utils';
-import { PlusCircle, Trash2, Edit, Package } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, Package, CheckCircle2, Circle, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Dialog,
@@ -28,6 +28,7 @@ type InlineRecipeEditorProps = {
   onSave: (newRecipe: RecipeItem[]) => void;
   updateProduct: (id: string, field: keyof Product, value: any) => void;
   updateIngredientPrice: (ingredientId: string, newPrice: number) => void;
+  updateProductCostSources: (productId: string, sources: ProductCostSource[]) => void;
 };
 
 /**
@@ -127,7 +128,9 @@ function SelectionPopover({
 }
 
 
-export default function InlineRecipeEditor({ product, ingredients, allProducts, onSave, updateProduct, updateIngredientPrice }: InlineRecipeEditorProps) {
+const generateLocalId = () => `new-${Math.random().toString(36).slice(2)}`;
+
+export default function InlineRecipeEditor({ product, ingredients, allProducts, onSave, updateProduct, updateIngredientPrice, updateProductCostSources }: InlineRecipeEditorProps) {
   const [isAddIngredientOpen, setAddIngredientOpen] = useState(false);
   const [isAddProductOpen, setAddProductOpen] = useState(false);
 
@@ -136,6 +139,96 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
 
   const [ingredientToEdit, setIngredientToEdit] = useState<Ingredient | null>(null);
   const [newPriceInput, setNewPriceInput] = useState('');
+
+  // For new source being typed
+  const [newSourceName, setNewSourceName] = useState('');
+  const [newSourceCost, setNewSourceCost] = useState('');
+  const [showNewSourceRow, setShowNewSourceRow] = useState(false);
+  const [costError, setCostError] = useState(false);
+  const newSourceNameRef = useRef<HTMLInputElement>(null);
+
+  const costSources: ProductCostSource[] = product.costSources || [];
+
+  // One-time migration: if product has manualCost but no sources, create an unnamed source
+  useEffect(() => {
+    if (costSources.length === 0 && product.manualCost > 0 && isRecipeEmptyRef.current) {
+      const migratedSource: ProductCostSource = {
+        id: generateLocalId(),
+        productId: product.id,
+        sourceName: '',
+        cost: product.manualCost,
+        isSelected: true,
+      };
+      updateProductCostSources(product.id, [migratedSource]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleAddCostSource = () => {
+    const cost = parseFloat(newSourceCost.replace(',', '.'));
+    if (isNaN(cost) || cost < 0) {
+      setCostError(true);
+      return;
+    }
+    setCostError(false);
+    const isFirst = costSources.length === 0;
+    const newSource: ProductCostSource = {
+      id: generateLocalId(),
+      productId: product.id,
+      sourceName: newSourceName.trim(),
+      cost,
+      isSelected: isFirst,
+    };
+    const updated = [...costSources, newSource];
+    updateProductCostSources(product.id, updated);
+    if (isFirst) updateProduct(product.id, 'manualCost', cost);
+    setNewSourceName('');
+    setNewSourceCost('');
+    setShowNewSourceRow(false);
+  };
+
+  const handleSelectSource = (sourceId: string) => {
+    const updated = costSources.map(s => ({ ...s, isSelected: s.id === sourceId }));
+    updateProductCostSources(product.id, updated);
+    const selected = updated.find(s => s.isSelected);
+    if (selected) updateProduct(product.id, 'manualCost', selected.cost);
+  };
+
+  const handleDeleteSource = (sourceId: string) => {
+    const wasSelected = costSources.find(s => s.id === sourceId)?.isSelected;
+    let updated = costSources.filter(s => s.id !== sourceId);
+    if (wasSelected && updated.length > 0) {
+      updated = updated.map((s, i) => ({ ...s, isSelected: i === 0 }));
+      updateProduct(product.id, 'manualCost', updated[0].cost);
+    } else if (updated.length === 0) {
+      updateProduct(product.id, 'manualCost', 0);
+    }
+    updateProductCostSources(product.id, updated);
+  };
+
+  const handleSourceCostChange = (sourceId: string, costStr: string) => {
+    const cost = parseFloat(costStr.replace(',', '.'));
+    if (isNaN(cost)) return;
+    const updated = costSources.map(s =>
+      s.id === sourceId ? { ...s, cost } : s
+    );
+    updateProductCostSources(product.id, updated);
+    const sel = updated.find(s => s.isSelected);
+    if (sel) updateProduct(product.id, 'manualCost', sel.cost);
+  };
+
+  const handleSourceNameChange = (sourceId: string, name: string) => {
+    const updated = costSources.map(s =>
+      s.id === sourceId ? { ...s, sourceName: name } : s
+    );
+    updateProductCostSources(product.id, updated);
+  };
+
+  useEffect(() => {
+    if (showNewSourceRow && newSourceNameRef.current) {
+      newSourceNameRef.current.focus();
+    }
+  }, [showNewSourceRow]);
 
   const handleOpenEditPriceDialog = (ingredient: Ingredient) => {
     if (ingredient.price === undefined) return;
@@ -243,6 +336,9 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
   }, [product.id, product.recipe, allProducts, searchProd]);
 
   const isRecipeEmpty = !product.recipe || product.recipe.length === 0;
+  // Stable ref for migration useEffect (avoids closure over stale isRecipeEmpty)
+  const isRecipeEmptyRef = useRef(isRecipeEmpty);
+  isRecipeEmptyRef.current = isRecipeEmpty;
 
   const totalCost = calculateCost(product.recipe || [], ingredients, allProducts);
 
@@ -274,27 +370,145 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
         <div className="space-y-6">
           {isRecipeEmpty && (
             <div className="glass-panel p-4 bg-background/50 border-dashed">
-              <div className="mb-2">
-                <p className="text-sm text-muted-foreground mb-4">
-                  Bu ürünün reçetesi henüz oluşturulmamış. Maliyeti doğrudan girebilir veya aşağıdan malzeme ekleyerek reçete oluşturabilirsiniz.
-                </p>
-                <div className="flex items-center gap-4 max-w-sm">
-                  <Label htmlFor={`manual-cost-${product.id}`} className="shrink-0 font-bold">Doğrudan Maliyet</Label>
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">₺</span>
-                    <Input
-                      id={`manual-cost-${product.id}`}
-                      type="number"
-                      placeholder="0.00"
-                      className="pl-7 font-bold text-lg"
-                      defaultValue={product.manualCost || ''}
-                      onBlur={(e) => updateProduct(product.id, 'manualCost', e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                    />
-                  </div>
+              <div className="space-y-3">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <Label className="font-bold text-sm">Maliyet Kaynakları</Label>
+                  {costSources.length > 0 && (
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                      Aktif maliyet: <span className="text-primary">{formatCurrency(product.manualCost)}</span>
+                    </span>
+                  )}
                 </div>
+
+                {/* Sources table */}
+                {costSources.length > 0 && (
+                  <div className="border border-border/50 rounded-lg overflow-hidden bg-background/60">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/40">
+                        <tr>
+                          <th className="text-left px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-8"></th>
+                          <th className="text-left px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Kaynak Adı</th>
+                          <th className="text-right px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-36">Fiyat (₺)</th>
+                          <th className="w-8"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {costSources.map((src) => (
+                          <tr
+                            key={src.id}
+                            className={`border-t border-border/30 transition-colors ${src.isSelected ? 'bg-primary/5' : 'hover:bg-muted/20'
+                              }`}
+                          >
+                            {/* Select radio */}
+                            <td className="px-3 py-2">
+                              <button
+                                onClick={() => handleSelectSource(src.id)}
+                                className="flex items-center justify-center hover:scale-110 transition-transform"
+                                title="Bu kaynağı aktif maliyet olarak seç"
+                              >
+                                {src.isSelected
+                                  ? <CheckCircle2 className="h-4 w-4 text-primary" />
+                                  : <Circle className="h-4 w-4 text-muted-foreground/40" />}
+                              </button>
+                            </td>
+                            {/* Editable name */}
+                            <td className="px-2 py-1.5">
+                              <Input
+                                className={`h-7 text-sm border-transparent hover:border-border focus:border-border bg-transparent px-2 font-medium ${src.isSelected ? 'text-primary' : ''
+                                  }`}
+                                value={src.sourceName}
+                                onChange={(e) => handleSourceNameChange(src.id, e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                placeholder="Kaynak belirtilmemiş"
+                              />
+                            </td>
+                            {/* Editable cost */}
+                            <td className="px-2 py-1.5">
+                              <Input
+                                type="number"
+                                className={`h-7 w-full text-right text-sm border-transparent hover:border-border focus:border-border bg-transparent font-bold ${src.isSelected ? 'text-primary' : ''
+                                  }`}
+                                defaultValue={src.cost || ''}
+                                onBlur={(e) => handleSourceCostChange(src.id, e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                placeholder="0.00"
+                              />
+                            </td>
+                            {/* Delete */}
+                            <td className="pr-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground/40 hover:text-destructive"
+                                onClick={() => handleDeleteSource(src.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* New source input row */}
+                 {showNewSourceRow ? (
+                   <div className="flex flex-col gap-1.5 p-2 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+                     <div className="flex items-center gap-2">
+                       <Input
+                         ref={newSourceNameRef}
+                         className="h-8 text-sm flex-1"
+                         placeholder="Kaynak adı (örn: Migros) — isteğe bağlı"
+                         value={newSourceName}
+                         onChange={(e) => setNewSourceName(e.target.value)}
+                         onKeyDown={(e) => { if (e.key === 'Enter') handleAddCostSource(); if (e.key === 'Escape') { setShowNewSourceRow(false); setCostError(false); } }}
+                       />
+                       <div className="relative shrink-0">
+                         <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">₺</span>
+                         <Input
+                           type="number"
+                           className={`h-8 w-28 pl-6 text-sm font-bold transition-all ${
+                             costError ? 'border-destructive focus-visible:ring-destructive focus-visible:border-destructive ring-offset-background' : ''
+                           }`}
+                           placeholder="0.00"
+                           value={newSourceCost}
+                           onChange={(e) => {
+                             setNewSourceCost(e.target.value);
+                             if (costError) setCostError(false);
+                           }}
+                           onKeyDown={(e) => { if (e.key === 'Enter') handleAddCostSource(); if (e.key === 'Escape') { setShowNewSourceRow(false); setCostError(false); } }}
+                         />
+                       </div>
+                       <Button size="sm" className="h-8 font-bold px-4 shrink-0" onClick={handleAddCostSource}>
+                         Ekle
+                       </Button>
+                       <Button size="sm" variant="ghost" className="h-8 shrink-0" onClick={() => { setShowNewSourceRow(false); setNewSourceName(''); setNewSourceCost(''); setCostError(false); }}>
+                         <X className="h-4 w-4" />
+                       </Button>
+                     </div>
+                     {costError && (
+                       <span className="text-[10px] text-destructive font-semibold px-1 animate-pulse">
+                         Lütfen geçerli bir maliyet fiyatı girin.
+                       </span>
+                     )}
+                   </div>
+                 ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-dashed h-9 text-muted-foreground hover:text-primary hover:bg-primary/5 hover:border-primary/30 bg-transparent transition-colors"
+                    onClick={() => setShowNewSourceRow(true)}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Kaynak Ekle
+                  </Button>
+                )}
               </div>
-              {!(product.manualCost > 0) && (
+
+              {/* VEYA divider — only when no cost is active */}
+              {!(product.manualCost > 0) && !showNewSourceRow && (
                 <div className="relative my-6">
                   <Separator />
                   <div className="absolute inset-0 flex items-center justify-center">

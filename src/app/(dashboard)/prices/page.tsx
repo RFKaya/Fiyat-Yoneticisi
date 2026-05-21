@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import type { Product, RecipeItem, Ingredient, Category, Margin } from '@/lib/types';
+import type { Product, RecipeItem, Ingredient, Category, Margin, ProductCostSource } from '@/lib/types';
 import { calculateCost, calculateEconomicsFromPrice, calculateEconomicsFromMargin, formatCurrency, cn } from '@/lib/utils';
 import { pageHomeLogger as log } from '@/lib/logger';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, } from '@dnd-kit/core';
@@ -849,6 +849,13 @@ export default function Home() {
     }));
   }, []);
 
+  const updateProductCostSources = React.useCallback((productId: string, sources: ProductCostSource[]) => {
+    isDirtyRef.current = true;
+    setProducts(prev => prev.map(p =>
+      p.id === productId ? { ...p, costSources: sources } : p
+    ));
+  }, []);
+
   const updateIngredientPrice = React.useCallback((ingredientId: string, newPrice: number) => {
     isDirtyRef.current = true;
     setIngredients(prevIngredients =>
@@ -1516,6 +1523,7 @@ export default function Home() {
                                         onSave={(newRecipe) => updateProductRecipe(product.id, newRecipe)}
                                         updateProduct={updateProduct}
                                         updateIngredientPrice={updateIngredientPrice}
+                                        updateProductCostSources={updateProductCostSources}
                                       />
                                     </TableCell>
                                   </TableRow>

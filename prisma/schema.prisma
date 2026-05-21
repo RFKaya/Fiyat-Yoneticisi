@@ -49,8 +49,20 @@ model Product {
   recipe         RecipeItem[]
   usedInRecipes  RecipeItem[] @relation("SubProductRecipes")
   costHistory    ProductCostHistory[]
+  costSources    ProductCostSource[]
 
   @@map("products")
+}
+
+model ProductCostSource {
+  id         String   @id @default(cuid())
+  productId  String   @map("product_id")
+  sourceName String   @map("source_name")
+  cost       Float
+  isSelected Boolean  @default(false) @map("is_selected")
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_cost_sources")
 }
 
 model ProductCostHistory {

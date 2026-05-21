@@ -42,6 +42,14 @@ export type Margin = {
   categorySpecifics?: CategoryMargin[];
 };
 
+export type ProductCostSource = {
+  id: string;
+  productId: string;
+  sourceName: string;
+  cost: number;
+  isSelected: boolean;
+};
+
 export type ProductCostHistory = {
   id: string;
   productId: string;
@@ -59,6 +67,7 @@ export type Product = {
   order: number;
   categoryId?: string;
   costHistory?: ProductCostHistory[];
+  costSources?: ProductCostSource[];
 };
 
 export type GlobalSettings = {

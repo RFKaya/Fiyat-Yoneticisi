@@ -37,12 +37,15 @@ export async function GET() {
       orderBy: { order: 'asc' }
     });
 
-    // Fetch products with their recipes and cost history
+    // Fetch products with their recipes, cost history, and cost sources
     const productsRaw = await prisma.product.findMany({
       include: { 
         recipe: true,
         costHistory: {
           orderBy: { dateKey: 'asc' }
+        },
+        costSources: {
+          orderBy: { sourceName: 'asc' }
         }
       },
       orderBy: { order: 'asc' }
@@ -61,7 +64,14 @@ export async function GET() {
         subProductId: r.subProductId || undefined,
         quantity: r.quantity
       })),
-      costHistory: p.costHistory
+      costHistory: p.costHistory,
+      costSources: p.costSources.map(s => ({
+        id: s.id,
+        productId: s.productId,
+        sourceName: s.sourceName,
+        cost: s.cost,
+        isSelected: s.isSelected
+      }))
     }));
 
     const margins = await prisma.margin.findMany();
@@ -184,6 +194,38 @@ export async function POST(request: Request) {
               if (prodCount > 0) {
                 await tx.recipeItem.create({
                   data: { productId: prod.id, subProductId: rec.subProductId, quantity: safeFloat(rec.quantity) ?? 1 }
+                });
+              }
+            }
+          }
+
+          // Upsert cost sources
+          if (prod.costSources !== undefined) {
+            // Delete sources that are no longer present
+            const incomingSrcIds = (prod.costSources || []).filter((s: any) => !s.id.startsWith('new-')).map((s: any) => s.id);
+            await tx.productCostSource.deleteMany({
+              where: { productId: prod.id, id: { notIn: incomingSrcIds } }
+            });
+            for (const src of prod.costSources || []) {
+              if (src.id.startsWith('new-')) {
+                // New source — create
+                await tx.productCostSource.create({
+                  data: {
+                    productId: prod.id,
+                    sourceName: src.sourceName,
+                    cost: safeFloat(src.cost) ?? 0,
+                    isSelected: src.isSelected ?? false
+                  }
+                });
+              } else {
+                // Existing source — update
+                await tx.productCostSource.update({
+                  where: { id: src.id },
+                  data: {
+                    sourceName: src.sourceName,
+                    cost: safeFloat(src.cost) ?? 0,
+                    isSelected: src.isSelected ?? false
+                  }
                 });
               }
             }
