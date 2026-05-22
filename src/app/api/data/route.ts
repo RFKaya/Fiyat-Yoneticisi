@@ -392,7 +392,43 @@ export async function POST(request: Request) {
       }
     });
 
-    return NextResponse.json({ success: true });
+    const productsRaw = await prisma.product.findMany({
+      include: { 
+        recipe: true,
+        costHistory: {
+          orderBy: { dateKey: 'asc' }
+        },
+        costSources: {
+          orderBy: { sourceName: 'asc' }
+        }
+      },
+      orderBy: { order: 'asc' }
+    });
+
+    const products = productsRaw.map(p => ({
+      id: p.id,
+      name: p.name,
+      manualCost: p.manualCost,
+      categoryId: p.categoryId,
+      storePrice: p.storePrice,
+      onlinePrice: p.onlinePrice,
+      order: p.order,
+      recipe: p.recipe.map(r => ({
+        ingredientId: r.ingredientId || undefined,
+        subProductId: r.subProductId || undefined,
+        quantity: r.quantity
+      })),
+      costHistory: p.costHistory,
+      costSources: p.costSources.map(s => ({
+        id: s.id,
+        productId: s.productId,
+        sourceName: s.sourceName,
+        cost: s.cost,
+        isSelected: s.isSelected
+      }))
+    }));
+
+    return NextResponse.json({ success: true, products });
   } catch (error: any) {
     log.error('API /data POST ERROR!', {
       message: error.message,

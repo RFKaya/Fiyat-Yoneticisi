@@ -1078,7 +1078,41 @@ export default function Home() {
           .then((res) => {
             saveTimer.end();
             if (!res.ok) throw new Error('Kayıt başarısız');
+            return res.json();
+          })
+          .then((data) => {
             setSaveStatus('saved');
+            if (data.products) {
+              setProducts(prev => {
+                if (!isDirtyRef.current) return data.products;
+                return prev.map(localProd => {
+                  const serverProd = data.products.find((p: Product) => p.id === localProd.id);
+                  if (!serverProd) return localProd;
+
+                  const updatedCostHistory = serverProd.costHistory;
+
+                  const updatedCostSources = localProd.costSources?.map(localSrc => {
+                    if (localSrc.id.startsWith('new-')) {
+                      const match = serverProd.costSources?.find((s: any) => 
+                        !s.id.startsWith('new-') && 
+                        s.sourceName === localSrc.sourceName && 
+                        Math.abs(s.cost - localSrc.cost) < 0.01
+                      );
+                      if (match) {
+                        return { ...localSrc, id: match.id };
+                      }
+                    }
+                    return localSrc;
+                  }) || [];
+
+                  return {
+                    ...localProd,
+                    costHistory: updatedCostHistory,
+                    costSources: updatedCostSources
+                  };
+                });
+              });
+            }
             log.success('Veriler otomatik kaydedildi ✓');
             setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 2000);
           })
