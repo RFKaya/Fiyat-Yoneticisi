@@ -18,7 +18,8 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { PlusCircle, Trash2, X, Tags, Check, GripVertical, MoreVertical, ChevronDown, ChevronUp, Percent } from 'lucide-react';
+import { PlusCircle, Trash2, X, Tags, Check, MoreVertical, Percent } from 'lucide-react';
+import { DeleteIconButton, DragHandleButton, ExpandToggleButton } from '@/components/ui/icon-buttons';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
@@ -47,34 +48,22 @@ function MarginEditPopover({
   onSave: (marginData: Partial<Margin>) => void;
   trigger: React.ReactNode;
 }) {
-  const [value, setValue] = useState(margin?.value.toString() || '');
   const [name, setName] = useState(margin?.name || '');
-  const [commission, setCommission] = useState(margin?.commissionRate?.toString() || '');
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen && margin) {
-      setValue(margin.value.toString());
       setName(margin.name || '');
-      setCommission(margin.commissionRate?.toString() || '');
     }
   }, [isOpen, margin]);
 
   const handleSave = () => {
-    const numericValue = parseFloat(value);
-    const numericCommission = parseFloat(commission);
-
-    // For Store margins, value can be 0 (default) as it's defined per category
     onSave({
-      value: !isNaN(numericValue) ? numericValue : 0,
+      value: 0,
       name: name.trim() || undefined,
-      commissionRate: !isNaN(numericCommission) ? numericCommission : null,
+      commissionRate: null,
     });
-    if (!margin) {
-      setValue('');
-      setName('');
-      setCommission('');
-    }
+    if (!margin) setName('');
     setIsOpen(false);
   };
 
@@ -93,17 +82,15 @@ function MarginEditPopover({
               Bu kolon tüm kategorilerde görünecek, ancak kâr oranlarını her kategori için ayrı belirleyeceksiniz.
             </p>
           </div>
-          <div className="grid gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="margin-name" className="text-xs font-semibold">Kolon/Platform İsmi</Label>
-              <Input
-                id="margin-name"
-                placeholder="Örn: Kampanyalı, Özel..."
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="h-8 text-sm"
-              />
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="margin-name" className="text-xs font-semibold">Kolon/Platform İsmi</Label>
+            <Input
+              id="margin-name"
+              placeholder="Örn: Kampanyalı, Özel..."
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="h-8 text-sm"
+            />
           </div>
           <Button onClick={handleSave} size="sm" className="w-full font-bold">
             {margin ? 'Güncelle' : 'Kolon Ekle'}
@@ -255,43 +242,119 @@ const EconomicsCells = React.memo(({
   cells: { name: string, commission: number, targetMargin: number }[];
 }) => {
   return (
-    <>
+    <TooltipProvider>
       {cells.map((cell, idx) => {
         const mEcon = calculateEconomicsFromMargin(cell.targetMargin, cost, kdvRate, cell.commission, stopajRate);
         return (
           <TableCell key={idx} className="text-left w-[140px] px-2 py-1 text-muted-foreground">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="w-full h-full flex items-center">
-                    {mEcon.isCalculable ? formatCurrency(mEcon.sellingPrice) : 'Hesaplanamaz'}
-                  </div>
-                </TooltipTrigger>
-                <EconomicsTooltipContent
-                  isCalculable={mEcon.isCalculable}
-                  title={`${cell.name} Fiyatı`}
-                  revenue={mEcon.sellingPrice}
-                  vat={mEcon.vatAmount}
-                  kdvRate={kdvRate}
-                  commission={mEcon.commissionAmount}
-                  commissionRate={cell.commission}
-                  stopaj={mEcon.stopajAmount}
-                  stopajRate={stopajRate > 0 ? stopajRate : undefined}
-                  cost={cost}
-                  netProfit={mEcon.netProfit}
-                  profitOverCostPercentage={mEcon.profitOverCostPercentage}
-                  profitPercentage={mEcon.profitPercentage}
-                  headerLabel={`${cell.name} (%${cell.targetMargin} Hedef)`}
-                />
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="w-full h-full flex items-center">
+                  {mEcon.isCalculable ? formatCurrency(mEcon.sellingPrice) : 'Hesaplanamaz'}
+                </div>
+              </TooltipTrigger>
+              <EconomicsTooltipContent
+                isCalculable={mEcon.isCalculable}
+                title={`${cell.name} Fiyatı`}
+                revenue={mEcon.sellingPrice}
+                vat={mEcon.vatAmount}
+                kdvRate={kdvRate}
+                commission={mEcon.commissionAmount}
+                commissionRate={cell.commission}
+                stopaj={mEcon.stopajAmount}
+                stopajRate={stopajRate > 0 ? stopajRate : undefined}
+                cost={cost}
+                netProfit={mEcon.netProfit}
+                profitOverCostPercentage={mEcon.profitOverCostPercentage}
+                profitPercentage={mEcon.profitPercentage}
+                headerLabel={`${cell.name} (%${cell.targetMargin} Hedef)`}
+              />
+            </Tooltip>
           </TableCell>
         );
       })}
-    </>
+    </TooltipProvider>
   );
 });
 EconomicsCells.displayName = 'EconomicsCells';
+
+// Fiyat hücresi: düzenlenebilir input veya tooltip ile görüntüleme
+function PriceEditCell({
+  price,
+  economics,
+  isEditing,
+  onStartEdit,
+  onCommit,
+  onKeyDown,
+  commissionRate,
+  stopajRate,
+  cost,
+  kdvRate,
+}: {
+  price: number;
+  economics: ReturnType<typeof calculateEconomicsFromPrice>;
+  isEditing: boolean;
+  onStartEdit: () => void;
+  onCommit: (val: string) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  commissionRate: number;
+  stopajRate?: number;
+  cost: number;
+  kdvRate: number;
+}) {
+  const showProfit = price > 0;
+  return (
+    <TableCell className="w-[140px] px-4 py-1 text-left">
+      {isEditing ? (
+        <Input
+          type="number"
+          defaultValue={price || ''}
+          onBlur={(e) => onCommit(e.target.value)}
+          onKeyDown={onKeyDown}
+          autoFocus
+          className="text-left h-8 border-dashed"
+          placeholder="0.00"
+        />
+      ) : (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                onClick={onStartEdit}
+                className="-ml-2 text-left cursor-pointer px-2 h-8 flex items-center rounded-md hover:bg-muted/50"
+              >
+                <div className="flex flex-col justify-center text-left">
+                  <div>{formatCurrency(price)}</div>
+                  {showProfit && (
+                    <div className="text-xs text-muted-foreground -mt-1 leading-tight">
+                      {formatCurrency(economics.netProfit)} ({economics.profitOverCostPercentage.toFixed(1)}%)
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TooltipTrigger>
+            {showProfit && (
+              <EconomicsTooltipContent
+                title="Ana Fiyat"
+                revenue={price}
+                vat={economics.vatAmount}
+                kdvRate={kdvRate}
+                commission={economics.commissionAmount}
+                commissionRate={commissionRate}
+                stopaj={economics.stopajAmount}
+                stopajRate={stopajRate}
+                cost={cost}
+                netProfit={economics.netProfit}
+                profitOverCostPercentage={economics.profitOverCostPercentage}
+                profitPercentage={economics.profitPercentage}
+              />
+            )}
+          </Tooltip>
+        </TooltipProvider>
+      )}
+    </TableCell>
+  );
+}
 
 const SortableProductRow = React.memo(({
   product,
@@ -334,15 +397,13 @@ const SortableProductRow = React.memo(({
 
   const hasRecipe = product.recipe && product.recipe.length > 0;
   const cost = hasRecipe ? calculateCost(product.recipe, ingredients, allProducts) : product.manualCost;
-  // Use product category for coloring, but the passed category is more reliable for target calculations
-  const displayCategory = categories.find(c => c.id === product.categoryId);
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.8 : 1,
     zIndex: isDragging ? 10 : 'auto',
-    backgroundColor: displayCategory ? `${displayCategory.color}33` : undefined,
+    backgroundColor: category ? `${category.color}33` : undefined,
   };
 
   const handleUpdate = (field: 'name' | 'storePrice' | 'onlinePrice', value: string) => {
@@ -358,28 +419,20 @@ const SortableProductRow = React.memo(({
     }
   };
 
-  // Unified Economics Calculations
   const storeEconomics = calculateEconomicsFromPrice(product.storePrice, cost, kdvRate, bankCommissionRate, 0);
-  const showNetStoreProfit = product.storePrice > 0;
-
   const onlineEconomics = calculateEconomicsFromPrice(product.onlinePrice, cost, kdvRate, platformCommissionRate, stopajRate);
-  const showNetOnlineProfit = product.onlinePrice > 0;
 
   const categoryMarginCells = storeMargins.map(m => {
-    // Find the specific margin value for this category and margin column
     const mv = category?.categoryMargins?.find(v => v.marginId === m.id);
     const targetVal = mv?.value || 0;
-    const comm = bankCommissionRate;
-    return { name: m.name || `%${targetVal} Marj`, commission: comm, targetMargin: targetVal };
+    return { name: m.name || `%${targetVal} Marj`, commission: bankCommissionRate, targetMargin: targetVal };
   });
 
   return (
     <TableRow ref={setNodeRef} style={style} key={product.id} className={isExpanded ? 'border-b-0' : ''}>
       <TableCell className="w-[340px] px-4 py-1">
         <div className="flex items-center gap-1 h-8">
-          <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...attributes} {...listeners}>
-            <GripVertical className="h-5 w-5 text-muted-foreground" />
-          </Button>
+          <DragHandleButton {...attributes} {...listeners} />
           {editingField === 'name' ? (
             <Input
               defaultValue={product.name}
@@ -401,60 +454,25 @@ const SortableProductRow = React.memo(({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => onToggleExpand(product.id)}>
-                  {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                </Button>
+                <ExpandToggleButton isOpen={isExpanded} onClick={() => onToggleExpand(product.id)} />
               </TooltipTrigger>
               <TooltipContent><p>Reçeteyi Göster/Gizle</p></TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
       </TableCell>
-      <TableCell className="w-[140px] px-4 py-1 text-left">
-        {editingField === 'storePrice' ? (
-          <Input
-            type="number"
-            defaultValue={product.storePrice || ''}
-            onBlur={(e) => handleUpdate('storePrice', e.target.value)}
-            onKeyDown={handleKeyDown}
-            autoFocus
-            className="text-left h-8 border-dashed"
-            placeholder="0.00"
-          />
-        ) : (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div onClick={() => setEditingField('storePrice')} className="-ml-2 text-left cursor-pointer px-2 h-8 flex items-center rounded-md hover:bg-muted/50">
-                  <div className="flex flex-col justify-center text-left">
-                    <div>{formatCurrency(product.storePrice)}</div>
-                    {showNetStoreProfit && (
-                      <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                        {formatCurrency(storeEconomics.netProfit)} ({storeEconomics.profitOverCostPercentage.toFixed(1)}%)
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </TooltipTrigger>
-              {showNetStoreProfit && (
-                <EconomicsTooltipContent
-                  title="Ana Fiyat"
-                  revenue={product.storePrice}
-                  vat={storeEconomics.vatAmount}
-                  kdvRate={kdvRate}
-                  commission={storeEconomics.commissionAmount}
-                  commissionRate={bankCommissionRate}
-                  stopaj={storeEconomics.stopajAmount}
-                  cost={cost}
-                  netProfit={storeEconomics.netProfit}
-                  profitOverCostPercentage={storeEconomics.profitOverCostPercentage}
-                  profitPercentage={storeEconomics.profitPercentage}
-                />
-              )}
-            </Tooltip>
-          </TooltipProvider>
-        )}
-      </TableCell>
+
+      <PriceEditCell
+        price={product.storePrice}
+        economics={storeEconomics}
+        isEditing={editingField === 'storePrice'}
+        onStartEdit={() => setEditingField('storePrice')}
+        onCommit={(val) => handleUpdate('storePrice', val)}
+        onKeyDown={handleKeyDown}
+        commissionRate={bankCommissionRate}
+        cost={cost}
+        kdvRate={kdvRate}
+      />
 
       <EconomicsCells
         cost={cost}
@@ -467,52 +485,18 @@ const SortableProductRow = React.memo(({
 
       <TableCell className="w-8 px-1 py-1" />
 
-      <TableCell className="w-[140px] px-4 py-1 text-left">
-        {editingField === 'onlinePrice' ? (
-          <Input
-            type="number"
-            defaultValue={product.onlinePrice || ''}
-            onBlur={(e) => handleUpdate('onlinePrice', e.target.value)}
-            onKeyDown={handleKeyDown}
-            autoFocus
-            className="text-left h-8 border-dashed"
-            placeholder="0.00"
-          />
-        ) : (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div onClick={() => setEditingField('onlinePrice')} className="-ml-2 h-8 cursor-pointer rounded-md hover:bg-muted/50 flex items-center justify-start px-2">
-                  <div className="flex flex-col justify-center text-left">
-                    <div>{formatCurrency(product.onlinePrice)}</div>
-                    {showNetOnlineProfit && (
-                      <div className="text-xs text-muted-foreground -mt-1 leading-tight">
-                        {formatCurrency(onlineEconomics.netProfit)} ({onlineEconomics.profitOverCostPercentage.toFixed(1)}%)
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </TooltipTrigger>
-              {showNetOnlineProfit && (
-                <EconomicsTooltipContent
-                  title="Ana Fiyat"
-                  revenue={product.onlinePrice}
-                  vat={onlineEconomics.vatAmount}
-                  kdvRate={kdvRate}
-                  commission={onlineEconomics.commissionAmount}
-                  commissionRate={platformCommissionRate}
-                  stopaj={onlineEconomics.stopajAmount}
-                  stopajRate={stopajRate}
-                  cost={cost}
-                  netProfit={onlineEconomics.netProfit}
-                  profitOverCostPercentage={onlineEconomics.profitOverCostPercentage}
-                  profitPercentage={onlineEconomics.profitPercentage}
-                />
-              )}
-            </Tooltip>
-          </TooltipProvider>
-        )}
-      </TableCell>
+      <PriceEditCell
+        price={product.onlinePrice}
+        economics={onlineEconomics}
+        isEditing={editingField === 'onlinePrice'}
+        onStartEdit={() => setEditingField('onlinePrice')}
+        onCommit={(val) => handleUpdate('onlinePrice', val)}
+        onKeyDown={handleKeyDown}
+        commissionRate={platformCommissionRate}
+        stopajRate={stopajRate}
+        cost={cost}
+        kdvRate={kdvRate}
+      />
 
       <EconomicsCells
         cost={cost}
@@ -579,15 +563,11 @@ function SortableCategoryItem({ category, onDelete }: { category: Category; onDe
   return (
     <div ref={setNodeRef} style={style} className="flex items-center justify-between p-2 rounded-md border bg-background">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="h-7 w-7 cursor-grab" {...attributes} {...listeners}>
-          <GripVertical className="h-4 w-4 text-muted-foreground" />
-        </Button>
+        <DragHandleButton buttonSize="sm" {...attributes} {...listeners} />
         <div className="h-4 w-4 rounded-full shrink-0" style={{ backgroundColor: category.color }} />
         <span>{category.name}</span>
       </div>
-      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => onDelete(category.id)}>
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      <DeleteIconButton buttonSize="sm" onClick={() => onDelete(category.id)} />
     </div>
   );
 }
@@ -731,35 +711,28 @@ export default function Home() {
   const [bankCommissionRate, setBankCommissionRate] = useState(2.5);
   const [kdvRate, setKdvRate] = useState(10);
   const [stopajRate, setStopajRate] = useState(1);
-  const [migrosCommission, setMigrosCommission] = useState(15);
-  const [getirCommission, setGetirCommission] = useState(15);
-  const [yemeksepetiCommission, setYemeksepetiCommission] = useState(15);
-  const [trendyolCommission, setTrendyolCommission] = useState(15);
 
-  // Prices page specific commissions
-  const [pricesMigrosCommission, setPricesMigrosCommission] = useState<number | null>(null);
-  const [pricesGetirCommission, setPricesGetirCommission] = useState<number | null>(null);
-  const [pricesYemeksepetiCommission, setPricesYemeksepetiCommission] = useState<number | null>(null);
-  const [pricesTrendyolCommission, setPricesTrendyolCommission] = useState<number | null>(null);
+  // Global platform komisyon oranları (ayarlardan yüklenen)
+  const [globalPlatformRates, setGlobalPlatformRates] = useState<Record<string, number>>({
+    migros: 15, getir: 15, yemeksepeti: 15, trendyol: 15,
+  });
+
+  // Prices sayfasına özel geçersiz kılma oranları (null = global oran kullan)
+  const [pricesPlatformOverrides, setPricesPlatformOverrides] = useState<Record<string, number | null>>({
+    migros: null, getir: null, yemeksepeti: null, trendyol: null,
+  });
 
   const storeMargins = useMemo(() => margins.filter(m => m.type === 'store').sort((a, b) => (a.name || '').localeCompare(b.name || '')), [margins]);
 
-  const platforms = useMemo(() => PLATFORMS.map(p => {
-    const commMap: Record<string, number> = {
-      migros: pricesMigrosCommission ?? migrosCommission,
-      getir: pricesGetirCommission ?? getirCommission,
-      yemeksepeti: pricesYemeksepetiCommission ?? yemeksepetiCommission,
-      trendyol: pricesTrendyolCommission ?? trendyolCommission,
-    };
-    return { key: p.id, name: p.displayName, commission: commMap[p.id] };
-  }), [migrosCommission, getirCommission, yemeksepetiCommission, trendyolCommission, pricesMigrosCommission, pricesGetirCommission, pricesYemeksepetiCommission, pricesTrendyolCommission]);
+  const platforms = useMemo(() => PLATFORMS.map(p => ({
+    key: p.id,
+    name: p.displayName,
+    commission: pricesPlatformOverrides[p.id] ?? globalPlatformRates[p.id] ?? 15,
+  })), [globalPlatformRates, pricesPlatformOverrides]);
 
   const updatePlatformCommission = (key: string, val: number) => {
     isDirtyRef.current = true;
-    if (key === 'migros') setPricesMigrosCommission(val);
-    else if (key === 'getir') setPricesGetirCommission(val);
-    else if (key === 'yemeksepeti') setPricesYemeksepetiCommission(val);
-    else if (key === 'trendyol') setPricesTrendyolCommission(val);
+    setPricesPlatformOverrides(prev => ({ ...prev, [key]: val }));
   };
 
   const toggleProductExpansion = React.useCallback((productId: string) => {
@@ -926,39 +899,37 @@ export default function Home() {
     setMargins((prev) => [...prev, newMarginObject]);
   }, []);
 
-  const renderMarginHeaders = (
-    marginsList: Margin[]
-  ) => (
-    <>
-      {marginsList.map((margin) => (
-        <TableHead key={margin.id} className="th-premium w-[140px] px-2 relative group">
-          <Button variant="ghost" size="icon" className="absolute top-2 right-1 h-5 w-5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => handleDeleteMargin(margin.id)}>
-            <X className="h-3 w-3" />
-          </Button>
+  function MarginHeaders({ marginsList }: { marginsList: Margin[] }) {
+    return (
+      <>
+        {marginsList.map((margin) => (
+          <TableHead key={margin.id} className="th-premium w-[140px] px-2 relative group">
+            <DeleteIconButton buttonSize="sm" className="absolute top-2 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => handleDeleteMargin(margin.id)} />
+            <MarginEditPopover
+              margin={margin}
+              onSave={(data) => handleUpdateMarginDetails(margin.id, data)}
+              trigger={
+                <HeaderColumnLabel
+                  title={margin.name || 'Yeni Kolon'}
+                  subtitle=""
+                />
+              }
+            />
+          </TableHead>
+        ))}
+        <TableHead className="w-[40px] p-0 flex items-center justify-center">
           <MarginEditPopover
-            margin={margin}
-            onSave={(data) => handleUpdateMarginDetails(margin.id, data)}
+            onSave={(data) => handleAddMargin(data)}
             trigger={
-              <HeaderColumnLabel
-                title={margin.name || 'Yeni Kolon'}
-                subtitle=""
-              />
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <PlusCircle className="h-5 w-5" />
+              </Button>
             }
           />
         </TableHead>
-      ))}
-      <TableHead className="w-[40px] p-0 flex items-center justify-center">
-        <MarginEditPopover
-          onSave={(data) => handleAddMargin(data)}
-          trigger={
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <PlusCircle className="h-5 w-5" />
-            </Button>
-          }
-        />
-      </TableHead>
-    </>
-  );
+      </>
+    );
+  }
 
   useEffect(() => {
     setIsMounted(true);
@@ -997,15 +968,18 @@ export default function Home() {
         setBankCommissionRate(data.bankCommissionRate ?? 2.5);
         setKdvRate(data.kdvRate ?? 10);
         setStopajRate(data.stopajRate ?? 1);
-        setMigrosCommission(data.migrosCommission ?? 15);
-        setGetirCommission(data.getirCommission ?? 15);
-        setYemeksepetiCommission(data.yemeksepetiCommission ?? 15);
-        setTrendyolCommission(data.trendyolCommission ?? 15);
-
-        setPricesMigrosCommission(data.pricesMigrosCommission);
-        setPricesGetirCommission(data.pricesGetirCommission);
-        setPricesYemeksepetiCommission(data.pricesYemeksepetiCommission);
-        setPricesTrendyolCommission(data.pricesTrendyolCommission);
+        setGlobalPlatformRates({
+          migros: data.migrosCommission ?? 15,
+          getir: data.getirCommission ?? 15,
+          yemeksepeti: data.yemeksepetiCommission ?? 15,
+          trendyol: data.trendyolCommission ?? 15,
+        });
+        setPricesPlatformOverrides({
+          migros: data.pricesMigrosCommission ?? null,
+          getir: data.pricesGetirCommission ?? null,
+          yemeksepeti: data.pricesYemeksepetiCommission ?? null,
+          trendyol: data.pricesTrendyolCommission ?? null,
+        });
 
         log.success('Veriler başarıyla yüklendi', {
           products: sortedProducts.length,
@@ -1065,14 +1039,14 @@ export default function Home() {
             kdvRate,
             bankCommissionRate,
             stopajRate,
-            migrosCommission,
-            getirCommission,
-            yemeksepetiCommission,
-            trendyolCommission,
-            pricesMigrosCommission,
-            pricesGetirCommission,
-            pricesYemeksepetiCommission,
-            pricesTrendyolCommission
+            migrosCommission: globalPlatformRates.migros,
+            getirCommission: globalPlatformRates.getir,
+            yemeksepetiCommission: globalPlatformRates.yemeksepeti,
+            trendyolCommission: globalPlatformRates.trendyol,
+            pricesMigrosCommission: pricesPlatformOverrides.migros,
+            pricesGetirCommission: pricesPlatformOverrides.getir,
+            pricesYemeksepetiCommission: pricesPlatformOverrides.yemeksepeti,
+            pricesTrendyolCommission: pricesPlatformOverrides.trendyol,
           }),
         })
           .then((res) => {
@@ -1133,8 +1107,7 @@ export default function Home() {
   }, [
     products, ingredients, margins, categories, platformCommissionRate,
     kdvRate, bankCommissionRate, stopajRate,
-    migrosCommission, getirCommission, yemeksepetiCommission, trendyolCommission,
-    pricesMigrosCommission, pricesGetirCommission, pricesYemeksepetiCommission, pricesTrendyolCommission,
+    globalPlatformRates, pricesPlatformOverrides,
     isLoading
   ]);
 
@@ -1266,33 +1239,24 @@ export default function Home() {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    // Check if we are dragging a product or an ingredient
-    const isActiveProduct = products.some(p => p.id === active.id);
-    const isOverProduct = products.some(p => p.id === over.id);
-
-    if (isActiveProduct && isOverProduct) {
+    const productIdSet = new Set(products.map(p => p.id));
+    if (productIdSet.has(active.id as string) && productIdSet.has(over.id as string)) {
       setProducts((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-
-        const reordered = arrayMove(items, oldIndex, newIndex);
         isDirtyRef.current = true;
-        return reordered.map((item, index) => ({ ...item, order: index }));
+        return arrayMove(items, oldIndex, newIndex).map((item, index) => ({ ...item, order: index }));
       });
       return;
     }
 
-    const isActiveIngredient = ingredients.some(i => i.id === active.id);
-    const isOverIngredient = ingredients.some(i => i.id === over.id);
-
-    if (isActiveIngredient && isOverIngredient) {
+    const ingredientIdSet = new Set(ingredients.map(i => i.id));
+    if (ingredientIdSet.has(active.id as string) && ingredientIdSet.has(over.id as string)) {
       setIngredients((prev) => {
         const oldIndex = prev.findIndex((item) => item.id === active.id);
         const newIndex = prev.findIndex((item) => item.id === over.id);
-
-        const reordered = arrayMove(prev, oldIndex, newIndex);
         isDirtyRef.current = true;
-        return reordered.map((item, index) => ({ ...item, order: index }));
+        return arrayMove(prev, oldIndex, newIndex).map((item, index) => ({ ...item, order: index }));
       });
     }
   }
@@ -1303,10 +1267,8 @@ export default function Home() {
       setCategories((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-
-        const reordered = arrayMove(items, oldIndex, newIndex);
         isDirtyRef.current = true;
-        return reordered.map((item, index) => ({ ...item, order: index }));
+        return arrayMove(items, oldIndex, newIndex).map((item, index) => ({ ...item, order: index }));
       });
     }
   }
@@ -1415,7 +1377,7 @@ export default function Home() {
                           <MarginDisplay marginData={productAverages.overallStore} />
                         </div>
                       </TableHead>
-                      {renderMarginHeaders(storeMargins)}
+                      <MarginHeaders marginsList={storeMargins} />
                       <TableHead className="w-8 px-0 border-x border-border/20" />
                       <TableHead className="th-premium w-[160px] py-2">
                         <div className="flex flex-col justify-center">
@@ -1428,7 +1390,7 @@ export default function Home() {
                           <RatePopover
                             title={`${p.name} Komisyonu`}
                             rate={p.commission}
-                            globalRate={p.key === 'migros' ? migrosCommission : p.key === 'getir' ? getirCommission : p.key === 'yemeksepeti' ? yemeksepetiCommission : trendyolCommission}
+                            globalRate={globalPlatformRates[p.key]}
                             onSave={(val) => updatePlatformCommission(p.key, val)}
                             maxLimit={100}
                             trigger={

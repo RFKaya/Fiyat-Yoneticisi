@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Edit, GripVertical, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { PlusCircle, Edit, Search } from 'lucide-react';
+import { DeleteIconButton, EditIconButton, DragHandleButton, ExpandToggleButton, PopoverTriggerButton } from '@/components/ui/icon-buttons';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -183,9 +184,7 @@ export function IngredientUsageManager({
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground uppercase pointer-events-none">{unitLabel}</span>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors rounded-lg" onClick={() => handleRemoveFromRecipe(product.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <DeleteIconButton buttonSize="lg" onClick={() => handleRemoveFromRecipe(product.id)} />
                 </div>
               </div>
             )
@@ -217,9 +216,9 @@ export function IngredientUsageManager({
           {productsWithoutIngredient.length > 0 ? productsWithoutIngredient.map(product => (
             <div key={product.id} className="flex items-center justify-between gap-3 p-3 bg-card border border-border/30 rounded-xl hover:border-primary/30 transition-all group">
               <span className="text-sm font-medium truncate group-hover:text-primary transition-colors">{product.name}</span>
-              <Button size="sm" variant="ghost" className="h-8 hover:bg-primary/10 hover:text-primary rounded-lg font-bold text-xs" onClick={() => handleAddToRecipe(product.id)}>
-                <PlusCircle className="mr-2 h-3.5 w-3.5" /> Ekle
-              </Button>
+              <PopoverTriggerButton icon={PlusCircle} variant="ghost" className="h-8 font-bold text-xs rounded-lg" onClick={() => handleAddToRecipe(product.id)}>
+                Ekle
+              </PopoverTriggerButton>
             </div>
           )) : (
             <div className="h-32 flex items-center justify-center border border-dashed rounded-xl text-muted-foreground text-sm italic">
@@ -279,9 +278,7 @@ export function SortableIngredientRow({
 
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <div className="flex items-center p-3 sm:p-4 gap-2 sm:gap-4">
-          <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab shrink-0 text-muted-foreground/50 hover:text-primary transition-colors" {...attributes} {...listeners}>
-            <GripVertical className="h-5 w-5" />
-          </Button>
+          <DragHandleButton className="shrink-0" {...attributes} {...listeners} />
 
           <div className="flex-grow min-w-0">
             <h5 className="font-bold text-foreground truncate text-base">{ingredient.name}</h5>
@@ -315,16 +312,10 @@ export function SortableIngredientRow({
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors rounded-lg" onClick={(e) => { e.stopPropagation(); handleOpenForm(ingredient) }}>
-                <Edit className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors rounded-lg" onClick={(e) => { e.stopPropagation(); deleteIngredient(ingredient.id) }}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <EditIconButton buttonSize="lg" onClick={(e) => { e.stopPropagation(); handleOpenForm(ingredient); }} />
+              <DeleteIconButton buttonSize="lg" className="text-muted-foreground" onClick={(e) => { e.stopPropagation(); deleteIngredient(ingredient.id); }} />
               <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-muted transition-colors">
-                  {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                </Button>
+                <ExpandToggleButton buttonSize="lg" isOpen={isOpen} />
               </CollapsibleTrigger>
             </div>
           </div>

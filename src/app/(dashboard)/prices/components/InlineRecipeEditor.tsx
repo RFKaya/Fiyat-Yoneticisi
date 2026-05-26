@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { calculateCost, formatCurrency } from '@/lib/utils';
-import { PlusCircle, Trash2, Edit, Package, CheckCircle2, Circle, X } from 'lucide-react';
+import { PlusCircle, Edit, Package, CheckCircle2, Circle } from 'lucide-react';
+import { DeleteIconButton, AddRowButton, PopoverTriggerButton, CancelRowButton } from '@/components/ui/icon-buttons';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Dialog,
@@ -87,9 +88,12 @@ function SelectionPopover({
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className={accentClass.includes('indigo') ? 'border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300' : ''}>
-          <TriggerIcon className="mr-2 h-4 w-4" /> {label}
-        </Button>
+        <PopoverTriggerButton
+          icon={TriggerIcon}
+          accent={accentClass.includes('indigo') ? 'indigo' : 'primary'}
+        >
+          {label}
+        </PopoverTriggerButton>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0 overflow-hidden" align="start">
         <div className="p-2 border-b bg-muted/30">
@@ -437,14 +441,11 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                             </td>
                             {/* Delete */}
                             <td className="pr-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground/40 hover:text-destructive"
+                              <DeleteIconButton
+                                buttonSize="sm"
+                                className="text-muted-foreground/40"
                                 onClick={() => handleDeleteSource(src.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                              />
                             </td>
                           </tr>
                         ))}
@@ -484,9 +485,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                        <Button size="sm" className="h-8 font-bold px-4 shrink-0" onClick={handleAddCostSource}>
                          Ekle
                        </Button>
-                       <Button size="sm" variant="ghost" className="h-8 shrink-0" onClick={() => { setShowNewSourceRow(false); setNewSourceName(''); setNewSourceCost(''); setCostError(false); }}>
-                         <X className="h-4 w-4" />
-                       </Button>
+                        <CancelRowButton onClick={() => { setShowNewSourceRow(false); setNewSourceName(''); setNewSourceCost(''); setCostError(false); }} />
                      </div>
                      {costError && (
                        <span className="text-[10px] text-destructive font-semibold px-1 animate-pulse">
@@ -495,15 +494,9 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                      )}
                    </div>
                  ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full border-dashed h-9 text-muted-foreground hover:text-primary hover:bg-primary/5 hover:border-primary/30 bg-transparent transition-colors"
-                    onClick={() => setShowNewSourceRow(true)}
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Kaynak Ekle
-                  </Button>
+                   <AddRowButton onClick={() => setShowNewSourceRow(true)}>
+                     Kaynak Ekle
+                   </AddRowButton>
                 )}
               </div>
 
@@ -573,9 +566,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                             {formatCurrency(itemCost)}
                           </TableCell>
                           <TableCell className="text-right py-3">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => handleRemoveItem(subProduct.id, true)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <DeleteIconButton onClick={() => handleRemoveItem(subProduct.id, true)} />
                           </TableCell>
                         </TableRow>
                       )
@@ -601,7 +592,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                         let recipeUnitLabel = '';
                         if (ingredient.unit) {
                           switch (ingredient.unit) {
-                            case 'kg': recipeUnitLabel = 'gr'; break;
+                            case 'kg':
                             case 'gram': recipeUnitLabel = 'gr'; break;
                             case 'adet': recipeUnitLabel = 'ad'; break;
                           }
@@ -642,9 +633,7 @@ export default function InlineRecipeEditor({ product, ingredients, allProducts, 
                               {formatCurrency(itemCost)}
                             </TableCell>
                             <TableCell className="text-right py-3">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => handleRemoveItem(ingredient.id, false)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              <DeleteIconButton onClick={() => handleRemoveItem(ingredient.id, false)} />
                             </TableCell>
                           </TableRow>
                         )
