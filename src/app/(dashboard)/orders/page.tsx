@@ -2,26 +2,26 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  ShoppingBag, Upload, AlertCircle, FileJson, Info,
-  LayoutList, ChevronDown, ChevronUp, FileSpreadsheet,
+  ShoppingBag, Upload, AlertCircle, FileSpreadsheet,
   TrendingUp, TrendingDown, DollarSign, Package, BarChart3,
-  CheckCircle2, XCircle, Ghost, Receipt, Percent, ShieldCheck,
-  Calendar, Loader2
+  CheckCircle2, XCircle, Calendar, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ParsedOrder } from '@/lib/orders/types';
 import { parseOrderFile } from '@/lib/orders';
 import { cn, formatCurrency } from '@/lib/utils';
 import { PLATFORMS, getPlatform, type PlatformId } from '@/lib/platforms';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { Product, Ingredient } from '@/lib/types';
 import {
-  analyzeAllOrders, aggregateProductStats,
-  type OrderAnalysis, type PlatformRates, getPlatformCommission
+  analyzeAllOrders,
+  type OrderAnalysis, type PlatformRates
 } from '@/lib/orders/orderAnalytics';
+
+import { OrderList } from '@/components/orders/OrderList';
+import { ProductAnalysis } from '@/components/orders/ProductAnalysis';
+import { LedgerComparison } from '@/components/orders/LedgerComparison';
 
 const isCancelled = (status?: string) => {
   if (!status) return false;
@@ -38,19 +38,20 @@ interface UploadingFile {
 }
 
 export default function OrdersPage() {
-  const [platform, setPlatform] = useState<PlatformId>('yemeksepeti');
   const [orders, setOrders] = useState<ParsedOrder[]>([]);
+  const [activeTab, setActiveTab] = useState<'list' | 'stats' | 'comparison'>('list');
+  const [shops, setShops] = useState<{ id: string; name: string }[]>([]);
+  const [selectedShopId, setSelectedShopId] = useState<string>('1');
+  const [ledgerData, setLedgerData] = useState<any>(null);
+  const [isLedgerLoading, setIsLedgerLoading] = useState<boolean>(false);
   const [isParsing, setIsParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [isDragActive, setIsDragActive] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
 
-  // Menu data for matching
   const [products, setProducts] = useState<Product[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [rates, setRates] = useState<PlatformRates>({
@@ -80,21 +81,44 @@ export default function OrdersPage() {
       .catch(() => { });
   }, []);
 
+  useEffect(() => {
+    fetch('/api/shops')
+      .then(res => res.json())
+      .then(data => {
+        setShops(data || []);
+        const lastShopId = typeof window !== 'undefined' ? localStorage.getItem('lastSelectedShopId') || '1' : '1';
+        setSelectedShopId(lastShopId);
+      })
+      .catch(() => { });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedShopId) return;
+    setIsLedgerLoading(true);
+    fetch(`/api/ledger?shop=${selectedShopId}`)
+      .then(res => res.json())
+      .then(data => {
+        setLedgerData(data || null);
+        setIsLedgerLoading(false);
+      })
+      .catch(() => { setIsLedgerLoading(false); });
+  }, [selectedShopId]);
+
   const filteredOrders = useMemo(() => {
     if (!dateRange.start && !dateRange.end) return orders;
     return orders.filter(order => {
       const orderDate = new Date(order.orderDate);
-      const start = dateRange.start ? new Date(dateRange.start) : null;
-      const end = dateRange.end ? new Date(dateRange.end) : null;
-
-      if (start) {
-        start.setHours(0, 0, 0, 0);
-        if (orderDate < start) return false;
-      }
-      if (end) {
-        end.setHours(23, 59, 59, 999);
-        if (orderDate > end) return false;
-      }
+      const parseLocalDate = (dateStr: string) => {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
+        return new Date(dateStr);
+      };
+      const start = dateRange.start ? parseLocalDate(dateRange.start) : null;
+      const end = dateRange.end ? parseLocalDate(dateRange.end) : null;
+      if (start) { start.setHours(0, 0, 0, 0); if (orderDate < start) return false; }
+      if (end) { end.setHours(23, 59, 59, 999); if (orderDate > end) return false; }
       return true;
     });
   }, [orders, dateRange]);
@@ -104,19 +128,13 @@ export default function OrdersPage() {
     return analyzeAllOrders(filteredOrders, products, ingredients, rates);
   }, [filteredOrders, products, ingredients, rates]);
 
-  const productStats = useMemo(() => {
-    const activeAnalyses = analyses.filter((a, idx) => !isCancelled(filteredOrders[idx].status) && a.unmatchedItems.length === 0);
-    return aggregateProductStats(activeAnalyses);
-  }, [analyses, filteredOrders]);
-
   const totals = useMemo(() => {
-    const activeAnalyses = analyses.filter((a, idx) => !isCancelled(filteredOrders[idx].status) && a.unmatchedItems.length === 0);
-    const cancelledAnalyses = analyses.filter((_, idx) => isCancelled(filteredOrders[idx].status));
+    const activeAnalyses = analyses.filter((a, idx) => !isCancelled(filteredOrders[idx]?.status) && a.unmatchedItems.length === 0);
+    const cancelledAnalyses = analyses.filter((_, idx) => isCancelled(filteredOrders[idx]?.status));
 
     const revenue = activeAnalyses.reduce((s, a) => s + a.revenue, 0);
     const netRevenueTotal = activeAnalyses.reduce((s, a) => s + a.netRevenue, 0);
     const cancelledRevenue = cancelledAnalyses.reduce((s, a) => s + a.revenue, 0);
-
     const cost = activeAnalyses.reduce((s, a) => s + a.totalCost, 0);
     const netProfit = activeAnalyses.reduce((s, a) => s + a.economics.netProfit, 0);
     const vat = activeAnalyses.reduce((s, a) => s + a.economics.vatAmount, 0);
@@ -130,97 +148,73 @@ export default function OrdersPage() {
     const cancelledOrderCount = cancelledAnalyses.length;
 
     return {
-      revenue,
-      netRevenueTotal,
-      cancelledRevenue,
-      cost,
-      netProfit,
-      vat,
-      commission,
-      stopaj,
-      yemekKarti,
-      yemekKartiRevenue,
-      couponDiscount,
-      margin,
-      activeOrderCount,
-      cancelledOrderCount
+      revenue, netRevenueTotal, cancelledRevenue, cost, netProfit,
+      vat, commission, stopaj, yemekKarti, yemekKartiRevenue, couponDiscount,
+      margin, activeOrderCount, cancelledOrderCount
     };
   }, [analyses, filteredOrders]);
 
-  const toggleExpand = (id: string) =>
-    setExpandedOrderIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const comparisonRange = useMemo(() => {
+    let startStr = dateRange.start || null;
+    let endStr = dateRange.end || null;
+    if (!startStr && !endStr && filteredOrders.length > 0) {
+      const times = filteredOrders.map(o => new Date(o.orderDate).getTime());
+      const minDate = new Date(Math.min(...times));
+      const maxDate = new Date(Math.max(...times));
+      startStr = minDate.toLocaleDateString('sv-SE');
+      endStr = maxDate.toLocaleDateString('sv-SE');
+    }
+    return { start: startStr, end: endStr };
+  }, [filteredOrders, dateRange]);
 
   const handleFiles = async (files: File[]) => {
     setIsParsing(true);
     setError(null);
-
     const newUploadingFiles = files.map(file => ({
       id: Math.random().toString(36).substr(2, 9),
       name: file.name,
       status: 'parsing' as const,
     }));
-
     setUploadingFiles(prev => [...newUploadingFiles, ...prev]);
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const fileId = newUploadingFiles[i].id;
-
       try {
         const { orders: parsedOrders, platform: detectedPlatform } = await parseOrderFile(file, 'auto');
-
         setOrders(prevOrders => {
           const existingOrderNumbers = new Set(prevOrders.map(o => o.orderNumber));
           const newOrders = parsedOrders.filter(o => !existingOrderNumbers.has(o.orderNumber));
           return [...prevOrders, ...newOrders].sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime());
         });
-
         setUploadingFiles(prev =>
-          prev.map(f => f.id === fileId ? {
-            ...f,
-            status: 'success',
-            platform: detectedPlatform,
-            orderCount: parsedOrders.length
-          } : f)
+          prev.map(f => f.id === fileId ? { ...f, status: 'success', platform: detectedPlatform, orderCount: parsedOrders.length } : f)
         );
       } catch (err: any) {
         const errMsg = err.message || 'Dosya ayrıştırılamadı.';
         setUploadingFiles(prev =>
-          prev.map(f => f.id === fileId ? {
-            ...f,
-            status: 'error',
-            errorMsg: errMsg
-          } : f)
+          prev.map(f => f.id === fileId ? { ...f, status: 'error', errorMsg: errMsg } : f)
         );
       }
     }
-
     setIsParsing(false);
   };
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setIsDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setIsDragActive(false);
-    }
+    if (e.type === 'dragenter' || e.type === 'dragover') setIsDragActive(true);
+    else if (e.type === 'dragleave') setIsDragActive(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
-
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFiles(Array.from(e.dataTransfer.files));
     }
   };
-
-  const fmt = (d: Date) => new Intl.DateTimeFormat('tr-TR', {
-    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-  }).format(d);
 
   const fmtDateOnly = (d: Date) => new Intl.DateTimeFormat('tr-TR', {
     day: '2-digit', month: '2-digit', year: 'numeric'
@@ -229,10 +223,7 @@ export default function OrdersPage() {
   const overallDateRange = useMemo(() => {
     if (orders.length === 0) return null;
     const times = orders.map(o => o.orderDate.getTime());
-    return {
-      min: new Date(Math.min(...times)),
-      max: new Date(Math.max(...times))
-    };
+    return { min: new Date(Math.min(...times)), max: new Date(Math.max(...times)) };
   }, [orders]);
 
   const hasAnalytics = analyses.length > 0;
@@ -313,9 +304,7 @@ export default function OrdersPage() {
                   accept=".xlsx,.xls"
                   multiple
                   onChange={(e) => {
-                    if (e.target.files) {
-                      handleFiles(Array.from(e.target.files));
-                    }
+                    if (e.target.files) handleFiles(Array.from(e.target.files));
                   }}
                 />
               </div>
@@ -343,16 +332,9 @@ export default function OrdersPage() {
                           className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card/30 text-xs animate-in slide-in-from-top-1 duration-200"
                         >
                           <div className="flex items-center gap-3 min-w-0 flex-1 mr-3">
-                            {file.status === 'parsing' && (
-                              <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
-                            )}
-                            {file.status === 'success' && (
-                              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                            )}
-                            {file.status === 'error' && (
-                              <XCircle className="h-4 w-4 text-red-500 shrink-0" />
-                            )}
-
+                            {file.status === 'parsing' && <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />}
+                            {file.status === 'success' && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
+                            {file.status === 'error' && <XCircle className="h-4 w-4 text-red-500 shrink-0" />}
                             <div className="min-w-0 flex-1">
                               <p className="font-semibold truncate text-foreground/90">{file.name}</p>
                               {file.status === 'success' && file.platform && (
@@ -375,17 +357,10 @@ export default function OrdersPage() {
                               )}
                             </div>
                           </div>
-
                           <div className="text-right shrink-0">
-                            {file.status === 'parsing' && (
-                              <span className="text-muted-foreground animate-pulse">Analiz ediliyor...</span>
-                            )}
-                            {file.status === 'success' && (
-                              <span className="font-bold text-emerald-500">+{file.orderCount} Sipariş</span>
-                            )}
-                            {file.status === 'error' && (
-                              <span className="font-semibold text-red-400">Hata</span>
-                            )}
+                            {file.status === 'parsing' && <span className="text-muted-foreground animate-pulse">Analiz ediliyor...</span>}
+                            {file.status === 'success' && <span className="font-bold text-emerald-500">+{file.orderCount} Sipariş</span>}
+                            {file.status === 'error' && <span className="font-semibold text-red-400">Hata</span>}
                           </div>
                         </div>
                       );
@@ -398,8 +373,9 @@ export default function OrdersPage() {
         </Dialog>
       </div>
 
+      {/* Tarih Filtresi ve Toplam Satış Tutarı (Tab dışında sabit) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Date Filter & Info */}
+        {/* Date Filter */}
         <div className="lg:col-span-4 flex flex-col gap-4 glass-panel p-5 rounded-2xl border-primary/10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary w-fit">
@@ -511,7 +487,6 @@ export default function OrdersPage() {
                       <p className={cn('text-xl font-black tracking-tight', color)}>{value}</p>
                       {subValue && <span className="text-[10px] text-muted-foreground italic font-medium">{subValue}</span>}
                     </div>
-
                     {details && (
                       <div className="mt-3 space-y-1 pt-3 border-t border-border/50">
                         {details.map((d: { label: string; val: number; color?: string }, i: number) => (
@@ -536,6 +511,37 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      {/* Sekmeler */}
+      <div className="flex items-center gap-2 bg-card/30 p-1 rounded-xl w-fit border border-border/50">
+        <Button
+          variant={activeTab === 'list' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('list')}
+          className={cn("font-bold text-xs gap-2 rounded-lg transition-all", activeTab === 'list' ? "shadow-sm" : "text-muted-foreground hover:text-foreground")}
+        >
+          <ShoppingBag className="h-4 w-4" />
+          Sipariş Listesi
+        </Button>
+        <Button
+          variant={activeTab === 'stats' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('stats')}
+          className={cn("font-bold text-xs gap-2 rounded-lg transition-all", activeTab === 'stats' ? "shadow-sm" : "text-muted-foreground hover:text-foreground")}
+        >
+          <BarChart3 className="h-4 w-4" />
+          Ürün Analizi
+        </Button>
+        <Button
+          variant={activeTab === 'comparison' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('comparison')}
+          className={cn("font-bold text-xs gap-2 rounded-lg transition-all", activeTab === 'comparison' ? "shadow-sm" : "text-muted-foreground hover:text-foreground")}
+        >
+          <FileSpreadsheet className="h-4 w-4" />
+          Defter Kıyaslama
+        </Button>
+      </div>
+
       {error && (
         <div className="glass-panel border-destructive/50 bg-destructive/10 p-4 flex items-start gap-3 rounded-2xl">
           <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
@@ -543,353 +549,34 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Orders Table */}
-      <div className="glass-panel overflow-hidden">
-        <div className="p-6 border-b border-border bg-card/30 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold text-lg">Sipariş Listesi</h3>
-          </div>
-          {orders.length > 0 && (
-            <span className="text-sm text-muted-foreground">
-              Toplam <span className="font-bold text-foreground">{orders.length}</span> sipariş
-            </span>
-          )}
-        </div>
-        <div className="overflow-x-auto">
-          <Table className="table-fixed min-w-[950px]">
-            <TableHeader className="bg-muted/30">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[150px] px-4 font-bold">Tarih</TableHead>
-                <TableHead className="w-[140px] px-4 font-bold">Sipariş No</TableHead>
-                <TableHead className="w-[120px] px-4 font-bold">Platform</TableHead>
-                <TableHead className="w-[120px] px-4 font-bold">Ödeme</TableHead>
-                <TableHead className="w-[120px] px-4 font-bold text-right">Tutar</TableHead>
-                <TableHead className="w-[120px] px-4 font-bold text-right">Tahmini Kâr</TableHead>
-                <TableHead className="w-[80px] px-4 font-bold">Durum</TableHead>
-                <TableHead className="w-[60px] px-4 font-bold text-center">Detay</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-64 text-center">
-                    <div className="flex flex-col items-center justify-center text-muted-foreground gap-2">
-                      <FileJson className="h-12 w-12 opacity-20" />
-                      <p>{orders.length > 0 ? 'Bu tarih aralığında sipariş bulunamadı.' : 'Henüz veri yüklenmedi.'}</p>
-                      <p className="text-xs">{orders.length > 0 ? 'Filtreleri temizlemeyi deneyin.' : 'Sipariş Yükle butonuna tıklayın.'}</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredOrders.map((order, idx) => {
-                  const analysis = analyses[idx];
-                  const isExpanded = expandedOrderIds.includes(order.orderNumber + idx);
-                  const profit = analysis?.economics.netProfit ?? 0;
-                  const hasUnmatched = analysis && analysis.unmatchedItems.length > 0;
-                  return (
-                    <React.Fragment key={order.orderNumber + idx}>
-                      <TableRow className={cn(
-                        'hover:bg-muted/20 transition-colors',
-                        isExpanded && 'bg-primary/5 border-b-0',
-                        isCancelled(order.status) && 'opacity-40 grayscale-[0.3]'
-                      )}>
-                        <TableCell className="text-sm text-muted-foreground px-4">{fmt(order.orderDate)}</TableCell>
-                        <TableCell className="font-mono text-xs px-4">{order.orderNumber}</TableCell>
-                        <TableCell className="px-4">
-                          {(() => {
-                            const pConfig = getPlatform(order.platform);
-                            return (
-                              <span
-                                className="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-sm inline-flex items-center whitespace-nowrap"
-                                style={{
-                                  backgroundColor: `${pConfig?.color ?? '#888'}15`,
-                                  color: pConfig?.color ?? '#888',
-                                  borderColor: `${pConfig?.color ?? '#888'}30`
-                                }}
-                              >
-                                {pConfig?.displayName ?? order.platform}
-                              </span>
-                            );
-                          })()}
-                        </TableCell>
-                        <TableCell className="px-4 text-xs font-medium text-muted-foreground">
-                          {order.paymentMethod || '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-bold px-4">{formatCurrency(analysis?.netRevenue ?? order.totalAmount)}</TableCell>
-                        <TableCell 
-                          className={cn(
-                            'text-right px-4 font-bold',
-                            hasUnmatched
-                              ? 'text-amber-500'
-                              : profit >= 0 ? 'text-emerald-500' : 'text-red-500'
-                          )}
-                          title={hasUnmatched ? "Eşleşmeyen ürün bulunduğundan kâr hesaplanamadı" : undefined}
-                        >
-                          {analysis ? (hasUnmatched ? '?' : formatCurrency(profit)) : '-'}
-                        </TableCell>
-                        <TableCell className="px-4">
-                          <span className={cn(
-                            "text-xs px-2 py-0.5 rounded-full border",
-                            isCancelled(order.status)
-                              ? "bg-red-500/10 text-red-500 border-red-500/20"
-                              : "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                          )}>
-                            {order.status || '-'}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-center px-4">
-                          <Button
-                            variant="ghost" size="icon"
-                            className={cn('h-8 w-8 transition-all', isExpanded ? 'bg-primary text-white hover:bg-primary/90' : 'hover:bg-primary/20 hover:text-primary')}
-                            onClick={() => toggleExpand(order.orderNumber + idx)}
-                          >
-                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                      {isExpanded && (
-                        <TableRow className="bg-primary/5 hover:bg-primary/5">
-                          <TableCell colSpan={8} className="p-0 border-b border-primary/10">
-                            <div className="p-6 animate-in slide-in-from-top-2 duration-300">
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                {/* Sol Kolon: Sipariş İçeriği & Ham Veri */}
-                                <div className="space-y-6">
-                                  <div className="space-y-4">
-                                    <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-wider">
-                                      <LayoutList className="h-4 w-4" />
-                                      Sipariş İçeriği
-                                    </div>
+      {/* Tab İçerikleri */}
+      {activeTab === 'list' && (
+        <OrderList
+          orders={orders}
+          filteredOrders={filteredOrders}
+          analyses={analyses}
+          rates={rates}
+        />
+      )}
 
-                                    {analysis && (analysis.matchedItems.length > 0 || analysis.unmatchedItems.length > 0) ? (
-                                      <div className="rounded-xl border border-border/50 overflow-hidden bg-card/50">
-                                        <table className="w-full text-sm">
-                                          <thead className="bg-muted/40">
-                                            <tr>
-                                              <th className="text-center px-4 py-2 font-semibold text-xs w-16">Adet</th>
-                                              <th className="text-left px-4 py-2 font-semibold text-xs">Ürün</th>
-                                              <th className="text-right px-4 py-2 font-semibold text-xs">Birim Maliyet</th>
-                                              <th className="text-right px-4 py-2 font-semibold text-xs">Toplam</th>
-                                            </tr>
-                                          </thead>
-                                          <tbody>
-                                            {analysis.matchedItems.map((item, i) => (
-                                              <tr key={i} className="border-t border-border/30 hover:bg-muted/20">
-                                                <td className="px-4 py-2 text-center font-bold text-primary">{item.quantity}</td>
-                                                <td className="px-4 py-2 font-medium">{item.matchedProductName}</td>
-                                                <td className="px-4 py-2 text-right text-muted-foreground text-xs">{formatCurrency(item.unitCost)}</td>
-                                                <td className="px-4 py-2 text-right font-semibold text-amber-500">{formatCurrency(item.totalCost)}</td>
-                                              </tr>
-                                            ))}
-                                            {analysis.unmatchedItems.map((item, i) => (
-                                              <tr key={`u${i}`} className="border-t border-border/30 hover:bg-muted/20 opacity-60">
-                                                <td className="px-4 py-2 text-center font-bold">{item.quantity}</td>
-                                                <td className="px-4 py-2 font-medium text-muted-foreground italic">{item.name}</td>
-                                                <td className="px-4 py-2 text-right">-</td>
-                                                <td className="px-4 py-2 text-right text-red-400">
-                                                  <XCircle className="h-3 w-3 inline mr-1" />
-                                                  Eşleşmedi
-                                                </td>
-                                              </tr>
-                                            ))}
-                                          </tbody>
-                                        </table>
-                                      </div>
-                                    ) : order.raw?.content ? (
-                                      <div className="p-4 rounded-xl bg-card border border-border/50 font-mono text-xs leading-relaxed">
-                                        {order.raw.content}
-                                      </div>
-                                    ) : (
-                                      <div className="flex flex-col items-center p-12 text-muted-foreground opacity-60">
-                                        <Ghost className="h-10 w-10 mb-2" />
-                                        <p>Bu platform için ürün detayı bulunamadı.</p>
-                                      </div>
-                                    )}
-                                  </div>
+      {activeTab === 'stats' && (
+        <ProductAnalysis
+          filteredOrders={filteredOrders}
+          analyses={analyses}
+        />
+      )}
 
-                                  {/* Ham Veri - Artık Sipariş İçeriğinin altında */}
-                                  {order.raw?.content && (
-                                    <div className="space-y-2">
-                                      <div className="flex items-center gap-2 text-muted-foreground font-bold text-[10px] uppercase tracking-wider">
-                                        <FileJson className="h-3 w-3" />
-                                        Ham Sipariş Verisi
-                                      </div>
-                                      <div className="p-3 rounded-lg bg-muted/10 border border-border/20 font-mono text-[10px] leading-relaxed break-words text-muted-foreground/60 italic">
-                                        {order.raw.content}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Sağ Kolon: Finansal Veriler */}
-                                <div className="space-y-4">
-                                  <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-wider">
-                                    <TrendingUp className="h-4 w-4" />
-                                    Finansal Analiz
-                                  </div>
-
-                                  {analysis && (
-                                    <div className="space-y-3">
-                                      {/* Brüt Ciro */}
-                                      <div className="flex items-center justify-between p-3 rounded-xl border bg-card/50 border-border/50">
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-muted/50">
-                                            <DollarSign className="h-4 w-4 text-blue-500" />
-                                          </div>
-                                          <div>
-                                            <span className="text-sm font-medium block">Satış Tutarı</span>
-                                            {analysis.revenue !== analysis.netRevenue && (
-                                              <div className="flex flex-col gap-0.5 mt-0.5">
-                                                <span className="text-[10px] text-muted-foreground italic leading-none">
-                                                  Brüt: {formatCurrency(analysis.revenue)}
-                                                </span>
-                                                {analysis.couponDiscount > 0 && (
-                                                  <span className="text-[10px] text-muted-foreground italic leading-none">
-                                                    Kupon: -{formatCurrency(analysis.couponDiscount)}
-                                                  </span>
-                                                )}
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                        <span className="font-bold text-sm text-blue-500">{formatCurrency(analysis.netRevenue)}</span>
-                                      </div>
-
-                                      {/* Giderler Grubu */}
-                                      <div className="rounded-xl border border-border/50 bg-muted/20 overflow-hidden">
-                                        <div className="px-3 py-2 border-b border-border/50 bg-muted/30">
-                                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Giderler & Kesintiler</p>
-                                        </div>
-                                        <div className="p-1 space-y-1">
-                                          {[
-                                            { label: 'KDV Tutarı', subLabel: `(%${rates.kdvRate})`, val: analysis.economics.vatAmount, icon: Receipt },
-                                            {
-                                              label: `${getPlatform(order.platform)?.displayName ?? order.platform} Komisyonu`,
-                                              subLabel: `(%${analysis.actualCommissionRate.toFixed(1)})`,
-                                              isItalic: analysis.isCommissionOverridden,
-                                              val: analysis.economics.commissionAmount,
-                                              icon: Percent
-                                            },
-                                            { label: 'Stopaj Vergisi', subLabel: `(%${rates.stopajRate})`, val: analysis.economics.stopajAmount, icon: ShieldCheck },
-                                            { label: 'Ürün Maliyetleri', val: analysis.totalCost, icon: Package, color: 'text-amber-500', isUnknown: hasUnmatched },
-                                            ...(analysis.isYemekKarti ? [{ label: 'Yemek Kartı Kesintisi', subLabel: '(%10)', val: analysis.yemekKartiDeduction, icon: Receipt, color: 'text-orange-500' }] : []),
-                                          ].map((item, i) => (
-                                            <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors">
-                                              <div className="flex items-center gap-2.5">
-                                                <item.icon className={cn("h-3.5 w-3.5", item.color || "text-muted-foreground")} />
-                                                <div className="flex items-center gap-1">
-                                                  <span className="text-xs text-muted-foreground">{item.label}</span>
-                                                  {item.subLabel && (
-                                                    <span className={cn("text-[10px] text-muted-foreground/60", (item as any).isItalic && "italic font-bold")}>
-                                                      {item.subLabel}
-                                                    </span>
-                                                  )}
-                                                </div>
-                                              </div>
-                                              <span className="text-xs font-semibold text-muted-foreground">
-                                                - {item.isUnknown ? '?' : formatCurrency(item.val)}
-                                              </span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-
-                                      {/* Tahmini Kâr */}
-                                      <div className="flex items-center justify-between p-4 rounded-xl border bg-primary/10 border-primary/20 shadow-sm">
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary/20">
-                                            {hasUnmatched ? (
-                                              <Info className="h-5 w-5 text-amber-500" />
-                                            ) : analysis.economics.netProfit >= 0 ? (
-                                              <TrendingUp className="h-5 w-5 text-primary" />
-                                            ) : (
-                                              <TrendingDown className="h-5 w-5 text-red-500" />
-                                            )}
-                                          </div>
-                                          <span className="font-bold text-primary">Tahmini Kâr</span>
-                                        </div>
-                                        <span 
-                                          className={cn(
-                                            "text-lg font-black",
-                                            hasUnmatched
-                                              ? "text-amber-500"
-                                              : analysis.economics.netProfit >= 0 ? "text-emerald-500" : "text-red-500"
-                                          )}
-                                          title={hasUnmatched ? "Eşleşmeyen ürün bulunduğundan kâr hesaplanamadı" : undefined}
-                                        >
-                                          {hasUnmatched ? '?' : formatCurrency(analysis.economics.netProfit)}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </React.Fragment>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-
-      {/* Product Sales Stats */}
-      {hasAnalytics && productStats.length > 0 && (
-        <div className="glass-panel overflow-hidden">
-          <div className="p-6 border-b border-border bg-card/30 flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold text-lg">Ürün Satış İstatistikleri</h3>
-          </div>
-          <div className="p-6">
-            <div className="space-y-2">
-              {productStats.map((stat, i) => {
-                const maxQty = productStats[0]?.totalQuantity ?? 1;
-                const pct = (stat.totalQuantity / maxQty) * 100;
-                return (
-                  <div key={i} className={cn('rounded-xl p-4 border transition-all', stat.matched ? 'border-border/50 bg-card/30' : 'border-red-500/20 bg-red-500/5')}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
-                          {i + 1}
-                        </span>
-                        <div>
-                          <p className="font-semibold text-sm">{stat.productName}</p>
-                          {!stat.matched && (
-                            <p className="text-xs text-red-400">Menüde eşleşme bulunamadı</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0 ml-4">
-                        <p className="font-bold text-lg">{stat.totalQuantity} <span className="text-xs font-normal text-muted-foreground">adet</span></p>
-                        {stat.matched && stat.totalCost > 0 && (
-                          <p className="text-xs text-amber-500">{formatCurrency(stat.totalCost)} maliyet</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
-                      <div
-                        className={cn('h-full rounded-full transition-all duration-700', stat.matched ? 'bg-primary' : 'bg-red-400')}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {productStats.some(s => !s.matched) && (
-              <div className="mt-4 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 flex gap-3">
-                <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  Kırmızı ile işaretli ürünler menünüzde bulunamadı. Ürün adlarının prices sayfasındaki isimlerle eşleştiğinden emin olun. Gramaj yazımındaki farklılıklar (örn. "gr." yerine "g") otomatik olarak normalleştirilmiştir.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
+      {activeTab === 'comparison' && (
+        <LedgerComparison
+          filteredOrders={filteredOrders}
+          analyses={analyses}
+          ledgerData={ledgerData}
+          isLedgerLoading={isLedgerLoading}
+          comparisonRange={comparisonRange}
+          shops={shops}
+          selectedShopId={selectedShopId}
+          onShopChange={(id) => setSelectedShopId(id)}
+        />
       )}
     </main>
   );

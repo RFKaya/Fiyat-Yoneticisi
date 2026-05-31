@@ -64,9 +64,9 @@ export function parseYemeksepeti(buffer: ArrayBuffer): ParsedOrder[] {
       })(),
       // Column H (7): Status
       status: String(row[7] || ''),
-      // Column AV (47): Sipariş içeriği — parse edilmiş ürün listesi
+      // Column AX (49): Sipariş içeriği — parse edilmiş ürün listesi
       items: (() => {
-        const content = String(row[47] || '');
+        const content = String(row[49] || '');
         if (!content) return [];
         return parseOrderContentString(content).map(item => ({
           name: item.name,
@@ -77,7 +77,7 @@ export function parseYemeksepeti(buffer: ArrayBuffer): ParsedOrder[] {
       raw: {
         paymentMethod: row[5],
         couponDiscount: row[29],
-        content: row[47], // Column AV (47)
+        content: row[49], // Column AX (49)
         fullRow: row
       }
     }));
