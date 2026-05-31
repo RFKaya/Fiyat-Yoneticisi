@@ -4,6 +4,7 @@ import { parseTrendyol } from './trendyol';
 import { parseYemeksepeti } from './yemeksepeti';
 import { parseMigros } from './migros';
 import { parseGetir } from './getir';
+import { detectPlatform } from './detector';
 
 // Parser map — switch-case yerine registry-based dispatch
 const PARSERS: Record<PlatformId, (buffer: ArrayBuffer) => ParsedOrder[]> = {
@@ -15,12 +16,20 @@ const PARSERS: Record<PlatformId, (buffer: ArrayBuffer) => ParsedOrder[]> = {
 
 export async function parseOrderFile(
   file: File,
-  platform: PlatformId
-): Promise<ParsedOrder[]> {
+  platform?: PlatformId | 'auto'
+): Promise<{ orders: ParsedOrder[]; platform: PlatformId }> {
   const buffer = await file.arrayBuffer();
 
-  const parser = PARSERS[platform];
-  if (!parser) throw new Error(`"${platform}" için parser tanımlı değil`);
+  let detectedPlatform: PlatformId;
+  if (!platform || platform === 'auto') {
+    detectedPlatform = detectPlatform(buffer);
+  } else {
+    detectedPlatform = platform;
+  }
 
-  return parser(buffer);
+  const parser = PARSERS[detectedPlatform];
+  if (!parser) throw new Error(`"${detectedPlatform}" için parser tanımlı değil`);
+
+  const orders = parser(buffer);
+  return { orders, platform: detectedPlatform };
 }

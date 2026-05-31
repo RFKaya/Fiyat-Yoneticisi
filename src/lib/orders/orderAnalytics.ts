@@ -78,6 +78,7 @@ function normalizeForMatch(name: string): string {
   let n = normalizeWeightUnit(name).toLowerCase().trim();
   n = stripCommonSuffixes(n);
   n = stripFillerWords(n);
+  n = n.replace(/[()]/g, ' '); // Parantezleri boşluğa çevir ki "(1 kg)" ve "1 kg" kelimeleri eşleşebilsin
   return n.split(' ').filter(Boolean).sort().join(' ');
 }
 
@@ -96,6 +97,54 @@ export function getPlatformCommission(platformId: PlatformId, rates: PlatformRat
 }
 
 // ── Ana Analiz Fonksiyonları ───────────────────────────────
+
+/**
+ * Bir sipariş ürününü veritabanındaki ürünlerle eşleştirmek için kullanılır.
+ * Gerekli normalleştirme adımlarını (basit, agresif ve fallback) sırayla uygulayarak eşleşen ürünü bulur.
+ */
+export function findMatchingProduct(
+  itemName: string,
+  products: Product[],
+  simpleProductMap?: Map<string, Product>,
+  advancedProductMap?: Map<string, Product>
+): Product | null {
+  let sMap = simpleProductMap;
+  let aMap = advancedProductMap;
+
+  if (!sMap || !aMap) {
+    sMap = new Map<string, Product>();
+    aMap = new Map<string, Product>();
+    for (const p of products) {
+      sMap.set(simpleNormalize(p.name), p);
+      aMap.set(normalizeForMatch(p.name), p);
+    }
+  }
+
+  // AŞAMA 1: Tam/Basit Eşleşme
+  const simpleName = simpleNormalize(itemName);
+  let product = sMap.get(simpleName);
+
+  // AŞAMA 2: Agresif Eşleşme (Dolgu kelimeleri temizleyip kelimeleri sıralayarak)
+  if (!product) {
+    const advancedName = normalizeForMatch(itemName);
+    product = aMap.get(advancedName);
+  }
+
+  // AŞAMA 3: Geri Çekilme Eşleşmesi (Parantezleri sondan başlayarak silip deneme)
+  if (!product && simpleName.includes('(')) {
+    let tempName = simpleName;
+    while (!product && tempName.includes('(')) {
+      const lastParenIndex = tempName.lastIndexOf('(');
+      if (lastParenIndex === -1) break;
+      tempName = tempName.substring(0, lastParenIndex).trim();
+      if (!tempName) break;
+      
+      product = sMap.get(tempName) || aMap.get(normalizeForMatch(tempName));
+    }
+  }
+
+  return product || null;
+}
 
 /**
  * Tek bir siparişi analiz eder — ürünleri eşleştirir ve ekonomik hesap yapar.
@@ -129,28 +178,7 @@ export function analyzeOrder(
   const unmatchedItems: ParsedContentItem[] = [];
 
   for (const item of contentItems) {
-    // AŞAMA 1: Tam/Basit Eşleşme (Standart Çiğ Köfte Dürüm gibi durumlar için)
-    const simpleName = simpleNormalize(item.name);
-    let product = simpleProductMap.get(simpleName);
-
-    // AŞAMA 2: Agresif Eşleşme (Filler temizleme + Kelime sıralama)
-    if (!product) {
-      const advancedName = normalizeForMatch(item.name);
-      product = advancedProductMap.get(advancedName);
-    }
-
-    // AŞAMA 3: Fallback Matching (Parantezleri silerek dene)
-    if (!product && simpleName.includes('(')) {
-      let tempName = simpleName;
-      while (!product && tempName.includes('(')) {
-        const lastParenIndex = tempName.lastIndexOf('(');
-        if (lastParenIndex === -1) break;
-        tempName = tempName.substring(0, lastParenIndex).trim();
-        if (!tempName) break;
-        
-        product = simpleProductMap.get(tempName) || advancedProductMap.get(normalizeForMatch(tempName));
-      }
-    }
+    const product = findMatchingProduct(item.name, products, simpleProductMap, advancedProductMap);
 
     if (product) {
       const hasRecipe = product.recipe && product.recipe.length > 0;

@@ -99,6 +99,15 @@ export function parseTrendyol(buffer: ArrayBuffer): ParsedOrder[] {
     // Toplam tutar = tüm ürünlerin (adet × fiyat) toplamı
     const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
 
+    const rawContent = group.rows
+      .map(row => {
+        const qty = row[12] || 1;
+        const name = String(row[10] || '').trim();
+        return name ? `${qty} x ${name}` : '';
+      })
+      .filter(Boolean)
+      .join(', ');
+
     orders.push({
       orderNumber,
       platform: 'trendyol' as const,
@@ -107,7 +116,7 @@ export function parseTrendyol(buffer: ArrayBuffer): ParsedOrder[] {
       status: group.status,
       totalAmount,
       items,
-      raw: { rows: group.rows },
+      raw: { rows: group.rows, content: rawContent },
     });
   }
 

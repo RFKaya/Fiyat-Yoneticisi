@@ -17,13 +17,13 @@ export interface ParsedContentItem {
 export function normalizeWeightUnit(text: string): string {
   return text
     // gr. -> g
-    .replace(/(\d+)\s*gr\.?(?!\w)/gi, '$1 g')
-    // kg. -> kg
-    .replace(/(\d+)\s*kg\.?(?!\w)/gi, '$1 kg')
+    .replace(/(\d+(?:[.,]\d+)?)\s*gr\.?(?!\w)/gi, '$1 g')
+    // kg. / kilo -> kg
+    .replace(/(\d+(?:[.,]\d+)?)\s*(?:kilo|kg)\.?(?!\w)/gi, '$1 kg')
     // L. -> L
-    .replace(/(\d+)\s*l\.?(?!\w)/gi, '$1 L')
+    .replace(/(\d+(?:[.,]\d+)?)\s*l\.?(?!\w)/gi, '$1 L')
     // ml. -> ml
-    .replace(/(\d+)\s*ml\.?(?!\w)/gi, '$1 ml')
+    .replace(/(\d+(?:[.,]\d+)?)\s*ml\.?(?!\w)/gi, '$1 ml')
     // cl. -> ml (10x conversion)
     .replace(/(\d+(?:[.,]\d+)?)\s*cl\.?(?!\w)/gi, (match, p1) => {
       const val = parseFloat(p1.replace(',', '.'));
@@ -43,12 +43,12 @@ export function stripCommonSuffixes(text: string): string {
 }
 
 /**
- * Platformlarda kullanılan "Standart", "Özel" gibi eşleşmeyi zorlaştıran 
+ * Platformlarda kullanılan "Standart", "Özel", "Yarım", "Porsiyon" gibi eşleşmeyi zorlaştıran 
  * ancak ana ürünü değiştirmeyen kelimeleri temizler.
  */
 export function stripFillerWords(text: string): string {
   return text
-    .replace(/\b(standart|özel|ozel|yeni|popüler|populer)\b/gi, '')
+    .replace(/\b(standart|özel|ozel|yeni|popüler|populer|yarım|yarim|porsiyon|porsıyon|tam|adet|tane|pors)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -67,32 +67,32 @@ export function stripBracketedContent(text: string): string {
  */
 export function stripExtraParentheses(text: string): string {
   let temp = text.trim();
-  
+
   // Sondan başlayarak parantez bloklarını kontrol et
   while (temp.endsWith(')')) {
     const lastParenIndex = temp.lastIndexOf('(');
     if (lastParenIndex === -1) break;
-    
+
     const parenContent = temp.substring(lastParenIndex).toLowerCase();
-    
+
     // Eğer parantez içinde birim (g, kg, l, ml) bilgisi varsa dur
-    const isWeight = parenContent.includes(' g') || 
-                     parenContent.includes('g)') || 
-                     parenContent.includes(' gr') || 
-                     parenContent.includes('gr)') ||
-                     parenContent.includes(' kg') ||
-                     parenContent.includes('kg)') ||
-                     parenContent.includes(' l') ||
-                     parenContent.includes('l)') ||
-                     parenContent.includes(' ml') ||
-                     parenContent.includes('ml)');
-                     
+    const isWeight = parenContent.includes(' g') ||
+      parenContent.includes('g)') ||
+      parenContent.includes(' gr') ||
+      parenContent.includes('gr)') ||
+      parenContent.includes(' kg') ||
+      parenContent.includes('kg)') ||
+      parenContent.includes(' l') ||
+      parenContent.includes('l)') ||
+      parenContent.includes(' ml') ||
+      parenContent.includes('ml)');
+
     if (isWeight) break;
-    
+
     // Gramaj değilse bu parantez bloğunu sil
     temp = temp.substring(0, lastParenIndex).trim();
   }
-  
+
   return temp;
 }
 
@@ -123,13 +123,13 @@ export function parseOrderContentString(content: string): ParsedContentItem[] {
       // 4. Gramaj normalizasyonu
       let name = normalizeWeightUnit(rawName);
       name = stripCommonSuffixes(name);
-      
+
       items.push({ name, quantity });
     } else {
       // Miktar yoksa 1 olarak kabul et
       let name = normalizeWeightUnit(part.trim());
       name = stripCommonSuffixes(name);
-      
+
       if (name) {
         items.push({ name, quantity: 1 });
       }

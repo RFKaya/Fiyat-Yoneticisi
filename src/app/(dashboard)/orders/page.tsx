@@ -6,7 +6,7 @@ import {
   LayoutList, ChevronDown, ChevronUp, FileSpreadsheet,
   TrendingUp, TrendingDown, DollarSign, Package, BarChart3,
   CheckCircle2, XCircle, Ghost, Receipt, Percent, ShieldCheck,
-  Calendar
+  Calendar, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,15 @@ const isCancelled = (status?: string) => {
   return status.includes('İptal') || status.includes('cancel') || status.includes('reddedildi');
 };
 
+interface UploadingFile {
+  id: string;
+  name: string;
+  status: 'parsing' | 'success' | 'error';
+  platform?: PlatformId;
+  orderCount?: number;
+  errorMsg?: string;
+}
+
 export default function OrdersPage() {
   const [platform, setPlatform] = useState<PlatformId>('yemeksepeti');
   const [orders, setOrders] = useState<ParsedOrder[]>([]);
@@ -37,6 +46,9 @@ export default function OrdersPage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
 
   // Menu data for matching
   const [products, setProducts] = useState<Product[]>([]);
@@ -93,12 +105,12 @@ export default function OrdersPage() {
   }, [filteredOrders, products, ingredients, rates]);
 
   const productStats = useMemo(() => {
-    const activeAnalyses = analyses.filter((_, idx) => !isCancelled(filteredOrders[idx].status));
+    const activeAnalyses = analyses.filter((a, idx) => !isCancelled(filteredOrders[idx].status) && a.unmatchedItems.length === 0);
     return aggregateProductStats(activeAnalyses);
   }, [analyses, filteredOrders]);
 
   const totals = useMemo(() => {
-    const activeAnalyses = analyses.filter((_, idx) => !isCancelled(filteredOrders[idx].status));
+    const activeAnalyses = analyses.filter((a, idx) => !isCancelled(filteredOrders[idx].status) && a.unmatchedItems.length === 0);
     const cancelledAnalyses = analyses.filter((_, idx) => isCancelled(filteredOrders[idx].status));
 
     const revenue = activeAnalyses.reduce((s, a) => s + a.revenue, 0);
@@ -138,24 +150,71 @@ export default function OrdersPage() {
   const toggleExpand = (id: string) =>
     setExpandedOrderIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFiles = async (files: File[]) => {
     setIsParsing(true);
     setError(null);
-    try {
-      const parsed = await parseOrderFile(file, platform);
-      setOrders(prevOrders => {
-        const existingOrderNumbers = new Set(prevOrders.map(o => o.orderNumber));
-        const newOrders = parsed.filter(o => !existingOrderNumbers.has(o.orderNumber));
-        return [...prevOrders, ...newOrders].sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime());
-      });
-      setIsUploadModalOpen(false);
-    } catch {
-      setError('Dosya ayrıştırılırken hata oluştu. Doğru platformu seçtiğinizden ve geçerli bir Excel dosyası olduğundan emin olun.');
-    } finally {
-      setIsParsing(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+
+    const newUploadingFiles = files.map(file => ({
+      id: Math.random().toString(36).substr(2, 9),
+      name: file.name,
+      status: 'parsing' as const,
+    }));
+
+    setUploadingFiles(prev => [...newUploadingFiles, ...prev]);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileId = newUploadingFiles[i].id;
+
+      try {
+        const { orders: parsedOrders, platform: detectedPlatform } = await parseOrderFile(file, 'auto');
+
+        setOrders(prevOrders => {
+          const existingOrderNumbers = new Set(prevOrders.map(o => o.orderNumber));
+          const newOrders = parsedOrders.filter(o => !existingOrderNumbers.has(o.orderNumber));
+          return [...prevOrders, ...newOrders].sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime());
+        });
+
+        setUploadingFiles(prev =>
+          prev.map(f => f.id === fileId ? {
+            ...f,
+            status: 'success',
+            platform: detectedPlatform,
+            orderCount: parsedOrders.length
+          } : f)
+        );
+      } catch (err: any) {
+        const errMsg = err.message || 'Dosya ayrıştırılamadı.';
+        setUploadingFiles(prev =>
+          prev.map(f => f.id === fileId ? {
+            ...f,
+            status: 'error',
+            errorMsg: errMsg
+          } : f)
+        );
+      }
+    }
+
+    setIsParsing(false);
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setIsDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setIsDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFiles(Array.from(e.dataTransfer.files));
     }
   };
 
@@ -193,49 +252,147 @@ export default function OrdersPage() {
               {isParsing ? 'Ayrıştırılıyor...' : 'Sipariş Yükle'}
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] glass-panel border-none shadow-2xl p-0 overflow-hidden">
-            <DialogHeader className="p-6 pb-0">
+          <DialogContent className="sm:max-w-[550px] glass-panel border-none shadow-2xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
+            <DialogHeader className="p-6 pb-2 shrink-0">
               <DialogTitle className="text-2xl font-bold flex items-center gap-2">
                 <FileSpreadsheet className="h-6 w-6 text-primary" />
                 Sipariş Dosyası Yükle
               </DialogTitle>
               <DialogDescription>
-                {getPlatform(platform).displayName} platformundan aldığınız Excel dosyasını yükleyin.
+                Excel dosyalarınızı sürükleyip bırakın. Sistem platformu otomatik tespit edecektir.
               </DialogDescription>
             </DialogHeader>
-            <div className="p-6 space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-muted-foreground ml-1">Platform Seçin</label>
-                <Select value={platform} onValueChange={(v) => setPlatform(v as PlatformId)}>
-                  <SelectTrigger className="w-full h-12 glass-panel border-muted">
-                    <SelectValue placeholder="Platform Seçin" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PLATFORMS.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.displayName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+            <div className="p-6 pt-2 space-y-6 overflow-y-auto flex-1">
+              {/* Desteklenen Platformlar */}
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-xs text-muted-foreground font-semibold mr-1">Desteklenen Platformlar:</span>
+                {PLATFORMS.map(p => (
+                  <span
+                    key={p.id}
+                    className="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-sm"
+                    style={{
+                      backgroundColor: `${p.color}15`,
+                      color: p.color,
+                      borderColor: `${p.color}30`
+                    }}
+                  >
+                    {p.displayName}
+                  </span>
+                ))}
               </div>
+
+              {/* Sürükle Bırak Alanı */}
               <div
-                className="border-2 border-dashed rounded-2xl p-12 flex flex-col items-center gap-4 text-center border-muted-foreground/20 hover:border-primary/50 hover:bg-primary/5 cursor-pointer group transition-all"
+                className={cn(
+                  "border-2 border-dashed rounded-2xl p-8 flex flex-col items-center gap-4 text-center cursor-pointer transition-all duration-300 relative group",
+                  isDragActive
+                    ? "border-primary bg-primary/10 scale-[0.98] ring-2 ring-primary/20"
+                    : "border-muted-foreground/20 hover:border-primary/50 hover:bg-primary/5"
+                )}
+                onDragEnter={handleDrag}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                  <Upload className="h-8 w-8" />
+                <div className={cn(
+                  "w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary transition-all duration-300",
+                  isDragActive ? "scale-110 rotate-12 bg-primary/20" : "group-hover:scale-110"
+                )}>
+                  <Upload className="h-6 w-6" />
                 </div>
                 <div>
-                  <p className="font-bold">Excel Dosyası Seçin</p>
-                  <p className="text-xs text-muted-foreground mt-1">Tıklayın veya sürükleyin (.xlsx, .xls)</p>
+                  <p className="font-bold text-sm">Excel Dosyalarını Buraya Bırakın</p>
+                  <p className="text-xs text-muted-foreground mt-1">Birden fazla dosya seçebilir veya sürükleyebilirsiniz (.xlsx, .xls)</p>
                 </div>
-                <Input type="file" ref={fileInputRef} className="hidden" accept=".xlsx,.xls" onChange={handleFileUpload} />
+                <Input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept=".xlsx,.xls"
+                  multiple
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      handleFiles(Array.from(e.target.files));
+                    }
+                  }}
+                />
               </div>
-              <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/10 flex gap-3">
-                <Info className="h-5 w-5 text-blue-500 shrink-0" />
-                <p className="text-xs text-blue-700 dark:text-blue-400">
-                  {getPlatform(platform).displayName} satıcı panelinden sipariş listesini Excel olarak dışa aktarın.
-                </p>
-              </div>
+
+              {/* Yüklenen Dosyaların Durumu */}
+              {uploadingFiles.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Yükleme Geçmişi / Durum</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setUploadingFiles([])}
+                      className="h-6 text-[10px] text-muted-foreground hover:text-foreground"
+                    >
+                      Listeyi Temizle
+                    </Button>
+                  </div>
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    {uploadingFiles.map((file) => {
+                      const pConfig = file.platform ? getPlatform(file.platform) : null;
+                      return (
+                        <div
+                          key={file.id}
+                          className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card/30 text-xs animate-in slide-in-from-top-1 duration-200"
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1 mr-3">
+                            {file.status === 'parsing' && (
+                              <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                            )}
+                            {file.status === 'success' && (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                            )}
+                            {file.status === 'error' && (
+                              <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                            )}
+
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold truncate text-foreground/90">{file.name}</p>
+                              {file.status === 'success' && file.platform && (
+                                <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                                  Algılanan:
+                                  <span
+                                    className="font-bold px-1.5 py-0.2 rounded border text-[9px]"
+                                    style={{
+                                      backgroundColor: `${pConfig?.color ?? '#888'}10`,
+                                      color: pConfig?.color ?? '#888',
+                                      borderColor: `${pConfig?.color ?? '#888'}20`
+                                    }}
+                                  >
+                                    {pConfig?.displayName ?? file.platform}
+                                  </span>
+                                </p>
+                              )}
+                              {file.status === 'error' && (
+                                <p className="text-[10px] text-red-400 mt-0.5 truncate">{file.errorMsg}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            {file.status === 'parsing' && (
+                              <span className="text-muted-foreground animate-pulse">Analiz ediliyor...</span>
+                            )}
+                            {file.status === 'success' && (
+                              <span className="font-bold text-emerald-500">+{file.orderCount} Sipariş</span>
+                            )}
+                            {file.status === 'error' && (
+                              <span className="font-semibold text-red-400">Hata</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>
@@ -294,8 +451,15 @@ export default function OrdersPage() {
             )}
           </div>
           {orders.length > 0 && (
-            <div className="text-[11px] text-muted-foreground italic mt-2 pt-3 border-t border-border/50">
-              Toplam {orders.length} siparişten <span className="text-primary font-bold">{filteredOrders.length}</span> tanesi gösteriliyor.
+            <div className="text-[11px] text-muted-foreground italic mt-2 pt-3 border-t border-border/50 space-y-1">
+              <div>
+                Toplam {orders.length} siparişten <span className="text-primary font-bold">{filteredOrders.length}</span> tanesi gösteriliyor.
+              </div>
+              {hasAnalytics && (
+                <div>
+                  Hesaplamaya <span className="text-emerald-500 font-bold">{totals.activeOrderCount}</span> tanesi dahil ediliyor.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -422,6 +586,7 @@ export default function OrdersPage() {
                   const analysis = analyses[idx];
                   const isExpanded = expandedOrderIds.includes(order.orderNumber + idx);
                   const profit = analysis?.economics.netProfit ?? 0;
+                  const hasUnmatched = analysis && analysis.unmatchedItems.length > 0;
                   return (
                     <React.Fragment key={order.orderNumber + idx}>
                       <TableRow className={cn(
@@ -452,8 +617,16 @@ export default function OrdersPage() {
                           {order.paymentMethod || '-'}
                         </TableCell>
                         <TableCell className="text-right font-bold px-4">{formatCurrency(analysis?.netRevenue ?? order.totalAmount)}</TableCell>
-                        <TableCell className={cn('text-right px-4 font-bold', profit >= 0 ? 'text-emerald-500' : 'text-red-500')}>
-                          {analysis ? formatCurrency(profit) : '-'}
+                        <TableCell 
+                          className={cn(
+                            'text-right px-4 font-bold',
+                            hasUnmatched
+                              ? 'text-amber-500'
+                              : profit >= 0 ? 'text-emerald-500' : 'text-red-500'
+                          )}
+                          title={hasUnmatched ? "Eşleşmeyen ürün bulunduğundan kâr hesaplanamadı" : undefined}
+                        >
+                          {analysis ? (hasUnmatched ? '?' : formatCurrency(profit)) : '-'}
                         </TableCell>
                         <TableCell className="px-4">
                           <span className={cn(
@@ -488,7 +661,7 @@ export default function OrdersPage() {
                                       Sipariş İçeriği
                                     </div>
 
-                                    {analysis && analysis.matchedItems.length > 0 ? (
+                                    {analysis && (analysis.matchedItems.length > 0 || analysis.unmatchedItems.length > 0) ? (
                                       <div className="rounded-xl border border-border/50 overflow-hidden bg-card/50">
                                         <table className="w-full text-sm">
                                           <thead className="bg-muted/40">
@@ -598,7 +771,7 @@ export default function OrdersPage() {
                                               icon: Percent
                                             },
                                             { label: 'Stopaj Vergisi', subLabel: `(%${rates.stopajRate})`, val: analysis.economics.stopajAmount, icon: ShieldCheck },
-                                            { label: 'Ürün Maliyetleri', val: analysis.totalCost, icon: Package, color: 'text-amber-500' },
+                                            { label: 'Ürün Maliyetleri', val: analysis.totalCost, icon: Package, color: 'text-amber-500', isUnknown: hasUnmatched },
                                             ...(analysis.isYemekKarti ? [{ label: 'Yemek Kartı Kesintisi', subLabel: '(%10)', val: analysis.yemekKartiDeduction, icon: Receipt, color: 'text-orange-500' }] : []),
                                           ].map((item, i) => (
                                             <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors">
@@ -613,7 +786,9 @@ export default function OrdersPage() {
                                                   )}
                                                 </div>
                                               </div>
-                                              <span className="text-xs font-semibold text-muted-foreground">- {formatCurrency(item.val)}</span>
+                                              <span className="text-xs font-semibold text-muted-foreground">
+                                                - {item.isUnknown ? '?' : formatCurrency(item.val)}
+                                              </span>
                                             </div>
                                           ))}
                                         </div>
@@ -623,12 +798,26 @@ export default function OrdersPage() {
                                       <div className="flex items-center justify-between p-4 rounded-xl border bg-primary/10 border-primary/20 shadow-sm">
                                         <div className="flex items-center gap-3">
                                           <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary/20">
-                                            {analysis.economics.netProfit >= 0 ? <TrendingUp className="h-5 w-5 text-primary" /> : <TrendingDown className="h-5 w-5 text-red-500" />}
+                                            {hasUnmatched ? (
+                                              <Info className="h-5 w-5 text-amber-500" />
+                                            ) : analysis.economics.netProfit >= 0 ? (
+                                              <TrendingUp className="h-5 w-5 text-primary" />
+                                            ) : (
+                                              <TrendingDown className="h-5 w-5 text-red-500" />
+                                            )}
                                           </div>
                                           <span className="font-bold text-primary">Tahmini Kâr</span>
                                         </div>
-                                        <span className={cn("text-lg font-black", analysis.economics.netProfit >= 0 ? "text-emerald-500" : "text-red-500")}>
-                                          {formatCurrency(analysis.economics.netProfit)}
+                                        <span 
+                                          className={cn(
+                                            "text-lg font-black",
+                                            hasUnmatched
+                                              ? "text-amber-500"
+                                              : analysis.economics.netProfit >= 0 ? "text-emerald-500" : "text-red-500"
+                                          )}
+                                          title={hasUnmatched ? "Eşleşmeyen ürün bulunduğundan kâr hesaplanamadı" : undefined}
+                                        >
+                                          {hasUnmatched ? '?' : formatCurrency(analysis.economics.netProfit)}
                                         </span>
                                       </div>
                                     </div>
