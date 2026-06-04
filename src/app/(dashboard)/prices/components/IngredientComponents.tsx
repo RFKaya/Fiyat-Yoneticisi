@@ -313,7 +313,15 @@ export function SortableIngredientRow({
 
             <div className="flex items-center gap-1 shrink-0">
               <EditIconButton buttonSize="lg" onClick={(e) => { e.stopPropagation(); handleOpenForm(ingredient); }} />
-              <DeleteIconButton buttonSize="lg" className="text-muted-foreground" onClick={(e) => { e.stopPropagation(); deleteIngredient(ingredient.id); }} />
+              <DeleteIconButton
+                buttonSize="lg"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm(`"${ingredient.name || 'Bu malzemeyi'}" silmek istediğinize emin misiniz?`)) {
+                    deleteIngredient(ingredient.id);
+                  }
+                }}
+              />
               <CollapsibleTrigger asChild>
                 <ExpandToggleButton buttonSize="lg" isOpen={isOpen} />
               </CollapsibleTrigger>

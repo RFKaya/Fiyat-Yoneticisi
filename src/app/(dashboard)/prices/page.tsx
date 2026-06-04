@@ -11,6 +11,7 @@ import { CSS } from '@dnd-kit/utilities';
 import LoadingState from '@/components/layout/LoadingState';
 import ProductForm from './components/ProductForm';
 import InlineRecipeEditor from './components/InlineRecipeEditor';
+import SelectionPopover from './components/SelectionPopover';
 import { IngredientForm, SortableIngredientRow } from './components/IngredientComponents';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -394,6 +395,8 @@ const SortableProductRow = React.memo(({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: product.id });
 
   const [editingField, setEditingField] = useState<'name' | 'storePrice' | 'onlinePrice' | null>(null);
+  const [isMoveOpen, setIsMoveOpen] = useState(false);
+  const [searchCategory, setSearchCategory] = useState('');
 
   const hasRecipe = product.recipe && product.recipe.length > 0;
   const cost = hasRecipe ? calculateCost(product.recipe, ingredients, allProducts) : product.manualCost;
@@ -508,35 +511,44 @@ const SortableProductRow = React.memo(({
           targetMargin: category?.categoryMargins?.find(v => v.marginId === 'online-target')?.value ?? 0
         }))}
       />
-      <TableCell className="text-right w-[80px] px-4 py-1">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Taşı</DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={() => updateProduct(product.id, 'categoryId', undefined)}>
-                    Kategorisiz
-                  </DropdownMenuItem>
-                  {categories.map(cat => (
-                    <DropdownMenuItem key={cat.id} onClick={() => updateProduct(product.id, 'categoryId', cat.id)}>
-                      {cat.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuPortal>
-            </DropdownMenuSub>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive" onClick={() => deleteProduct(product.id)}>
-              <Trash2 className="mr-2 h-4 w-4" /> Ürünü Sil
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <TableCell className="text-right w-[90px] px-2 py-1">
+        <div className="flex items-center justify-end gap-1">
+          <SelectionPopover
+            placeholder="Kategori ara..."
+            items={[
+              ...categories.map(cat => ({ id: cat.id, name: cat.name, color: cat.color })),
+              { id: 'uncategorized', name: 'Kategorisiz', color: '#9CA3AF' }
+            ]}
+            onSelect={(catId) => {
+              updateProduct(product.id, 'categoryId', catId === 'uncategorized' ? null : catId);
+              setIsMoveOpen(false);
+            }}
+            open={isMoveOpen}
+            onOpenChange={setIsMoveOpen}
+            search={searchCategory}
+            onSearchChange={setSearchCategory}
+            align="end"
+            trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg shrink-0"
+                title="Kategoriye Taşı"
+              >
+                <Tags className="h-4 w-4" />
+              </Button>
+            }
+          />
+          <DeleteIconButton
+            buttonSize="md"
+            onClick={() => {
+              if (window.confirm(`"${product.name || 'Bu ürünü'}" silmek istediğinize emin misiniz?`)) {
+                deleteProduct(product.id);
+              }
+            }}
+            title="Ürünü Sil"
+          />
+        </div>
       </TableCell>
     </TableRow>
   );
@@ -790,13 +802,13 @@ export default function Home() {
   }, []);
 
 
-  const updateProduct = React.useCallback((id: string, field: keyof Product, value: string | number | undefined) => {
+  const updateProduct = React.useCallback((id: string, field: keyof Product, value: string | number | null | undefined) => {
     isDirtyRef.current = true;
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id === id) {
           if (field === 'categoryId') {
-            return { ...p, categoryId: value as string | undefined };
+            return { ...p, categoryId: (value ?? null) as string | null };
           }
           if (field === 'name') {
             return { ...p, name: value as string };
@@ -1128,7 +1140,7 @@ export default function Home() {
   const handleDeleteCategory = (id: string) => {
     setProducts(prev => {
       isDirtyRef.current = true;
-      return prev.map(p => p.categoryId === id ? { ...p, categoryId: undefined } : p);
+      return prev.map(p => p.categoryId === id ? { ...p, categoryId: null } : p);
     });
     setCategories(prev => {
       isDirtyRef.current = true;

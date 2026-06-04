@@ -65,7 +65,7 @@ export type Product = {
   storePrice: number;
   onlinePrice: number;
   order: number;
-  categoryId?: string;
+  categoryId?: string | null;
   costHistory?: ProductCostHistory[];
   costSources?: ProductCostSource[];
 };

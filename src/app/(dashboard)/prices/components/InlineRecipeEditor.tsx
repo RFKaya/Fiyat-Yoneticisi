@@ -11,7 +11,6 @@ import { Separator } from '@/components/ui/separator';
 import { calculateCost, formatCurrency } from '@/lib/utils';
 import { PlusCircle, Edit, Package, CheckCircle2, Circle } from 'lucide-react';
 import { DeleteIconButton, AddRowButton, PopoverTriggerButton, CancelRowButton } from '@/components/ui/icon-buttons';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import CostHistoryChart from './CostHistoryChart';
+import SelectionPopover from './SelectionPopover';
 
 
 type InlineRecipeEditorProps = {
@@ -56,79 +56,6 @@ function getReachableProductIds(productId: string, allProducts: Product[]): Set<
   }
 
   return reachable;
-}
-
-interface SelectionPopoverProps {
-  label: string;
-  placeholder: string;
-  triggerIcon: any;
-  items: { id: string; name: string }[];
-  onSelect: (id: string) => void;
-  accentClass?: string;
-  icon: any;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  search: string;
-  onSearchChange: (val: string) => void;
-}
-
-function SelectionPopover({
-  label,
-  placeholder,
-  triggerIcon: TriggerIcon,
-  items,
-  onSelect,
-  accentClass = "hover:bg-primary/10 hover:text-primary",
-  icon: Icon,
-  open,
-  onOpenChange,
-  search,
-  onSearchChange
-}: SelectionPopoverProps) {
-  return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <PopoverTriggerButton
-          icon={TriggerIcon}
-          accent={accentClass.includes('indigo') ? 'indigo' : 'primary'}
-        >
-          {label}
-        </PopoverTriggerButton>
-      </PopoverTrigger>
-      <PopoverContent className="w-72 p-0 overflow-hidden" align="start">
-        <div className="p-2 border-b bg-muted/30">
-          <Input
-            placeholder={placeholder}
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="h-8 text-xs"
-            autoFocus
-          />
-        </div>
-        <ScrollArea className="h-64">
-          <div className="p-1">
-            {items.length > 0 ? (
-              items.map(item => (
-                <Button
-                  key={item.id}
-                  variant="ghost"
-                  className={`w-full justify-start text-xs h-9 px-2 transition-colors group ${accentClass}`}
-                  onClick={() => onSelect(item.id)}
-                >
-                  <Icon className="h-3.5 w-3.5 mr-2 opacity-70 group-hover:opacity-100 shrink-0" />
-                  <span className="truncate">{item.name}</span>
-                </Button>
-              ))
-            ) : (
-              <div className="p-8 text-center text-xs text-muted-foreground">
-                {search ? 'Sonuç bulunamadı.' : 'Eklenecek öge yok.'}
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-      </PopoverContent>
-    </Popover>
-  );
 }
 
 

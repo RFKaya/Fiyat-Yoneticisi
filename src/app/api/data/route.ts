@@ -165,7 +165,7 @@ export async function POST(request: Request) {
               storePrice: safeFloat(prod.storePrice) ?? 0,
               onlinePrice: safeFloat(prod.onlinePrice) ?? 0,
               order: prod.order || 0,
-              categoryId: prod.categoryId
+              categoryId: prod.categoryId ?? null
             },
             create: {
               id: prod.id,
@@ -174,7 +174,7 @@ export async function POST(request: Request) {
               storePrice: safeFloat(prod.storePrice) ?? 0,
               onlinePrice: safeFloat(prod.onlinePrice) ?? 0,
               order: prod.order || 0,
-              categoryId: prod.categoryId
+              categoryId: prod.categoryId ?? null
             }
           });
 
