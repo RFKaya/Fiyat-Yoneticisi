@@ -55,21 +55,14 @@ export async function GET(request: Request) {
         water: lm.water,
         accounting: lm.accounting,
         ads: lm.ads,
-        commissions: {
-          migros: lm.migrosComm,
-          getir: lm.getirComm,
-          yemeksepeti: lm.yemeksepetiComm,
-          trendyol: lm.trendyolComm
-        },
-        platformAds: {
-          migros: lm.migrosAd,
-          getir: lm.getirAd,
-          yemeksepeti: lm.yemeksepetiAd,
-          trendyol: lm.trendyolAd
-        },
         margins: {
           shop: lm.shopMargin,
-          online: lm.onlineMargin
+        },
+        onlinePlatformProfit: {
+          migros: lm.migrosProfit,
+          getir: lm.getirProfit,
+          yemeksepeti: lm.yemeksepetiProfit,
+          trendyol: lm.trendyolProfit
         },
         costs: lm.extraCosts.map(c => ({ name: c.name, amount: c.amount })),
         days: [] // will fill below
@@ -128,16 +121,11 @@ async function processMonthUpdate(shopId: string, monthKey: string, monthData: a
       water: safeFloat(monthData.water),
       accounting: safeFloat(monthData.accounting),
       ads: safeFloat(monthData.ads),
-      migrosComm: safeFloat(monthData.commissions?.migros),
-      getirComm: safeFloat(monthData.commissions?.getir),
-      yemeksepetiComm: safeFloat(monthData.commissions?.yemeksepeti),
-      trendyolComm: safeFloat(monthData.commissions?.trendyol),
-      migrosAd: safeFloat(monthData.platformAds?.migros),
-      getirAd: safeFloat(monthData.platformAds?.getir),
-      yemeksepetiAd: safeFloat(monthData.platformAds?.yemeksepeti),
-      trendyolAd: safeFloat(monthData.platformAds?.trendyol),
       shopMargin: safeFloat(monthData.margins?.shop),
-      onlineMargin: safeFloat(monthData.margins?.online),
+      migrosProfit: safeFloat(monthData.onlinePlatformProfit?.migros),
+      getirProfit: safeFloat(monthData.onlinePlatformProfit?.getir),
+      yemeksepetiProfit: safeFloat(monthData.onlinePlatformProfit?.yemeksepeti),
+      trendyolProfit: safeFloat(monthData.onlinePlatformProfit?.trendyol),
     },
     create: {
       shopId,
@@ -147,16 +135,11 @@ async function processMonthUpdate(shopId: string, monthKey: string, monthData: a
       water: safeFloat(monthData.water),
       accounting: safeFloat(monthData.accounting),
       ads: safeFloat(monthData.ads),
-      migrosComm: safeFloat(monthData.commissions?.migros),
-      getirComm: safeFloat(monthData.commissions?.getir),
-      yemeksepetiComm: safeFloat(monthData.commissions?.yemeksepeti),
-      trendyolComm: safeFloat(monthData.commissions?.trendyol),
-      migrosAd: safeFloat(monthData.platformAds?.migros),
-      getirAd: safeFloat(monthData.platformAds?.getir),
-      yemeksepetiAd: safeFloat(monthData.platformAds?.yemeksepeti),
-      trendyolAd: safeFloat(monthData.platformAds?.trendyol),
       shopMargin: safeFloat(monthData.margins?.shop),
-      onlineMargin: safeFloat(monthData.margins?.online),
+      migrosProfit: safeFloat(monthData.onlinePlatformProfit?.migros),
+      getirProfit: safeFloat(monthData.onlinePlatformProfit?.getir),
+      yemeksepetiProfit: safeFloat(monthData.onlinePlatformProfit?.yemeksepeti),
+      trendyolProfit: safeFloat(monthData.onlinePlatformProfit?.trendyol),
     }
   });
 

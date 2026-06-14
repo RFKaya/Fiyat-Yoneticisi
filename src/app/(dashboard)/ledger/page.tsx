@@ -6,9 +6,13 @@ import { pageLedgerLogger as log } from '@/lib/logger';
 import './ledger.css';
 import { LedgerTable } from './components/LedgerTable';
 import { LedgerSummary } from './components/LedgerSummary';
-import { PlatformSection } from './components/PlatformSection';
-import { PLATFORM_IDS } from '@/lib/platforms';
 import { SaveStatus } from '@/components/ui/save-status';
+import { MealCardInvoiceCalendar } from './components/MealCardInvoiceCalendar';
+import {
+  createMealCardInvoiceSchedule,
+  MealCardInvoice,
+  MealCardPlatform,
+} from './meal-card-invoices';
 
 type PlatformData = { count: number | string; rev: number | string };
 type DayData = {
@@ -30,27 +34,20 @@ type MonthlyCost = { id: string; name: string; amount: number | string };
 type MonthData = {
   days: DayData[];
   costs: MonthlyCost[];
-  commissions?: {
+  margins?: {
+    shop: number;
+  };
+  onlinePlatformProfit?: {
     migros: number;
     getir: number;
     yemeksepeti: number;
     trendyol: number;
-  };
-  margins?: {
-    shop: number;
-    online: number;
   };
   rent?: number;
   ads?: number;
   electricity?: number;
   water?: number;
   accounting?: number;
-  platformAds?: {
-    migros: number;
-    getir: number;
-    yemeksepeti: number;
-    trendyol: number;
-  };
 };
 
 type ShopData = {
@@ -92,9 +89,9 @@ export default function LedgerPage() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear().toString());
   const [currentMonth, setCurrentMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'));
   const [shopData, setShopData] = useState<ShopData>({ months: {} });
+  const [globalMealCardInvoices, setGlobalMealCardInvoices] = useState<MealCardInvoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditingShopMargin, setIsEditingShopMargin] = useState(false);
-  const [isEditingOnlineMargin, setIsEditingOnlineMargin] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'waiting' | 'saving' | 'saved' | 'error'>('idle');
 
   const currentMonthKey = `${currentYear}-${currentMonth}`;
@@ -125,6 +122,16 @@ export default function LedgerPage() {
       .then((res) => res.json())
       .then(data => setShops(data))
       .catch(error => log.error('Dükkan listesi yüklenemedi!', { message: error.message }));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/meal-card-invoices')
+      .then((res) => {
+        if (!res.ok) throw new Error('Yemek kartı faturaları yüklenemedi');
+        return res.json();
+      })
+      .then(data => setGlobalMealCardInvoices(data))
+      .catch(error => log.error('Yemek kartı faturaları yüklenemedi!', { message: error.message }));
   }, []);
 
   useEffect(() => {
@@ -161,6 +168,15 @@ export default function LedgerPage() {
     }
     return shopData.months[currentMonthKey];
   }, [shopData, currentMonthKey, currentYear, currentMonth]);
+
+  const mealCardInvoices = useMemo(
+    () => createMealCardInvoiceSchedule(
+      parseInt(currentYear),
+      parseInt(currentMonth),
+      globalMealCardInvoices
+    ),
+    [currentYear, currentMonth, globalMealCardInvoices]
+  );
 
   useEffect(() => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -210,36 +226,34 @@ export default function LedgerPage() {
   };
 
   const totals = useMemo(() => {
-    const res = { shop: 0, online: 0, onlineCount: 0, kg: 0, grand: 0, costs: 0, commissions: 0 };
-    const defaultComms = Object.fromEntries(PLATFORM_IDS.map(id => [id, 0])) as Record<string, number>;
-    const comms = monthData.commissions || defaultComms;
+    const res = { shop: 0, online: 0, onlineCount: 0, kg: 0, grand: 0, costs: 0 };
 
     monthData.days.forEach(d => {
       const shopRow = parseNumber(d.cash) + parseNumber(d.pos) + parseNumber(d.mealCard);
       const onlineRow = parseNumber(d.platforms.migros.rev) + parseNumber(d.platforms.getir.rev) + parseNumber(d.platforms.yemeksepeti.rev) + parseNumber(d.platforms.trendyol.rev);
       const onlineCountRow = parseNumber(d.platforms.migros.count) + parseNumber(d.platforms.getir.count) + parseNumber(d.platforms.yemeksepeti.count) + parseNumber(d.platforms.trendyol.count);
 
-      const dayComm = (parseNumber(d.platforms.migros.rev) * (comms.migros || 0) / 100) +
-        (parseNumber(d.platforms.getir.rev) * (comms.getir || 0) / 100) +
-        (parseNumber(d.platforms.yemeksepeti.rev) * (comms.yemeksepeti || 0) / 100) +
-        (parseNumber(d.platforms.trendyol.rev) * (comms.trendyol || 0) / 100);
-
       res.shop += shopRow; res.online += onlineRow; res.onlineCount += onlineCountRow;
-      res.kg += parseNumber(d.kg); res.grand += (shopRow + onlineRow); res.commissions += dayComm;
+      res.kg += parseNumber(d.kg); res.grand += (shopRow + onlineRow);
     });
     res.costs = monthData.costs.reduce((acc, c) => acc + parseNumber(c.amount), 0);
-    const margins = monthData.margins || { shop: 0, online: 0 };
+    const margins = monthData.margins || { shop: 0 };
     const shopProfit = res.shop * (margins.shop / 100);
-    const onlineProfit = res.online * (margins.online / 100);
+
+    const onlinePlatformProfit = monthData.onlinePlatformProfit || { migros: 0, getir: 0, yemeksepeti: 0, trendyol: 0 };
+    const onlineProfit = parseNumber(onlinePlatformProfit.migros) +
+                         parseNumber(onlinePlatformProfit.getir) +
+                         parseNumber(onlinePlatformProfit.yemeksepeti) +
+                         parseNumber(onlinePlatformProfit.trendyol);
+
     const rent = monthData.rent || 0;
-    const platformAdsSum = monthData.platformAds ? Object.values(monthData.platformAds).reduce((a, b) => a + (b || 0), 0) : 0;
-    const ads = platformAdsSum || monthData.ads || 0;
+    const ads = monthData.ads || 0;
     const electricity = monthData.electricity || 0;
     const water = monthData.water || 0;
     const accounting = monthData.accounting || 0;
     const netProfit = (shopProfit + onlineProfit) - res.costs - rent - ads - electricity - water - accounting;
 
-    return { ...res, shopProfit, onlineProfit, netProfit, margins, rent, ads, electricity, water, accounting };
+    return { ...res, shopProfit, onlineProfit, netProfit, margins, rent, ads, electricity, water, accounting, onlinePlatformProfit };
   }, [monthData]);
 
   const fmt = (v: any, decimals = 0) => {
@@ -283,34 +297,68 @@ export default function LedgerPage() {
         return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, costs } } };
       });
     },
-    onUpdateMargin: (type: 'shop' | 'online', value: string) => {
+    onUpdateMargin: (type: 'shop', value: string) => {
       isDirtyRef.current = true;
       setShopData(prev => {
         const currentMonths = prev.months || {};
         const currentMonthData = currentMonths[currentMonthKey] || monthData;
-        const margins = { ...(currentMonthData.margins || { shop: 0, online: 0 }), [type]: parseFloat(value) || 0 };
+        const margins = { ...(currentMonthData.margins || { shop: 0 }), [type]: parseFloat(value) || 0 };
         return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, margins } } };
       });
     },
-    onUpdateCommission: (platform: any, value: string) => {
+    onUpdateOnlinePlatformProfit: (platform: string, value: string) => {
       isDirtyRef.current = true;
       setShopData(prev => {
         const currentMonths = prev.months || {};
         const currentMonthData = currentMonths[currentMonthKey] || monthData;
-        const defaultComms = Object.fromEntries(PLATFORM_IDS.map(id => [id, 0])) as { migros: number; getir: number; yemeksepeti: number; trendyol: number };
-        const commissions = { ...(currentMonthData.commissions || defaultComms), [platform]: parseFloat(value) || 0 };
-        return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, commissions } } };
+        const defaultPlatformProfits = { migros: 0, getir: 0, yemeksepeti: 0, trendyol: 0 };
+        const onlinePlatformProfit = {
+          ...(currentMonthData.onlinePlatformProfit || defaultPlatformProfits),
+          [platform]: parseFloat(value) || 0
+        };
+        return {
+          ...prev,
+          months: {
+            ...currentMonths,
+            [currentMonthKey]: { ...currentMonthData, onlinePlatformProfit }
+          }
+        };
       });
     },
-    onUpdatePlatformAd: (platform: any, value: string) => {
-      isDirtyRef.current = true;
-      setShopData(prev => {
-        const currentMonths = prev.months || {};
-        const currentMonthData = currentMonths[currentMonthKey] || monthData;
-        const defaultAds = Object.fromEntries(PLATFORM_IDS.map(id => [id, 0])) as { migros: number; getir: number; yemeksepeti: number; trendyol: number };
-        const platformAds = { ...(currentMonthData.platformAds || defaultAds), [platform]: parseFloat(value) || 0 };
-        return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, platformAds } } };
+    onToggleMealCardInvoice: (platform: MealCardPlatform, date: string) => {
+      const currentInvoice = mealCardInvoices.find(
+        invoice => invoice.platform === platform && invoice.date === date
+      );
+      const completed = !currentInvoice?.completed;
+
+      setGlobalMealCardInvoices(current => {
+        const withoutInvoice = current.filter(
+          invoice => invoice.platform !== platform || invoice.date !== date
+        );
+        return completed
+          ? [...withoutInvoice, { platform, date, completed: true }]
+          : withoutInvoice;
       });
+
+      fetch('/api/meal-card-invoices', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, date, completed }),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Yemek kartı faturası kaydedilemedi');
+        })
+        .catch(error => {
+          log.error('Yemek kartı faturası kaydedilemedi!', { message: error.message });
+          setGlobalMealCardInvoices(current => {
+            const withoutInvoice = current.filter(
+              invoice => invoice.platform !== platform || invoice.date !== date
+            );
+            return currentInvoice?.completed
+              ? [...withoutInvoice, currentInvoice]
+              : withoutInvoice;
+          });
+        });
     }
   };
 
@@ -356,19 +404,14 @@ export default function LedgerPage() {
             </div>
 
             <div className="ledger-right-panel">
+              <MealCardInvoiceCalendar
+                invoices={mealCardInvoices}
+                onToggle={updateActions.onToggleMealCardInvoice}
+              />
               <LedgerSummary
                 totals={totals} costs={monthData.costs} fmt={fmt} {...updateActions}
                 isEditingShopMargin={isEditingShopMargin} setIsEditingShopMargin={setIsEditingShopMargin}
-                isEditingOnlineMargin={isEditingOnlineMargin} setIsEditingOnlineMargin={setIsEditingOnlineMargin}
               />
-
-              {PLATFORM_IDS.map(p => (
-                <PlatformSection
-                  key={p} platform={p} rev={parseNumber((monthData.days.reduce((acc, d: any) => acc + parseNumber(d.platforms[p].rev), 0)))}
-                  commRate={(monthData.commissions as any)?.[p] || 0} adVal={(monthData.platformAds as any)?.[p] || 0}
-                  onUpdateCommission={updateActions.onUpdateCommission} onUpdatePlatformAd={updateActions.onUpdatePlatformAd}
-                />
-              ))}
             </div>
           </div>
         </div>

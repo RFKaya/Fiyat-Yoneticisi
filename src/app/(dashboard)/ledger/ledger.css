@@ -19,6 +19,12 @@
   --ledger-item-bg: rgba(0, 0, 0, 0.04);
   --ledger-header-bg: rgba(241, 245, 249, 0.95);
   --ledger-header-text: #475569;
+  --ledger-day-past-bg: #e4e5e5;
+  --ledger-day-today-bg: #e7e8fc;
+  --ledger-day-future-bg: #fefeff;
+  --ledger-day-past-hover-bg: #d7d9da;
+  --ledger-day-today-hover-bg: #d9dcfa;
+  --ledger-day-future-hover-bg: #f1f2f4;
 }
 
 .dark .ledger-container {
@@ -33,6 +39,12 @@
   --ledger-item-bg: rgba(15, 17, 26, 0.5);
   --ledger-header-bg: rgba(15, 17, 26, 0.84);
   --ledger-header-text: #94a3b8;
+  --ledger-day-past-bg: #11131c;
+  --ledger-day-today-bg: #212442;
+  --ledger-day-future-bg: #151823;
+  --ledger-day-past-hover-bg: #1a1c25;
+  --ledger-day-today-hover-bg: #2b2e4b;
+  --ledger-day-future-hover-bg: #20232d;
 }
 
 .ledger-wrapper {
@@ -219,6 +231,14 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+.ledger-modern-table tr.ledger-row-past:hover {
+  background: var(--ledger-day-past-hover-bg) !important;
+}
+
+.ledger-modern-table tr.ledger-row-today:hover {
+  background: var(--ledger-day-today-hover-bg) !important;
+}
+
 .ledger-row-past {
   background: rgba(0, 0, 0, 0.1) !important;
 }
@@ -378,4 +398,307 @@
 
 .ledger-table-responsive::-webkit-scrollbar-thumb:hover {
   background: var(--ledger-accent-hover);
+}
+
+.meal-card-calendar {
+  padding: 1.15rem;
+}
+
+.meal-card-calendar-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.meal-card-calendar-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.meal-card-calendar-header p {
+  margin-top: 0.2rem;
+  color: var(--ledger-text-secondary);
+  font-size: 0.75rem;
+}
+
+.meal-card-calendar-progress {
+  flex-shrink: 0;
+  border: 1px solid var(--ledger-panel-border);
+  border-radius: 999px;
+  background: var(--ledger-item-bg);
+  padding: 0.25rem 0.55rem;
+  color: var(--ledger-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.meal-card-calendar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+}
+
+.meal-card-invoice-day {
+  overflow: hidden;
+  border: 1px solid var(--ledger-panel-border);
+  border-radius: 11px;
+  background: var(--ledger-item-bg);
+  max-height: 500px;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    max-height 0.42s ease,
+    margin 0.42s ease,
+    border-width 0.42s ease,
+    opacity 0.3s ease,
+    transform 0.34s ease,
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.meal-card-invoice-day.is-exiting {
+  max-height: 0;
+  margin-top: -0.8rem;
+  border-width: 0;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+
+.meal-card-invoice-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--ledger-panel-border);
+  background: var(--ledger-header-bg);
+  padding: 0.5rem 0.65rem;
+  color: var(--ledger-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.meal-card-invoice-day.ledger-row-past {
+  background: var(--ledger-day-past-bg) !important;
+}
+
+.dark .meal-card-invoice-day.ledger-row-past {
+  background: var(--ledger-day-past-bg) !important;
+}
+
+.meal-card-invoice-day.ledger-row-past .meal-card-invoice-day-header,
+.meal-card-invoice-day.ledger-row-past .meal-card-invoice-item {
+  background: var(--ledger-day-past-bg);
+}
+
+.dark .meal-card-invoice-day.ledger-row-past .meal-card-invoice-day-header,
+.dark .meal-card-invoice-day.ledger-row-past .meal-card-invoice-item {
+  background: var(--ledger-day-past-bg);
+}
+
+.meal-card-invoice-day.ledger-row-today {
+  background: var(--ledger-day-today-bg) !important;
+  box-shadow: inset 4px 0 0 var(--ledger-accent-primary);
+}
+
+.meal-card-invoice-day.ledger-row-today .meal-card-invoice-day-header,
+.meal-card-invoice-day.ledger-row-today .meal-card-invoice-item {
+  background: var(--ledger-day-today-bg);
+}
+
+.meal-card-invoice-day.ledger-row-future,
+.meal-card-invoice-day.ledger-row-future .meal-card-invoice-day-header,
+.meal-card-invoice-day.ledger-row-future .meal-card-invoice-item {
+  background: var(--ledger-day-future-bg);
+}
+
+.meal-card-invoice-day.ledger-row-past:hover,
+.meal-card-invoice-day.ledger-row-past:hover .meal-card-invoice-day-header,
+.meal-card-invoice-day.ledger-row-past:hover .meal-card-invoice-item,
+.meal-card-invoice-day.ledger-row-past:focus-within,
+.meal-card-invoice-day.ledger-row-past:focus-within .meal-card-invoice-day-header,
+.meal-card-invoice-day.ledger-row-past:focus-within .meal-card-invoice-item {
+  background: var(--ledger-day-past-hover-bg) !important;
+}
+
+.meal-card-invoice-day.ledger-row-today:hover,
+.meal-card-invoice-day.ledger-row-today:hover .meal-card-invoice-day-header,
+.meal-card-invoice-day.ledger-row-today:hover .meal-card-invoice-item,
+.meal-card-invoice-day.ledger-row-today:focus-within,
+.meal-card-invoice-day.ledger-row-today:focus-within .meal-card-invoice-day-header,
+.meal-card-invoice-day.ledger-row-today:focus-within .meal-card-invoice-item {
+  background: var(--ledger-day-today-hover-bg) !important;
+}
+
+.meal-card-invoice-day.ledger-row-future:hover,
+.meal-card-invoice-day.ledger-row-future:hover .meal-card-invoice-day-header,
+.meal-card-invoice-day.ledger-row-future:hover .meal-card-invoice-item,
+.meal-card-invoice-day.ledger-row-future:focus-within,
+.meal-card-invoice-day.ledger-row-future:focus-within .meal-card-invoice-day-header,
+.meal-card-invoice-day.ledger-row-future:focus-within .meal-card-invoice-item {
+  background: var(--ledger-day-future-hover-bg) !important;
+}
+
+.meal-card-invoice-day:hover {
+  border-color: var(--ledger-accent-primary);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.18);
+}
+
+.meal-card-invoice-day-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.meal-card-invoice-item {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 38px;
+  max-height: 38px;
+  border-bottom: 1px solid var(--ledger-panel-border);
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  overflow: hidden;
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    min-height 0.42s ease,
+    max-height 0.42s ease,
+    padding 0.42s ease,
+    border-width 0.42s ease,
+    opacity 0.28s ease,
+    transform 0.32s ease,
+    background 0.2s;
+}
+
+.meal-card-invoice-item:last-child {
+  border-bottom: 0;
+}
+
+.meal-card-invoice-item:hover {
+  background: var(--ledger-highlight);
+}
+
+.meal-card-invoice-item input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.meal-card-invoice-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  border: 2px solid var(--ledger-input-border);
+  border-radius: 6px;
+  background: var(--ledger-input-bg);
+  color: white;
+}
+
+.meal-card-invoice-item.is-completed {
+  opacity: 1;
+}
+
+.meal-card-invoice-item.is-completed .meal-card-invoice-check {
+  border-color: var(--ledger-success);
+  background: var(--ledger-success);
+}
+
+.meal-card-invoice-item.is-exiting {
+  min-height: 0;
+  max-height: 0;
+  border-bottom-width: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  transform: translateX(18px);
+  pointer-events: none;
+}
+
+.meal-card-invoice-item.is-exiting .meal-card-invoice-check {
+  border-color: var(--ledger-success);
+  background: var(--ledger-success);
+}
+
+.meal-card-invoice-item.is-completed .meal-card-invoice-platform {
+  color: var(--ledger-text-secondary);
+  text-decoration: line-through;
+}
+
+.meal-card-invoice-platform {
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meal-card-calendar-empty {
+  border: 1px dashed var(--ledger-panel-border);
+  border-radius: 10px;
+  padding: 1rem;
+  color: var(--ledger-text-secondary);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.meal-card-completed-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 0;
+  border: 1px solid var(--ledger-panel-border);
+  border-radius: 9px;
+  background: transparent;
+  padding: 0.55rem 0.65rem;
+  color: var(--ledger-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.meal-card-completed-toggle:hover:not(:disabled) {
+  border-color: var(--ledger-accent-primary);
+  background: var(--ledger-highlight);
+  color: var(--ledger-text-primary);
+}
+
+.meal-card-completed-toggle:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.meal-card-completed-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 0.8rem;
+  border-bottom: 1px solid var(--ledger-panel-border);
+  padding-bottom: 0.8rem;
+}
+
+.meal-card-future-toggle {
+  margin-top: 0.9rem;
+}
+
+.meal-card-future-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 0.8rem;
+  border-top: 1px solid var(--ledger-panel-border);
+  padding-top: 0.8rem;
 }

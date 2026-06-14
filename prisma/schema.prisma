@@ -133,26 +133,21 @@ model GlobalSettings {
 }
 
 model LedgerMonth {
-  id              String      @id @default(cuid())
-  shopId          String      @map("shop_id")
-  monthKey        String      @map("month_key")
-  rent            Float?      @default(0)
-  electricity     Float?      @default(0)
-  water           Float?      @default(0)
-  accounting      Float?      @default(0)
-  ads             Float?      @default(0)
-  migrosComm      Float?      @default(0) @map("migros_comm")
-  getirComm       Float?      @default(0) @map("getir_comm")
-  yemeksepetiComm Float?      @default(0) @map("yemeksepeti_comm")
-  trendyolComm    Float?      @default(0) @map("trendyol_comm")
-  migrosAd        Float?      @default(0) @map("migros_ad")
-  getirAd         Float?      @default(0) @map("getir_ad")
-  yemeksepetiAd   Float?      @default(0) @map("yemeksepeti_ad")
-  trendyolAd      Float?      @default(0) @map("trendyol_ad")
-  shopMargin      Float?      @default(0) @map("shop_margin")
-  onlineMargin    Float?      @default(0) @map("online_margin")
-  extraCosts      ExtraCost[]
-  shop            Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  id           String      @id @default(cuid())
+  shopId       String      @map("shop_id")
+  monthKey     String      @map("month_key")
+  rent         Float?      @default(0)
+  electricity  Float?      @default(0)
+  water        Float?      @default(0)
+  accounting   Float?      @default(0)
+  ads          Float?      @default(0)
+  shopMargin   Float?      @default(0) @map("shop_margin")
+  migrosProfit Float?      @default(0) @map("migros_profit")
+  getirProfit  Float?      @default(0) @map("getir_profit")
+  yemeksepetiProfit Float? @default(0) @map("yemeksepeti_profit")
+  trendyolProfit Float?    @default(0) @map("trendyol_profit")
+  extraCosts   ExtraCost[]
+  shop         Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@unique([shopId, monthKey])
   @@map("ledger_months")
@@ -188,4 +183,15 @@ model ExtraCost {
   ledgerMonth   LedgerMonth @relation(fields: [ledgerMonthId], references: [id], onDelete: Cascade)
 
   @@map("extra_costs")
+}
+
+model MealCardInvoice {
+  id          String   @id @default(cuid())
+  invoiceDate String   @map("invoice_date")
+  platform    String
+  completed   Boolean  @default(false)
+
+  @@unique([invoiceDate, platform])
+  @@index([invoiceDate])
+  @@map("meal_card_invoices")
 }

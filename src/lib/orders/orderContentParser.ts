@@ -24,6 +24,8 @@ export function normalizeWeightUnit(text: string): string {
     .replace(/(\d+(?:[.,]\d+)?)\s*l\.?(?!\w)/gi, '$1 L')
     // ml. -> ml
     .replace(/(\d+(?:[.,]\d+)?)\s*ml\.?(?!\w)/gi, '$1 ml')
+    // cc. -> ml (1:1 conversion)
+    .replace(/(\d+(?:[.,]\d+)?)\s*cc\.?(?!\w)/gi, '$1 ml')
     // cl. -> ml (10x conversion)
     .replace(/(\d+(?:[.,]\d+)?)\s*cl\.?(?!\w)/gi, (match, p1) => {
       const val = parseFloat(p1.replace(',', '.'));
@@ -48,7 +50,7 @@ export function stripCommonSuffixes(text: string): string {
  */
 export function stripFillerWords(text: string): string {
   return text
-    .replace(/\b(standart|özel|ozel|yeni|popüler|populer|yarım|yarim|porsiyon|porsıyon|tam|adet|tane|pors)\b/gi, '')
+    .replace(/\b(standart|özel|ozel|yeni|popüler|populer|yarım|yarim|porsiyon|porsıyon|tam|adet|tane|pors|aile\s+boyu|aile\s+boy|aile|mega|orta\s+boy|orta|küçük\s+boy|kucuk\s+boy|küçük|kucuk|büyük\s+boy|buyuk\s+boy|büyük|buyuk|boyu|boy|double|duble|tek|tekli|çift|cift|çiftli|ciftli|ekstra|extra|süper|super)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -97,6 +99,58 @@ export function stripExtraParentheses(text: string): string {
 }
 
 /**
+ * '+' içeren kombo/menü ürün isimlerini ayrıştırıp miktar ve temiz isimler listesi döner.
+ * Örn: "Standart Çiğ Köfte Dürüm (100 g) + 330 Ml. Coca Cola", miktar: 2
+ * Çıktı: [{ name: "Standart Çiğ Köfte Dürüm (100 g)", quantity: 2 }, { name: "330 Ml. Coca Cola", quantity: 2 }]
+ */
+export function splitItemByNameWithPlus(name: string, quantity: number): ParsedContentItem[] {
+  if (!name.includes('+')) {
+    return [{ name, quantity }];
+  }
+
+  const parts = name.split('+').map(p => p.trim()).filter(Boolean);
+  const result: ParsedContentItem[] = [];
+
+  for (const part of parts) {
+    // 1. Explicit adet belirteçleri: "2 x Ayran", "2 adet Ayran", "2 tane Ayran"
+    const explicitMatch = part.match(/^(\d+)\s*(?:x|adet|tane)\s+(.+)$/i);
+    if (explicitMatch) {
+      const subQty = parseInt(explicitMatch[1], 10);
+      result.push({
+        name: explicitMatch[2].trim(),
+        quantity: quantity * subQty
+      });
+      continue;
+    }
+
+    // 2. Sadece sayı ile başlayan durumlar: "2 Ayran" veya "330 Ml. Coca Cola"
+    const numberMatch = part.match(/^(\d+)\s+(.+)$/);
+    if (numberMatch) {
+      const subQty = parseInt(numberMatch[1], 10);
+      const rest = numberMatch[2].trim();
+      const firstWordOfRest = rest.split(/\s+/)[0].toLowerCase().replace(/\./g, '');
+      const isUnit = /^(?:ml|cl|cc|lt|l|g|gr|gram|kg|kilo|oz|kişilik|kisilik|kişi|kisi|dilim|parça|top)\b/i.test(firstWordOfRest);
+
+      if (!isUnit) {
+        result.push({
+          name: rest,
+          quantity: quantity * subQty
+        });
+        continue;
+      }
+    }
+
+    // 3. Adet bulunamadıysa parent miktarını miras al
+    result.push({
+      name: part,
+      quantity
+    });
+  }
+
+  return result;
+}
+
+/**
  * Sipariş içerik string'ini ayrıştırır.
  *
  * Girdi: "2 Doritoslu Çiğ Köfte Dürüm (100 gr.) [1 Göbek Marul, ...], 1 Standart ..."
@@ -118,13 +172,26 @@ export function parseOrderContentString(content: string): ParsedContentItem[] {
     // 3. Başındaki miktar sayısını çıkar: "2 Doritoslu Çiğ Köfte Dürüm (100 gr.)"
     const match = part.match(/^(\d+)\s+(.+)$/);
     if (match) {
-      const quantity = parseInt(match[1], 10);
+      const quantityVal = parseInt(match[1], 10);
       const rawName = match[2].trim();
-      // 4. Gramaj normalizasyonu
-      let name = normalizeWeightUnit(rawName);
-      name = stripCommonSuffixes(name);
+      
+      // Sonraki kelimenin bir birim veya "kişilik" vb. dolgu kelimesi olup olmadığını kontrol et
+      const firstWordOfRest = rawName.split(/\s+/)[0].toLowerCase().replace(/\./g, '');
+      const isUnitOrAdjective = /^(?:ml|cl|cc|lt|l|g|gr|gram|kg|kilo|oz|kişilik|kisilik|kişi|kisi|dilim|parça|top)\b/i.test(firstWordOfRest);
 
-      items.push({ name, quantity });
+      if (isUnitOrAdjective) {
+        // Birim veya dolgu sıfatı ise, bu sayı adet değil ismin parçasıdır (örn: "3 Kişilik ...")
+        let name = normalizeWeightUnit(part.trim());
+        name = stripCommonSuffixes(name);
+        if (name) {
+          items.push({ name, quantity: 1 });
+        }
+      } else {
+        // Normal miktar sayısı
+        let name = normalizeWeightUnit(rawName);
+        name = stripCommonSuffixes(name);
+        items.push({ name, quantity: quantityVal });
+      }
     } else {
       // Miktar yoksa 1 olarak kabul et
       let name = normalizeWeightUnit(part.trim());

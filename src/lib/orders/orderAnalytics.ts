@@ -8,7 +8,7 @@ import type { Product, Ingredient } from '@/lib/types';
 import { calculateCost, calculateEconomicsFromPrice, type EconomicsResult } from '@/lib/utils';
 import type { ParsedOrder } from './types';
 import type { PlatformId } from '@/lib/platforms';
-import { parseOrderContentString, normalizeWeightUnit, stripCommonSuffixes, stripFillerWords, type ParsedContentItem } from './orderContentParser';
+import { parseOrderContentString, normalizeWeightUnit, stripCommonSuffixes, stripFillerWords, splitItemByNameWithPlus, type ParsedContentItem } from './orderContentParser';
 
 // ── Tip Tanımları ──────────────────────────────────────────
 
@@ -78,7 +78,7 @@ function normalizeForMatch(name: string): string {
   let n = normalizeWeightUnit(name).toLowerCase().trim();
   n = stripCommonSuffixes(n);
   n = stripFillerWords(n);
-  n = n.replace(/[()]/g, ' '); // Parantezleri boşluğa çevir ki "(1 kg)" ve "1 kg" kelimeleri eşleşebilsin
+  n = n.replace(/[()\-]/g, ' '); // Parantezleri ve tire işaretlerini boşluğa çevir ki "(330 ml)" ve "330 ml", "coca-cola" ve "coca cola" eşleşebilsin
   return n.split(' ').filter(Boolean).sort().join(' ');
 }
 
@@ -143,6 +143,30 @@ export function findMatchingProduct(
     }
   }
 
+  // AŞAMA 4: "Acılı/Acısız/Tatlı/Sade" fallback eşleşmesi
+  if (!product) {
+    const cleanFlavor = (text: string) => {
+      // \b, Türkçe karakter sınırlarında (ı, ş vb.) JavaScript'te düzgün çalışmadığından özel karakter sınırları tanımlanmıştır.
+      return text
+        .replace(/(?:^|[\s()\-.,])(acılı|acili|acısız|acisiz|tatlı|tatli|sade)(?=$|[\s()\-.,])/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    const itemNameNoFlavor = cleanFlavor(itemName);
+    if (itemNameNoFlavor !== itemName) {
+      // 1. Basit Eşleşme dene
+      const simpleNoFlavor = simpleNormalize(itemNameNoFlavor);
+      product = sMap.get(simpleNoFlavor);
+
+      // 2. Agresif Eşleşme dene
+      if (!product) {
+        const advancedNoFlavor = normalizeForMatch(itemNameNoFlavor);
+        product = aMap.get(advancedNoFlavor);
+      }
+    }
+  }
+
   return product || null;
 }
 
@@ -157,20 +181,31 @@ export function analyzeOrder(
   ingredients: Ingredient[],
   rates: PlatformRates
 ): OrderAnalysis {
-  // 1. İçerik ayrıştır — items doluysa onu kullan, yoksa raw.content'ten parse et
-  const contentItems: ParsedContentItem[] = order.items.length > 0
-    ? order.items.map(i => ({ name: i.name, quantity: i.quantity }))
-    : order.raw?.content
-      ? parseOrderContentString(order.raw.content)
-      : [];
-
-  // 2. Map'leri oluştur (Hızlı erişim için)
+  // 1. Map'leri oluştur (Hızlı erişim için)
   const simpleProductMap = new Map<string, Product>();
   const advancedProductMap = new Map<string, Product>();
   
   for (const p of products) {
     simpleProductMap.set(simpleNormalize(p.name), p);
     advancedProductMap.set(normalizeForMatch(p.name), p);
+  }
+
+  // 2. İçerik ayrıştır — items doluysa onu kullan, yoksa raw.content'ten parse et
+  const rawItems: ParsedContentItem[] = order.items.length > 0
+    ? order.items.map(i => ({ name: i.name, quantity: i.quantity }))
+    : order.raw?.content
+      ? parseOrderContentString(order.raw.content)
+      : [];
+
+  // 3. Eşleşmeyen ve "+" içerenleri split et, doğrudan eşleşenleri koru
+  const contentItems: ParsedContentItem[] = [];
+  for (const item of rawItems) {
+    const directMatch = findMatchingProduct(item.name, products, simpleProductMap, advancedProductMap);
+    if (directMatch) {
+      contentItems.push(item);
+    } else {
+      contentItems.push(...splitItemByNameWithPlus(item.name, item.quantity));
+    }
   }
 
   // 3. Her ürünü eşleştir

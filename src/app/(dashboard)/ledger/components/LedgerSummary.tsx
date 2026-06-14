@@ -15,18 +15,23 @@ interface LedgerSummaryProps {
     electricity: number;
     water: number;
     accounting: number;
-    margins: { shop: number; online: number };
+    margins: { shop: number };
+    onlinePlatformProfit: {
+      migros: number;
+      getir: number;
+      yemeksepeti: number;
+      trendyol: number;
+    };
   };
   costs: MonthlyCost[];
   onUpdateFixedCost: (field: any, value: string) => void;
   onUpdateCost: (id: string, field: string, value: string) => void;
   onDeleteCost: (id: string) => void;
   onAddCost: () => void;
-  onUpdateMargin: (type: 'shop' | 'online', value: string) => void;
+  onUpdateMargin: (type: 'shop', value: string) => void;
+  onUpdateOnlinePlatformProfit: (platform: string, value: string) => void;
   isEditingShopMargin: boolean;
   setIsEditingShopMargin: (v: boolean) => void;
-  isEditingOnlineMargin: boolean;
-  setIsEditingOnlineMargin: (v: boolean) => void;
   fmt: (v: any, decimals?: number) => string;
 }
 
@@ -38,10 +43,9 @@ export function LedgerSummary({
   onDeleteCost,
   onAddCost,
   onUpdateMargin,
+  onUpdateOnlinePlatformProfit,
   isEditingShopMargin,
   setIsEditingShopMargin,
-  isEditingOnlineMargin,
-  setIsEditingOnlineMargin,
   fmt
 }: LedgerSummaryProps) {
   return (
@@ -78,29 +82,71 @@ export function LedgerSummary({
 
         <div className="ledger-summary-card" style={{ borderLeft: '4px solid var(--ledger-success)', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', height: 'auto' }}>
           <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="ledger-card-label" style={{ display: 'flex', alignItems: 'center' }}>
+            <span className="ledger-card-label" style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
               Online Kâr
-              {isEditingOnlineMargin ? (
-                <input
-                  autoFocus
-                  className="ledger-premium-input"
-                  style={{ width: '60px', padding: '0.2rem 0.4rem', marginLeft: '0.5rem', fontSize: '0.8rem', height: 'auto' }}
-                  value={totals.margins.online || ''}
-                  onChange={(e) => onUpdateMargin('online', e.target.value)}
-                  onBlur={() => setIsEditingOnlineMargin(false)}
-                  onKeyDown={(e) => e.key === 'Enter' && setIsEditingOnlineMargin(false)}
-                />
-              ) : (
-                <span onClick={() => setIsEditingOnlineMargin(true)} style={{ cursor: 'pointer', marginLeft: '0.5rem', fontSize: '0.8rem', opacity: 0.7 }}>
-                  (%{totals.margins.online}) ✎
-                </span>
-              )}
             </span>
             <span className="ledger-card-value ledger-text-success">{fmt(totals.onlineProfit)} ₺</span>
           </div>
-          <div style={{ fontSize: '0.75rem', opacity: 0.8, display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+          <div style={{ fontSize: '0.75rem', opacity: 0.8, display: 'flex', flexDirection: 'column', gap: '0.1rem', width: '100%' }}>
             <span className="ledger-text-success">Ciro: {fmt(totals.online)} ₺</span>
-            <span className="ledger-text-danger">Maliyetler: {fmt(totals.online - totals.onlineProfit)} ₺</span>
+          </div>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--ledger-panel-border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+              <span style={{ opacity: 0.8 }}>Migros Yemek:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <input
+                  type="number"
+                  className="ledger-premium-input"
+                  style={{ width: '90px', padding: '0.2rem 0.4rem', fontSize: '0.85rem', height: '28px', textAlign: 'right' }}
+                  value={totals.onlinePlatformProfit.migros || ''}
+                  onChange={(e) => onUpdateOnlinePlatformProfit('migros', e.target.value)}
+                  placeholder="₺"
+                />
+                <span style={{ fontSize: '0.8rem' }}>₺</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+              <span style={{ opacity: 0.8 }}>Getir:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <input
+                  type="number"
+                  className="ledger-premium-input"
+                  style={{ width: '90px', padding: '0.2rem 0.4rem', fontSize: '0.85rem', height: '28px', textAlign: 'right' }}
+                  value={totals.onlinePlatformProfit.getir || ''}
+                  onChange={(e) => onUpdateOnlinePlatformProfit('getir', e.target.value)}
+                  placeholder="₺"
+                />
+                <span style={{ fontSize: '0.8rem' }}>₺</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+              <span style={{ opacity: 0.8 }}>Yemeksepeti:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <input
+                  type="number"
+                  className="ledger-premium-input"
+                  style={{ width: '90px', padding: '0.2rem 0.4rem', fontSize: '0.85rem', height: '28px', textAlign: 'right' }}
+                  value={totals.onlinePlatformProfit.yemeksepeti || ''}
+                  onChange={(e) => onUpdateOnlinePlatformProfit('yemeksepeti', e.target.value)}
+                  placeholder="₺"
+                />
+                <span style={{ fontSize: '0.8rem' }}>₺</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+              <span style={{ opacity: 0.8 }}>Trendyol:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <input
+                  type="number"
+                  className="ledger-premium-input"
+                  style={{ width: '90px', padding: '0.2rem 0.4rem', fontSize: '0.85rem', height: '28px', textAlign: 'right' }}
+                  value={totals.onlinePlatformProfit.trendyol || ''}
+                  onChange={(e) => onUpdateOnlinePlatformProfit('trendyol', e.target.value)}
+                  placeholder="₺"
+                />
+                <span style={{ fontSize: '0.8rem' }}>₺</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -120,8 +166,18 @@ export function LedgerSummary({
         </div>
 
         <div className="ledger-summary-card" style={{ borderLeft: '4px solid var(--ledger-danger)', opacity: 0.9 }}>
-          <span className="ledger-card-label">Reklam Maliyeti (Oto)</span>
-          <span className="ledger-card-value">{fmt(totals.ads)} ₺</span>
+          <span className="ledger-card-label">Reklam Maliyeti</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <input
+              type="number"
+              className="ledger-premium-input"
+              style={{ width: '80px', padding: '0.4rem 0.6rem', fontSize: '0.9rem', height: '34px', textAlign: 'right' }}
+              value={totals.ads || ''}
+              onChange={(e) => onUpdateFixedCost('ads', e.target.value)}
+              placeholder="₺"
+            />
+            <span className="ledger-card-value" style={{ fontSize: '0.9rem' }}>₺</span>
+          </div>
         </div>
 
         <div className="ledger-summary-card" style={{ borderLeft: '4px solid var(--ledger-danger)', opacity: 0.9 }}>
