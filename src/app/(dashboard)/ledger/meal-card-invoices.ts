@@ -57,7 +57,7 @@ export function createMealCardInvoiceSchedule(
     }
   }
 
-  for (const day of distributeDays(11, lastDay, 4)) {
+  for (const day of distributeDays(11, lastDay, 3)) {
     schedule.push({ platform: 'setcard', date: toDateKey(year, month, day) });
   }
 
