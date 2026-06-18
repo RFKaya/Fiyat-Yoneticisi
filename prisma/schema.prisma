@@ -161,6 +161,11 @@ model LedgerDay {
   pos              Float?   @default(0)
   mealCard         Float?   @default(0) @map("meal_card")
   kg               Float?   @default(0)
+  note             String   @default("")
+  cashOpening      String   @default("") @map("cash_opening")
+  cashClosing      String   @default("") @map("cash_closing")
+  kgOpening        String   @default("") @map("kg_opening")
+  kgClosing        String   @default("") @map("kg_closing")
   migrosCount      Int?     @default(0) @map("migros_count")
   migrosRev        Float?   @default(0) @map("migros_rev")
   getirCount       Int?     @default(0) @map("getir_count")
@@ -169,10 +174,34 @@ model LedgerDay {
   yemeksepetiRev   Float?   @default(0) @map("yemeksepeti_rev")
   trendyolCount    Int?     @default(0) @map("trendyol_count")
   trendyolRev      Float?   @default(0) @map("trendyol_rev")
+  cashMovements    DailyCashMovement[]
+  mealCardPayments DailyMealCardPayment[]
   shop             Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@unique([shopId, date])
   @@map("ledger_days")
+}
+
+model DailyCashMovement {
+  id          String    @id @default(cuid())
+  ledgerDayId String    @map("ledger_day_id")
+  direction   String
+  title       String    @default("")
+  amount      String    @default("")
+  ledgerDay   LedgerDay @relation(fields: [ledgerDayId], references: [id], onDelete: Cascade)
+
+  @@index([ledgerDayId])
+  @@map("daily_cash_movements")
+}
+
+model DailyMealCardPayment {
+  id          String    @id @default(cuid())
+  ledgerDayId String    @map("ledger_day_id")
+  amount      String    @default("")
+  ledgerDay   LedgerDay @relation(fields: [ledgerDayId], references: [id], onDelete: Cascade)
+
+  @@index([ledgerDayId])
+  @@map("daily_meal_card_payments")
 }
 
 model ExtraCost {

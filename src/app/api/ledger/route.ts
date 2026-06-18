@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma';
 const safeFloat = (val: any) => {
   if (val === undefined || val === null || val === '') return 0;
   if (typeof val === 'number') return val;
-  const str = String(val).replace(',', '.');
+  const str = String(val).replace(/,/g, '.');
   const parsed = parseFloat(str);
   return isNaN(parsed) ? 0 : parsed;
 };
@@ -39,6 +39,7 @@ export async function GET(request: Request) {
 
     const ledgerDaysAll = await prisma.ledgerDay.findMany({
       where: { shopId },
+      include: { mealCardPayments: true, cashMovements: true },
       orderBy: { date: 'asc' }
     });
 
@@ -81,13 +82,34 @@ export async function GET(request: Request) {
       }
 
       const dayStr = d.date.toISOString().split('T')[0];
-
       data.months[monthKey].days.push({
         date: dayStr,
         cash: d.cash,
         pos: d.pos,
         mealCard: d.mealCard,
+        note: d.note,
+        mealCardPayments: d.mealCardPayments.map(payment => ({
+          id: payment.id,
+          amount: payment.amount,
+        })),
         kg: d.kg,
+        dailyDetails: {
+          cash: {
+            opening: d.cashOpening,
+            closing: d.cashClosing,
+            movements: d.cashMovements.map(movement => ({
+              id: movement.id,
+              direction: movement.direction,
+              title: movement.title,
+              amount: movement.amount,
+            })),
+          },
+          kg: {
+            opening: d.kgOpening,
+            closing: d.kgClosing,
+            movements: [],
+          },
+        },
         platforms: {
           migros: { count: d.migrosCount, rev: d.migrosRev },
           getir: { count: d.getirCount, rev: d.getirRev },
@@ -167,7 +189,12 @@ async function processMonthUpdate(shopId: string, monthKey: string, monthData: a
         cash: safeFloat(day.cash),
         pos: safeFloat(day.pos),
         mealCard: safeFloat(day.mealCard),
+        note: String(day.note || ''),
         kg: safeFloat(day.kg),
+        cashOpening: String(day.dailyDetails?.cash?.opening || ''),
+        cashClosing: String(day.dailyDetails?.cash?.closing || ''),
+        kgOpening: String(day.dailyDetails?.kg?.opening || ''),
+        kgClosing: String(day.dailyDetails?.kg?.closing || ''),
         migrosCount: parseInt(day.platforms?.migros?.count) || 0,
         migrosRev: safeFloat(day.platforms?.migros?.rev),
         getirCount: parseInt(day.platforms?.getir?.count) || 0,
@@ -178,7 +205,7 @@ async function processMonthUpdate(shopId: string, monthKey: string, monthData: a
         trendyolRev: safeFloat(day.platforms?.trendyol?.rev),
       };
 
-      await prisma.ledgerDay.upsert({
+      const savedDay = await prisma.ledgerDay.upsert({
         where: { shopId_date: { shopId, date: dateObj } },
         update: dayUpdate,
         create: {
@@ -187,6 +214,39 @@ async function processMonthUpdate(shopId: string, monthKey: string, monthData: a
           ...dayUpdate
         }
       });
+
+      await prisma.dailyMealCardPayment.deleteMany({
+        where: { ledgerDayId: savedDay.id }
+      });
+      await prisma.dailyCashMovement.deleteMany({
+        where: { ledgerDayId: savedDay.id }
+      });
+
+      if (Array.isArray(day.mealCardPayments)) {
+        for (const payment of day.mealCardPayments) {
+          await prisma.dailyMealCardPayment.create({
+            data: {
+              ledgerDayId: savedDay.id,
+              amount: String(payment.amount || ''),
+            }
+          });
+        }
+      }
+
+      const movements = day.dailyDetails?.cash?.movements;
+      if (Array.isArray(movements)) {
+        for (const movement of movements) {
+          if (movement.direction !== 'incoming' && movement.direction !== 'outgoing') continue;
+          await prisma.dailyCashMovement.create({
+            data: {
+              ledgerDayId: savedDay.id,
+              direction: movement.direction,
+              title: String(movement.title || ''),
+              amount: String(movement.amount || ''),
+            }
+          });
+        }
+      }
     }
   }
 }

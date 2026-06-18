@@ -15,13 +15,34 @@ import {
 } from './meal-card-invoices';
 
 type PlatformData = { count: number | string; rev: number | string };
+type DailyFlowData = {
+  opening: number | string;
+  closing: number | string;
+  movements: FlowMovement[];
+};
+type FlowMovement = {
+  id: string;
+  direction: 'incoming' | 'outgoing';
+  title: string;
+  amount: number | string;
+};
+type MealCardPayment = {
+  id: string;
+  amount: number | string;
+};
 type DayData = {
   id?: string;
   date: string;
   cash: number | string;
   pos: number | string;
   mealCard: number | string;
+  note?: string;
+  mealCardPayments?: MealCardPayment[];
   kg: number | string;
+  dailyDetails?: {
+    cash: DailyFlowData;
+    kg: DailyFlowData;
+  };
   platforms: {
     migros: PlatformData;
     getir: PlatformData;
@@ -75,7 +96,7 @@ const generateId = () => {
 const parseNumber = (v: any): number => {
   if (v === undefined || v === null || v === '' || v === '-') return 0;
   if (typeof v === 'number') return v;
-  return parseFloat(String(v).replace(',', '.')) || 0;
+  return parseFloat(String(v).replace(/,/g, '.')) || 0;
 };
 
 export default function LedgerPage() {
@@ -157,7 +178,12 @@ export default function LedgerPage() {
       for (let i = 1; i <= daysInMonth; i++) {
         const dateStr = `${currentYear}-${currentMonth}-${i.toString().padStart(2, '0')}`;
         initialDays.push({
-          date: dateStr, cash: 0, pos: 0, mealCard: 0, kg: 0,
+          date: dateStr, cash: 0, pos: 0, mealCard: 0, note: '', kg: 0,
+          mealCardPayments: [],
+          dailyDetails: {
+            cash: { opening: 0, closing: 0, movements: [] },
+            kg: { opening: 0, closing: 0, movements: [] },
+          },
           platforms: {
             migros: { count: 0, rev: 0 }, getir: { count: 0, rev: 0 },
             yemeksepeti: { count: 0, rev: 0 }, trendyol: { count: 0, rev: 0 }
@@ -221,6 +247,206 @@ export default function LedgerPage() {
         (day as any)[field] = filteredValue;
       }
       days[dayIndex] = day;
+      return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, days } } };
+    });
+  };
+
+  const updateDayDetail = (
+    id: string,
+    group: keyof NonNullable<DayData['dailyDetails']>,
+    field: Exclude<keyof DailyFlowData, 'movements'>,
+    value: string
+  ) => {
+    isDirtyRef.current = true;
+    const filteredValue = value.replace(/[^0-9,+.]/g, '');
+    setShopData(prev => {
+      const currentMonths = prev.months || {};
+      const currentMonthData = currentMonths[currentMonthKey] || monthData;
+      const days = [...currentMonthData.days];
+      const dayIndex = days.findIndex(d => d.date === id);
+      if (dayIndex === -1) return prev;
+
+      const day = { ...days[dayIndex] };
+      const emptyFlow: DailyFlowData = {
+        opening: 0,
+        closing: 0,
+        movements: [],
+      };
+      const dailyDetails = day.dailyDetails || { cash: emptyFlow, kg: emptyFlow };
+      day.dailyDetails = {
+        ...dailyDetails,
+        [group]: {
+          ...dailyDetails[group],
+          [field]: filteredValue,
+        },
+      };
+      days[dayIndex] = day;
+
+      return {
+        ...prev,
+        months: {
+          ...currentMonths,
+          [currentMonthKey]: { ...currentMonthData, days },
+        },
+      };
+    });
+  };
+
+  const addFlowMovement = (
+    id: string,
+    direction: FlowMovement['direction']
+  ) => {
+    isDirtyRef.current = true;
+    setShopData(prev => {
+      const currentMonths = prev.months || {};
+      const currentMonthData = currentMonths[currentMonthKey] || monthData;
+      const days = currentMonthData.days.map(day => {
+        if (day.date !== id) return day;
+        const emptyFlow: DailyFlowData = {
+          opening: 0, closing: 0, movements: [],
+        };
+        const dailyDetails = day.dailyDetails || { cash: emptyFlow, kg: emptyFlow };
+        return {
+          ...day,
+          dailyDetails: {
+            ...dailyDetails,
+            cash: {
+              ...dailyDetails.cash,
+              movements: [
+                ...(dailyDetails.cash.movements || []),
+                { id: generateId(), direction, title: '', amount: '' },
+              ],
+            },
+          },
+        };
+      });
+      return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, days } } };
+    });
+  };
+
+  const updateFlowMovement = (
+    id: string,
+    movementId: string,
+    field: 'title' | 'amount',
+    value: string
+  ) => {
+    isDirtyRef.current = true;
+    const nextValue = field === 'amount' ? value.replace(/[^0-9,+.]/g, '') : value;
+    setShopData(prev => {
+      const currentMonths = prev.months || {};
+      const currentMonthData = currentMonths[currentMonthKey] || monthData;
+      const days = currentMonthData.days.map(day => {
+        if (day.date !== id || !day.dailyDetails) return day;
+        return {
+          ...day,
+          dailyDetails: {
+            ...day.dailyDetails,
+            cash: {
+              ...day.dailyDetails.cash,
+              movements: (day.dailyDetails.cash.movements || []).map(movement =>
+                movement.id === movementId ? { ...movement, [field]: nextValue } : movement
+              ),
+            },
+          },
+        };
+      });
+      return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, days } } };
+    });
+  };
+
+  const deleteFlowMovement = (
+    id: string,
+    movementId: string
+  ) => {
+    isDirtyRef.current = true;
+    setShopData(prev => {
+      const currentMonths = prev.months || {};
+      const currentMonthData = currentMonths[currentMonthKey] || monthData;
+      const days = currentMonthData.days.map(day => {
+        if (day.date !== id || !day.dailyDetails) return day;
+        return {
+          ...day,
+          dailyDetails: {
+            ...day.dailyDetails,
+            cash: {
+              ...day.dailyDetails.cash,
+              movements: (day.dailyDetails.cash.movements || []).filter(
+                movement => movement.id !== movementId
+              ),
+            },
+          },
+        };
+      });
+      return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, days } } };
+    });
+  };
+
+  const addMealCardPayment = (id: string) => {
+    isDirtyRef.current = true;
+    setShopData(prev => {
+      const currentMonths = prev.months || {};
+      const currentMonthData = currentMonths[currentMonthKey] || monthData;
+      const days = currentMonthData.days.map(day => day.date === id
+        ? {
+            ...day,
+            mealCardPayments: [
+              ...(day.mealCardPayments || []),
+              { id: generateId(), amount: '' },
+            ],
+          }
+        : day
+      );
+      return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, days } } };
+    });
+  };
+
+  const updateMealCardPayment = (
+    id: string,
+    paymentId: string,
+    value: string
+  ) => {
+    isDirtyRef.current = true;
+    const nextValue = value.replace(/[^0-9,+.]/g, '');
+    setShopData(prev => {
+      const currentMonths = prev.months || {};
+      const currentMonthData = currentMonths[currentMonthKey] || monthData;
+      const days = currentMonthData.days.map(day => day.date === id
+        ? {
+            ...day,
+            mealCardPayments: (day.mealCardPayments || []).map(payment =>
+              payment.id === paymentId ? { ...payment, amount: nextValue } : payment
+            ),
+          }
+        : day
+      );
+      return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, days } } };
+    });
+  };
+
+  const updateDayNote = (id: string, value: string) => {
+    isDirtyRef.current = true;
+    setShopData(prev => {
+      const currentMonths = prev.months || {};
+      const currentMonthData = currentMonths[currentMonthKey] || monthData;
+      const days = currentMonthData.days.map(day =>
+        day.date === id ? { ...day, note: value } : day
+      );
+      return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, days } } };
+    });
+  };
+
+  const deleteMealCardPayment = (id: string, paymentId: string) => {
+    isDirtyRef.current = true;
+    setShopData(prev => {
+      const currentMonths = prev.months || {};
+      const currentMonthData = currentMonths[currentMonthKey] || monthData;
+      const days = currentMonthData.days.map(day => day.date === id
+        ? {
+            ...day,
+            mealCardPayments: (day.mealCardPayments || []).filter(payment => payment.id !== paymentId),
+          }
+        : day
+      );
       return { ...prev, months: { ...currentMonths, [currentMonthKey]: { ...currentMonthData, days } } };
     });
   };
@@ -400,7 +626,20 @@ export default function LedgerPage() {
                 </h2>
                 <SaveStatus status={saveStatus as any} />
               </div>
-              <LedgerTable days={monthData.days} onUpdateDay={updateDay} parseNumber={parseNumber} fmt={fmt} />
+              <LedgerTable
+                days={monthData.days}
+                onUpdateDay={updateDay}
+                onUpdateDayDetail={updateDayDetail}
+                onAddFlowMovement={addFlowMovement}
+                onUpdateFlowMovement={updateFlowMovement}
+                onDeleteFlowMovement={deleteFlowMovement}
+                onAddMealCardPayment={addMealCardPayment}
+                onUpdateMealCardPayment={updateMealCardPayment}
+                onDeleteMealCardPayment={deleteMealCardPayment}
+                onUpdateDayNote={updateDayNote}
+                parseNumber={parseNumber}
+                fmt={fmt}
+              />
             </div>
 
             <div className="ledger-right-panel">
