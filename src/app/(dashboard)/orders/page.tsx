@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   ShoppingBag, Upload, AlertCircle, FileSpreadsheet,
   TrendingUp, TrendingDown, DollarSign, Package, BarChart3,
-  CheckCircle2, XCircle, Calendar, Loader2
+  CheckCircle2, XCircle, Calendar, Loader2, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ import {
 import { OrderList } from '@/components/orders/OrderList';
 import { ProductAnalysis } from '@/components/orders/ProductAnalysis';
 import { LedgerComparison } from '@/components/orders/LedgerComparison';
+import { PeakHoursAnalysis } from '@/components/orders/PeakHoursAnalysis';
 
 const isCancelled = (status?: string) => {
   if (!status) return false;
@@ -39,7 +40,7 @@ interface UploadingFile {
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<ParsedOrder[]>([]);
-  const [activeTab, setActiveTab] = useState<'list' | 'stats' | 'comparison'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'stats' | 'comparison' | 'peak-hours'>('list');
   const [shops, setShops] = useState<{ id: string; name: string }[]>([]);
   const [selectedShopId, setSelectedShopId] = useState<string>('1');
   const [ledgerData, setLedgerData] = useState<any>(null);
@@ -512,7 +513,7 @@ export default function OrdersPage() {
       </div>
 
       {/* Sekmeler */}
-      <div className="flex items-center gap-2 bg-card/30 p-1 rounded-xl w-fit border border-border/50">
+      <div className="flex flex-wrap items-center gap-2 bg-card/30 p-1 rounded-xl w-fit max-w-full border border-border/50">
         <Button
           variant={activeTab === 'list' ? 'default' : 'ghost'}
           size="sm"
@@ -539,6 +540,15 @@ export default function OrdersPage() {
         >
           <FileSpreadsheet className="h-4 w-4" />
           Defter Kıyaslama
+        </Button>
+        <Button
+          variant={activeTab === 'peak-hours' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('peak-hours')}
+          className={cn("font-bold text-xs gap-2 rounded-lg transition-all", activeTab === 'peak-hours' ? "shadow-sm" : "text-muted-foreground hover:text-foreground")}
+        >
+          <Clock className="h-4 w-4" />
+          Yoğun Saatler
         </Button>
       </div>
 
@@ -576,6 +586,13 @@ export default function OrdersPage() {
           shops={shops}
           selectedShopId={selectedShopId}
           onShopChange={(id) => setSelectedShopId(id)}
+        />
+      )}
+
+      {activeTab === 'peak-hours' && (
+        <PeakHoursAnalysis
+          filteredOrders={filteredOrders}
+          analyses={analyses}
         />
       )}
     </main>

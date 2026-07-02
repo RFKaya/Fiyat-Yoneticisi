@@ -6,8 +6,7 @@ import { PlatformId } from '../platforms';
  */
 export function detectPlatform(buffer: ArrayBuffer): PlatformId {
   const bytes = new Uint8Array(buffer);
-  
-  // Hata almamak için console.error'u geçici olarak kapatıyoruz (XLSX bazen bozuk excel formatlarında log basabiliyor)
+
   const originalConsoleError = console.error;
   let workbook;
   try {
@@ -23,52 +22,65 @@ export function detectPlatform(buffer: ArrayBuffer): PlatformId {
     throw new Error('Excel dosyasında sayfa bulunamadı.');
   }
 
-  // İlk 5 satırı analiz etmek için çekelim
   const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, range: 0, defval: '' }) as any[][];
-  
-  // İlk 5 satırdaki tüm hücrelerin değerlerini küçük harf string listesi haline getirip düzleştirelim
   const cellValues = data.slice(0, 5).flat().map(cell => String(cell || '').trim().toLowerCase());
+  const looksLikeGetirOrderRow = data.slice(1, 10).some(row => (
+    String(row[1] || '').trim() &&
+    looksLikeDate(row[10]) &&
+    String(row[11] || '').trim() &&
+    looksLikeMoney(row[12]) &&
+    looksLikeMoney(row[22])
+  ));
 
-  // 1. Trendyol Tespit Kriterleri
+  // 1. Trendyol
   if (
-    cellValues.includes('teslimat modeli') || 
-    cellValues.includes('kuryeye teslim tarihi') || 
+    cellValues.includes('teslimat modeli') ||
+    cellValues.includes('kuryeye teslim tarihi') ||
+    cellValues.includes('siparis numarasi') ||
     cellValues.includes('sipariş numarası') ||
-    cellValues.includes('sipariş statusü') ||
+    cellValues.includes('siparis statusu') ||
+    cellValues.includes('sipariş statüsü') ||
+    cellValues.includes('birim fiyati') ||
     cellValues.includes('birim fiyatı')
   ) {
     return 'trendyol';
   }
 
-  // 2. Yemeksepeti Tespit Kriterleri
+  // 2. Yemeksepeti
   if (
-    cellValues.some(val => 
-      val.includes('yemekpay') || 
-      val.includes('yemeksepeti') || 
+    cellValues.some(val =>
+      val.includes('yemekpay') ||
+      val.includes('yemeksepeti') ||
       val.includes('kupon maliyeti')
     )
   ) {
     return 'yemeksepeti';
   }
 
-  // 3. Getir Tespit Kriterleri
+  // 3. Getir Yemek
   if (
-    cellValues.includes('checkout id') || 
-    cellValues.some(val => val.includes('getir'))
+    cellValues.includes('checkout id') ||
+    cellValues.some(val => val.includes('getir')) ||
+    looksLikeGetirOrderRow ||
+    (
+      cellValues.some(val => val.includes('odeme') || val.includes('ödeme')) &&
+      cellValues.some(val => val.includes('siparis') || val.includes('sipariş')) &&
+      cellValues.some(val => val.includes('komisyon')) &&
+      cellValues.some(val => val.includes('restoran') && val.includes('indirim'))
+    )
   ) {
     return 'getir';
   }
 
-  // 4. Migros Tespit Kriterleri
+  // 4. Migros
   if (
-    cellValues.includes('net tutar') || 
-    cellValues.includes('teslimat tipi') || 
+    cellValues.includes('net tutar') ||
+    cellValues.includes('teslimat tipi') ||
     cellValues.some(val => val.includes('migros'))
   ) {
     return 'migros';
   }
 
-  // Fallback: Excel sayfa isminde platform araması
   const sheetNameLower = firstSheetName.toLowerCase();
   if (sheetNameLower.includes('trendyol')) return 'trendyol';
   if (sheetNameLower.includes('yemeksepeti')) return 'yemeksepeti';
@@ -76,4 +88,23 @@ export function detectPlatform(buffer: ArrayBuffer): PlatformId {
   if (sheetNameLower.includes('migros')) return 'migros';
 
   throw new Error('Platform otomatik olarak tespit edilemedi. Lütfen dosyanın geçerli bir platform raporu olduğundan emin olun.');
+}
+
+function looksLikeMoney(value: any): boolean {
+  if (typeof value === 'number') return true;
+  const text = String(value || '').replace(/\s/g, '').trim();
+  return /\d/.test(text) && /^[\d.,-]+(?:tl|try)?$/i.test(text);
+}
+
+function looksLikeDate(value: any): boolean {
+  if (value instanceof Date) return true;
+  if (typeof value === 'number') return Boolean(XLSX.SSF.parse_date_code(value));
+
+  const text = String(value || '').trim();
+  if (!text) return false;
+
+  const parsed = new Date(text.replace(' ', 'T'));
+  if (!isNaN(parsed.getTime())) return true;
+
+  return /^\d{1,2}[./-]\d{1,2}[./-]\d{4}/.test(text);
 }
