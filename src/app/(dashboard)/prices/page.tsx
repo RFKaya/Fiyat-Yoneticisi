@@ -7,6 +7,7 @@ import { pageHomeLogger as log } from '@/lib/logger';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import * as XLSX from 'xlsx';
 
 import LoadingState from '@/components/layout/LoadingState';
 import ProductForm from './components/ProductForm';
@@ -19,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { PlusCircle, Trash2, X, Tags, Check, MoreVertical, Percent } from 'lucide-react';
+import { PlusCircle, Trash2, X, Tags, Check, MoreVertical, Percent, Download } from 'lucide-react';
 import { DeleteIconButton, DragHandleButton, ExpandToggleButton } from '@/components/ui/icon-buttons';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
@@ -1247,6 +1248,74 @@ export default function Home() {
     })
   );
 
+  const handleExportPrices = React.useCallback(() => {
+    const exportedAt = new Date();
+    const settingsRows = [
+      ['Menü & Fiyatlar Dışa Aktarım'],
+      ['Oluşturulma Tarihi', exportedAt.toLocaleString('tr-TR')],
+      [],
+      ['Sayfa Ayarları'],
+      ['KDV Oranı (%)', kdvRate],
+      ['Banka Komisyonu (%)', bankCommissionRate],
+      ['Ortalama Platform Komisyonu (%)', platformCommissionRate],
+      ['Stopaj Oranı (%)', stopajRate],
+      [],
+      ['Platform Komisyonları'],
+      ...platforms.map(platform => [`${platform.name} Komisyonu (%)`, platform.commission]),
+      [],
+      ['Not', 'Komisyon ve stopaj, KDV dahil satış tutarı üzerinden hesaplanır.'],
+    ];
+
+    const productRows = [
+      ['Kategori', 'Ürün', 'Ürün Maliyeti', 'Mağaza Satış Fiyatı', 'Online Satış Fiyatı'],
+      ...productsByCategory.flatMap(({ category, products: productGroup }) =>
+        productGroup.map(product => {
+        const hasRecipe = product.recipe && product.recipe.length > 0;
+        const cost = hasRecipe ? calculateCost(product.recipe, ingredients, products) : product.manualCost;
+
+        return [
+          category?.name || 'Kategorisiz',
+          product.name,
+          cost,
+          product.storePrice,
+          product.onlinePrice,
+        ];
+        })
+      ),
+    ];
+
+    const settingsWorksheet = XLSX.utils.aoa_to_sheet(settingsRows);
+    settingsWorksheet['!cols'] = [
+      { wch: 34 },
+      { wch: 34 },
+    ];
+
+    const productsWorksheet = XLSX.utils.aoa_to_sheet(productRows);
+    productsWorksheet['!cols'] = [
+      { wch: 24 },
+      { wch: 34 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 22 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, settingsWorksheet, 'Genel Bilgiler');
+    XLSX.utils.book_append_sheet(workbook, productsWorksheet, 'Ürünler');
+
+    const dateKey = exportedAt.toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `menu-fiyatlari-${dateKey}.xlsx`);
+  }, [
+    bankCommissionRate,
+    ingredients,
+    kdvRate,
+    platformCommissionRate,
+    platforms,
+    products,
+    productsByCategory,
+    stopajRate,
+  ]);
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -1622,6 +1691,18 @@ export default function Home() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Export Section */}
+        <div className="flex justify-end pb-4">
+          <Button
+            onClick={handleExportPrices}
+            disabled={products.length === 0}
+            variant="outline"
+            className="glass-panel h-11 px-6 font-bold"
+          >
+            <Download className="mr-2 h-4 w-4" /> Menü Fiyatlarını Dışa Aktar
+          </Button>
         </div>
 
         {/* Ingredient Form Dialog */}
